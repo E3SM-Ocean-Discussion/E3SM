@@ -98,7 +98,7 @@ module ocn_tracer_advection_mono
                                              minLevelEdgeBot, maxLevelEdgeTop, &
                                              highOrderAdvectionMask,           &
                                              edgeSignOnCell, meshPool,         &
-                                             computeBudgets)!{{{
+                                             computeBudgets, computeIRFs)!{{{
 
       !*** Input/Output parameters
 
@@ -141,6 +141,8 @@ module ocn_tracer_advection_mono
          meshPool               !< [in] Mesh information
       logical, intent(in) :: &
          computeBudgets         !< [in] Flag to compute active tracer budgets
+      logical, intent(in) :: &
+         computeIRFs         ! flag to compute IRFs
 
       !*** Local variables
 
@@ -184,6 +186,15 @@ module ocn_tracer_advection_mono
       real (kind=RKIND), dimension(size(tracers, dim=2)) :: &
          wgtTmp,            &! vertical temporaries for
          flxTmp, sgnTmp      !   high-order flux computation
+
+      ! pointers for tendencies used in diagnostic budget computation
+      real (kind=RKIND), dimension(:,:,:), pointer, contiguous :: &
+         activeTracerHorizontalAdvectionTendency, &
+         activeTracerVerticalAdvectionTendency,   &
+         activeTracerHorizontalAdvectionEdgeFlux, &
+         activeTracerVerticalAdvectionTopFlux,    &
+         IRFTracersHorAdvTend,    &
+         IRFTracersVertAdvTend
 
       real (kind=RKIND), parameter :: &
          eps = 1.e-10_RKIND  ! small number to avoid numerical difficulties
@@ -513,6 +524,18 @@ module ocn_tracer_advection_mono
         !$omp end do
         !$omp end parallel
 
+        if (computeIRFs) then
+           !$omp parallel
+           !$omp do schedule(runtime) private(k)
+           do iCell = 1, nCells
+             do k = 1, maxLevelCell(iCell)
+                 IRFTracersHorAdvTend(iTracer,k,iCell) = workTend(k,iCell)
+             end do
+           end do ! iCell loop
+           !$omp end do
+           !$omp end parallel
+        end if
+
 #ifdef _ADV_TIMERS
         call mpas_timer_stop('flux accumulate')
         call mpas_timer_start('advect diags')
@@ -838,6 +861,18 @@ module ocn_tracer_advection_mono
         end do ! iCell loop
         !$omp end do
         !$omp end parallel
+
+        if (computeIRFs) then
+           !$omp parallel
+           !$omp do schedule(runtime) private(k)
+           do iCell = 1, nCells
+             do k = 1, maxLevelCell(iCell)
+                 IRFTracersVertAdvTend(iTracer,k,iCell) = workTend(k,iCell)
+             end do
+           end do ! iCell loop
+           !$omp end do
+           !$omp end parallel
+        end if
 
         ! Compute advection diagnostics and monotonicity checks if requested
 #ifdef _ADV_TIMERS
