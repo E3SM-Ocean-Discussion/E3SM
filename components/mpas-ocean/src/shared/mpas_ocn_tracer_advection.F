@@ -97,7 +97,8 @@ module ocn_tracer_advection
 
       logical :: &
          computeBudgets,    &! flag to compute active tracer budget
-         computeIRFs         ! flag to compute IRFs
+         computeIRFs,       &! flag to compute IRFs
+         limiterOn           ! flag to limit tracer group
 
       real (kind=RKIND), dimension(:,:), pointer, contiguous :: &
          advCoefs, advCoefs3rd ! advection coefficients
@@ -138,9 +139,16 @@ module ocn_tracer_advection
       ! determine whether active tracer budgets should be computed
       computeBudgets = (budgetDiagsOn .and. tracerGroupName == 'activeTracers')
       computeIRFs = (tracerGroupName == 'IRFTracers')
+      if (config_IRFTracers_limit_advection.and.computeIRFs.or. &
+          config_debugTracers_limit_advection.and.(tracerGroupName == 'debugTracers')) then
+        limiterOn = .true.
+      else
+        limiterOn = .false.
+      endif
 
       ! call specific advection routine based on choice of monotonicity
-      if (monotonicOn) then
+      if (limiterOn) then
+         call mpas_log_write('Calling mono_tend for tracer group '//tracerGroupName)
          call ocn_tracer_advection_mono_tend(tend, tracers, layerThickness,    &
                                              normalThicknessFlux, w, dt,       &
                                              advCoefs, advCoefs3rd,            &
@@ -149,13 +157,15 @@ module ocn_tracer_advection
                                              minLevelEdgeBot, maxLevelEdgeTop, &
                                              highOrderAdvectionMask,           &
                                              edgeSignOnCell, meshPool,         &
-                                             computeBudgets, computeIRFs)
+                                             computeBudgets, computeIRFs,      &
+                                             limiterOn)
 
       else
+         call mpas_log_write('Calling std_tend for tracer group '//tracerGroupName)
          call ocn_tracer_advection_std_tend(tracers, advCoefs, advCoefs3rd, &
             nAdvCellsForEdge, advCellsForEdge, normalThicknessFlux, w, layerThickness, &
             layerThickness, dt, meshPool, tend, minLevelCell, maxLevelCell, &
-            minLevelEdgeBot, maxLevelEdgeTop, highOrderAdvectionMask, edgeSignOnCell)
+            minLevelEdgeBot, maxLevelEdgeTop, highOrderAdvectionMask, edgeSignOnCell, computeIRFs)
       endif
 
       call mpas_timer_stop("tracer adv")

@@ -98,7 +98,8 @@ module ocn_tracer_advection_mono
                                              minLevelEdgeBot, maxLevelEdgeTop, &
                                              highOrderAdvectionMask,           &
                                              edgeSignOnCell, meshPool,         &
-                                             computeBudgets, computeIRFs)!{{{
+                                             computeBudgets, computeIRFs,      &
+                                             limiterOn)!{{{
 
       !*** Input/Output parameters
 
@@ -142,7 +143,9 @@ module ocn_tracer_advection_mono
       logical, intent(in) :: &
          computeBudgets         !< [in] Flag to compute active tracer budgets
       logical, intent(in) :: &
-         computeIRFs         ! flag to compute IRFs
+         computeIRFs            !< [in] Flag to compute IRF tracer budgets
+      logical, intent(in) :: &
+         limiterOn              !< [in] Flag to limit this tracer group
 
       !*** Local variables
 
@@ -186,15 +189,6 @@ module ocn_tracer_advection_mono
       real (kind=RKIND), dimension(size(tracers, dim=2)) :: &
          wgtTmp,            &! vertical temporaries for
          flxTmp, sgnTmp      !   high-order flux computation
-
-      ! pointers for tendencies used in diagnostic budget computation
-      real (kind=RKIND), dimension(:,:,:), pointer, contiguous :: &
-         activeTracerHorizontalAdvectionTendency, &
-         activeTracerVerticalAdvectionTendency,   &
-         activeTracerHorizontalAdvectionEdgeFlux, &
-         activeTracerVerticalAdvectionTopFlux,    &
-         IRFTracersHorAdvTend,    &
-         IRFTracersVertAdvTend
 
       real (kind=RKIND), parameter :: &
          eps = 1.e-10_RKIND  ! small number to avoid numerical difficulties
@@ -467,10 +461,15 @@ module ocn_tracer_advection_mono
         !$omp end do
         !$omp end parallel
 
+        if (.not.limiterOn) then
+            flxIn(:,:) = 1.0_RKIND
+            flxOut(:,:) = 1.0_RKIND
+        endif
 #ifdef _ADV_TIMERS
         call mpas_timer_stop('scale factor build')
         call mpas_timer_start('rescale horiz fluxes')
 #endif
+        !if (limiterOn) then
         ! Need all of the edges around owned cells
         nEdges = nEdgesArray( 2 )
         !  rescale the high order horizontal fluxes
@@ -831,6 +830,7 @@ module ocn_tracer_advection_mono
 #endif
 
         nCells = nCellsArray( 1 )
+        if (limiterOn) then
         ! Accumulate the scaled high order vertical tendencies
         ! and the upwind tendencies
         !$omp parallel
@@ -858,9 +858,27 @@ module ocn_tracer_advection_mono
             tend(iTracer,k,iCell) = tend(iTracer,k,iCell) + workTend(k,iCell)
           end do ! k loop
 
-        end do ! iCell loop
-        !$omp end do
-        !$omp end parallel
+          end do ! iCell loop
+          !$omp end do
+          !$omp end parallel
+        else ! no limiter
+          !$omp parallel
+          !$omp do schedule(runtime) private(kmax, k, flux)
+          do iCell = 1, nCells
+            kmax = maxLevelCell(iCell)
+            do k = 1,kmax
+              ! workTend on the RHS is the upwind tendency
+              ! workTend on the LHS is the total vertical advection tendency
+              workTend(k, iCell) = workTend(k, iCell)       &
+                                 + (highOrderFlx(k+1,iCell) &
+                                  - highOrderFlx(k  ,iCell))
+              tend(iTracer,k,iCell) = tend(iTracer,k,iCell) + workTend(k,iCell)
+            end do ! k loop
+
+          end do ! iCell loop
+          !$omp end do
+          !$omp end parallel
+        endif
 
         if (computeIRFs) then
            !$omp parallel

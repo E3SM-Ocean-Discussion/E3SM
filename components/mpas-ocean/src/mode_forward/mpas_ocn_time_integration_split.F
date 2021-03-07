@@ -243,12 +243,6 @@ module ocn_time_integration_split
          tracersGroupTend,      &! tendencies for tracer groups
          activeTracersTend       ! active tracer tendencies
 
-      real (kind=RKIND), dimension(:,:,:), pointer :: &
-        IRFTracersHorAdvTend,      &
-        IRFTracersVertAdvTend,        &
-        IRFTracerSurfaceFluxTend,              &
-        IRFTracersNonLocalTend
-
       ! Forcing pool
       real (kind=RKIND), dimension(:), pointer :: tidalPotentialEta
 
@@ -421,7 +415,6 @@ module ocn_time_integration_split
                end do
                !$omp end do
                !$omp end parallel
-
             end if
          end if
       end do
@@ -1718,14 +1711,15 @@ module ocn_time_integration_split
                !$omp end parallel
             endif
 
-            if ( config_use_IRFTracers ) then
+            if ( config_use_IRFTracers .and. config_IRFTracers_normalize_by_layerThickness) then
                !$omp parallel
                !$omp do schedule(runtime) private(k)
                do iCell = 1, nCells
                   do k= 1, maxLevelCell(iCell)
                      IRFTracersHorAdvTend(:,k,iCell) = IRFTracersHorAdvTend(:,k,iCell) / layerThicknessNew(k,iCell)
                      IRFTracersVertAdvTend(:,k,iCell)  = IRFTracersVertAdvTend(:,k,iCell) / layerThicknessNew(k,iCell)
-                     IRFTracersNonLocalTend(:,k,iCell) = IRFTracersNonLocalTend(:,k,iCell) / layerThicknessNew(k,iCell)
+                     IRFTracersHorMixTend(:,k,iCell) = IRFTracersHorMixTend(:,k,iCell) / layerThicknessNew(k,iCell)
+                     IRFTracersVertMixTend(:,k,iCell) = IRFTracersVertMixTend(:,k,iCell) / layerThicknessNew(k,iCell)
                   end do
                end do
                !$omp end do
