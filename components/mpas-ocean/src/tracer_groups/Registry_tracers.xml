@@ -3,5 +3,6 @@
 #include "Registry_ecosys.xml"
 #include "Registry_DMS.xml"
 #include "Registry_MacroMolecules.xml"
-#include "Registry_IRF.xml"
+#include "Registry_IFV.xml"
+#include "Registry_IFH.xml"
 //#include "Registry_TEMPLATEGRP.xml"

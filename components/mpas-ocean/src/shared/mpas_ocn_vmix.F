@@ -1189,7 +1189,7 @@ contains
                   !$omp parallel
                   !$omp do schedule(runtime)
                   do iCell = 1, nCells
-                     IRFTracersVertMixTend(:,:,iCell)=tracersGroup(:,:,iCell)
+                     IFVTracersVertMixTend(:,:,iCell)=tracersGroup(:,:,iCell)
                   end do
                   !$omp end do
                   !$omp end parallel
@@ -1226,8 +1226,8 @@ contains
                   !$omp parallel
                   !$omp do schedule(runtime)
                   do iCell = 1, nCells
-                     IRFTracersVertMixTend(:,:,iCell) = &
-                        (tracersGroup(:,:,iCell) - IRFTracersVertMixTend(:,:,iCell)) / dt
+                     IFVTracersVertMixTend(:,:,iCell) = &
+                        (tracersGroup(:,:,iCell) - IFVTracersVertMixTend(:,:,iCell)) / dt
                   end do
                   !$omp end do
                   !$omp end parallel

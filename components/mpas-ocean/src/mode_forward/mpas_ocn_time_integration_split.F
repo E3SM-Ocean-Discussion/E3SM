@@ -1711,15 +1711,25 @@ module ocn_time_integration_split
                !$omp end parallel
             endif
 
-            if ( config_use_IRFTracers .and. config_IRFTracers_normalize_by_layerThickness) then
+            if ( config_use_IFHTracers .and. config_IFHTracers_normalize_by_layerThickness) then
                !$omp parallel
                !$omp do schedule(runtime) private(k)
                do iCell = 1, nCells
                   do k= 1, maxLevelCell(iCell)
-                     IRFTracersHorAdvTend(:,k,iCell) = IRFTracersHorAdvTend(:,k,iCell) / layerThicknessNew(k,iCell)
-                     IRFTracersVertAdvTend(:,k,iCell)  = IRFTracersVertAdvTend(:,k,iCell) / layerThicknessNew(k,iCell)
-                     IRFTracersHorMixTend(:,k,iCell) = IRFTracersHorMixTend(:,k,iCell) / layerThicknessNew(k,iCell)
-                     IRFTracersVertMixTend(:,k,iCell) = IRFTracersVertMixTend(:,k,iCell) / layerThicknessNew(k,iCell)
+                     IFHTracersHorAdvTend(:,k,iCell) = IFHTracersHorAdvTend(:,k,iCell) / layerThicknessNew(k,iCell)
+                     IFHTracersHorMixTend(:,k,iCell) = IFHTracersHorMixTend(:,k,iCell) / layerThicknessNew(k,iCell)
+                  end do
+               end do
+               !$omp end do
+               !$omp end parallel
+            endif
+            if ( config_use_IFVTracers .and. config_IFVTracers_normalize_by_layerThickness) then
+               !$omp parallel
+               !$omp do schedule(runtime) private(k)
+               do iCell = 1, nCells
+                  do k= 1, maxLevelCell(iCell)
+                     IFVTracersVertAdvTend(:,k,iCell)  = IFVTracersVertAdvTend(:,k,iCell) / layerThicknessNew(k,iCell)
+                     IFVTracersVertMixTend(:,k,iCell) = IFVTracersVertMixTend(:,k,iCell) / layerThicknessNew(k,iCell)
                   end do
                end do
                !$omp end do
@@ -1966,14 +1976,15 @@ module ocn_time_integration_split
          !$omp end parallel
       end if
 
-      if ( config_use_IRFTracers ) then
+      if ( config_use_IFHTracers.or.config_use_IFVTracers) then
          call mpas_pool_begin_iteration(tracersPool)
          do while ( mpas_pool_get_next_member(tracersPool, groupItr) )
             if ( groupItr % memberType == MPAS_POOL_FIELD ) then
                   ! Reset Impulse Response Functions to original value
-                  if ( trim(groupItr % memberName) == 'IRFTracers' ) then
-                  call mpas_pool_get_array(tracersPool, groupItr % memberName, tracersGroupCur, 1)
-                  call mpas_pool_get_array(tracersPool, groupItr % memberName, tracersGroupNew, 2)
+                  if ( trim(groupItr % memberName) == 'IFHTracers'.or. &
+                       trim(groupItr % memberName) == 'IFVTracers' ) then
+                     call mpas_pool_get_array(tracersPool, groupItr % memberName, tracersGroupCur, 1)
+                     call mpas_pool_get_array(tracersPool, groupItr % memberName, tracersGroupNew, 2)
                      !$omp parallel
                      !$omp do schedule(runtime) private(k)
                      do iCell = 1, nCells

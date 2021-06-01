@@ -1,0 +1,590 @@
+<!-- Registry for Impulse Response Function tracer group -->
+	<nml_record name="tracer_forcing_IFHTracers">
+		<nml_option name="config_use_IFHTracers" type="logical" default_value=".false." units="unitless"
+			description="if true, the 'IFHGRP' category is enabled for the run"
+			possible_values=".true. or .false."
+		/>
+		<nml_option name="config_IFHTracers_limit_advection" type="logical" default_value=".false." units="unitless"
+			description="if true, the IFHTracers limiter for advection is on"
+			possible_values=".true. or .false."
+		/>
+		<nml_option name="config_IFHTracers_normalize_by_layerThickness" type="logical" default_value=".false." units="unitless"
+			description="if true, the IFHTracers Tend variables are divided by layerThickness"
+			possible_values=".true. or .false."
+		/>
+		<nml_option name="config_use_IFHTracers_surface_bulk_forcing" type="logical" default_value=".false." units="unitless"
+			description="if true, surface bulk forcing from coupler is added to surfaceTracerFlux in 'IFHGRP' category"
+			possible_values=".true. or .false."
+		/>
+		<nml_option name="config_use_IFHTracers_surface_restoring" type="logical" default_value=".false." units="unitless"
+			description="if true, surface restoring source is applied to tracers in 'IFHGRP' category"
+			possible_values=".true. or .false."
+		/>
+		<nml_option name="config_use_IFHTracers_interior_restoring" type="logical" default_value=".false." units="unitless"
+			description="if true, interior restoring source is applied to tracers in 'IFHGRP' category"
+			possible_values=".true. or .false."
+		/>
+		<nml_option name="config_use_IFHTracers_exponential_decay" type="logical" default_value=".false." units="unitless"
+			description="if true, exponential decay source is applied to tracers in 'IFHGRP' category"
+			possible_values=".true. or .false."
+		/>
+		<nml_option name="config_use_IFHTracers_idealAge_forcing" type="logical" default_value=".false." units="unitless"
+			description="if true, idealAge forcing source is applied to tracers in 'IFHGRP' category"
+			possible_values=".true. or .false."
+		/>
+		<nml_option name="config_use_IFHTracers_ttd_forcing" type="logical" default_value=".false." units="unitless"
+			description="if true, transit time distribution forcing source is applied to tracers in 'IFHGRP' category"
+			possible_values=".true. or .false."
+		/>
+		<nml_option name="config_use_IFHTracers_surface_value" type="logical" default_value=".false." units="unitless"
+			description="if true, surface value is computed for 'IFHGRP' category"
+			possible_values=".true. or .false."
+		/>
+		<nml_option name="config_use_IFHTracers_sea_ice_coupling" type="logical" default_value=".false." units="unitless"
+			description="if true, couple IFH fields with sea ice"
+			possible_values=".true. or .false."
+		/>
+	</nml_record>
+
+	<packages>
+		<package name="IFHTracersPKG" description="This package includes variables required to include IFHGRP."/>
+		<package name="IFHTracersBulkRestoringPKG" description="This package includes variables required to compute bulk restoring on the IFH tracer group."/>
+		<package name="IFHTracersSurfaceRestoringPKG" description="This package includes variables required to compute surface restoring on the IFH tracer group."/>
+		<package name="IFHTracersInteriorRestoringPKG" description="This package includes variables required to compute interior restoring on the IFH tracer group."/>
+		<package name="IFHTracersExponentialDecayPKG" description="This package includes variables required to compute exponential decay on the IFH tracer group."/>
+		<package name="IFHTracersIdealAgePKG" description="This package includes variables required to compute ideal age forcing on the IFH tracer group."/>
+		<package name="IFHTracersTTDPKG" description="This package includes variables required to compute transit-time distribution forcing on the IFH tracer group."/>
+		<package name="IRFTracerBudgetPKG" description="This package includes variables required to compute IFH tracer budget"/>
+	</packages>
+
+	<var_struct name="state" time_levs="2">
+		<var_struct name="tracers" time_levs="2">
+			<var_array name="IFHTracers" dimensions="nVertLevels nCells Time" type="real" packages="IFHTracersPKG" >
+				<var name="IFH01" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH02" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH03" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH04" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH05" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH06" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH07" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH08" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH09" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH10" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH11" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH12" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH13" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH14" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH15" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH16" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH17" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH18" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH19" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH20" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH21" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH22" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH23" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH24" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH25" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH26" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH27" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH28" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH29" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH30" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH31" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH32" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH33" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH34" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+			</var_array>
+		</var_struct>
+	</var_struct>
+
+	<var_struct name="tend" time_levs="1">
+		<var_struct name="tracersTend" time_levs="1">
+			<var_array name="IFHTracersTend" type="real" dimensions="nVertLevels nCells Time" packages="IFHTracersPKG">
+				<var name="IFH01Tend" array_group="IFHGRP" units="IFH unit m^{-3} s^{-1}"/>
+				<var name="IFH02Tend" array_group="IFHGRP" units="IFH unit m^{-3} s^{-1}"/>
+				<var name="IFH03Tend" array_group="IFHGRP" units="IFH unit m^{-3} s^{-1}"/>
+				<var name="IFH04Tend" array_group="IFHGRP" units="IFH unit m^{-3} s^{-1}"/>
+				<var name="IFH05Tend" array_group="IFHGRP" units="IFH unit m^{-3} s^{-1}"/>
+				<var name="IFH06Tend" array_group="IFHGRP" units="IFH unit m^{-3} s^{-1}"/>
+				<var name="IFH07Tend" array_group="IFHGRP" units="IFH unit m^{-3} s^{-1}"/>
+				<var name="IFH08Tend" array_group="IFHGRP" units="IFH unit m^{-3} s^{-1}"/>
+				<var name="IFH09Tend" array_group="IFHGRP" units="IFH unit m^{-3} s^{-1}"/>
+				<var name="IFH10Tend" array_group="IFHGRP" units="IFH unit m^{-3} s^{-1}"/>
+				<var name="IFH11Tend" array_group="IFHGRP" units="IFH unit m^{-3} s^{-1}"/>
+				<var name="IFH12Tend" array_group="IFHGRP" units="IFH unit m^{-3} s^{-1}"/>
+				<var name="IFH13Tend" array_group="IFHGRP" units="IFH unit m^{-3} s^{-1}"/>
+				<var name="IFH14Tend" array_group="IFHGRP" units="IFH unit m^{-3} s^{-1}"/>
+				<var name="IFH15Tend" array_group="IFHGRP" units="IFH unit m^{-3} s^{-1}"/>
+				<var name="IFH16Tend" array_group="IFHGRP" units="IFH unit m^{-3} s^{-1}"/>
+				<var name="IFH17Tend" array_group="IFHGRP" units="IFH unit m^{-3} s^{-1}"/>
+				<var name="IFH18Tend" array_group="IFHGRP" units="IFH unit m^{-3} s^{-1}"/>
+				<var name="IFH19Tend" array_group="IFHGRP" units="IFH unit m^{-3} s^{-1}"/>
+				<var name="IFH20Tend" array_group="IFHGRP" units="IFH unit m^{-3} s^{-1}"/>
+				<var name="IFH21Tend" array_group="IFHGRP" units="IFH unit m^{-3} s^{-1}"/>
+				<var name="IFH22Tend" array_group="IFHGRP" units="IFH unit m^{-3} s^{-1}"/>
+				<var name="IFH23Tend" array_group="IFHGRP" units="IFH unit m^{-3} s^{-1}"/>
+				<var name="IFH24Tend" array_group="IFHGRP" units="IFH unit m^{-3} s^{-1}"/>
+				<var name="IFH25Tend" array_group="IFHGRP" units="IFH unit m^{-3} s^{-1}"/>
+				<var name="IFH26Tend" array_group="IFHGRP" units="IFH unit m^{-3} s^{-1}"/>
+				<var name="IFH27Tend" array_group="IFHGRP" units="IFH unit m^{-3} s^{-1}"/>
+				<var name="IFH28Tend" array_group="IFHGRP" units="IFH unit m^{-3} s^{-1}"/>
+				<var name="IFH29Tend" array_group="IFHGRP" units="IFH unit m^{-3} s^{-1}"/>
+				<var name="IFH30Tend" array_group="IFHGRP" units="IFH unit m^{-3} s^{-1}"/>
+				<var name="IFH31Tend" array_group="IFHGRP" units="IFH unit m^{-3} s^{-1}"/>
+				<var name="IFH32Tend" array_group="IFHGRP" units="IFH unit m^{-3} s^{-1}"/>
+				<var name="IFH33Tend" array_group="IFHGRP" units="IFH unit m^{-3} s^{-1}"/>
+				<var name="IFH34Tend" array_group="IFHGRP" units="IFH unit m^{-3} s^{-1}"/>
+			</var_array>
+		</var_struct>
+	</var_struct>
+
+	<var_struct name="forcing" time_levs="1">
+		<var_struct name="tracersSurfaceFlux" time_levs="1">
+			<var_array name="IFHTracersSurfaceFlux" type="real" dimensions="nCells Time" packages="IFHTracersPKG">
+				<var name="IFH01SurfaceFlux" array_group="IFHSurfaceFluxGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH02SurfaceFlux" array_group="IFHSurfaceFluxGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH03SurfaceFlux" array_group="IFHSurfaceFluxGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH04SurfaceFlux" array_group="IFHSurfaceFluxGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH05SurfaceFlux" array_group="IFHSurfaceFluxGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH06SurfaceFlux" array_group="IFHSurfaceFluxGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH07SurfaceFlux" array_group="IFHSurfaceFluxGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH08SurfaceFlux" array_group="IFHSurfaceFluxGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH09SurfaceFlux" array_group="IFHSurfaceFluxGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH10SurfaceFlux" array_group="IFHSurfaceFluxGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH11SurfaceFlux" array_group="IFHSurfaceFluxGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH12SurfaceFlux" array_group="IFHSurfaceFluxGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH13SurfaceFlux" array_group="IFHSurfaceFluxGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH14SurfaceFlux" array_group="IFHSurfaceFluxGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH15SurfaceFlux" array_group="IFHSurfaceFluxGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH16SurfaceFlux" array_group="IFHSurfaceFluxGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH17SurfaceFlux" array_group="IFHSurfaceFluxGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH18SurfaceFlux" array_group="IFHSurfaceFluxGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH19SurfaceFlux" array_group="IFHSurfaceFluxGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH20SurfaceFlux" array_group="IFHSurfaceFluxGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH21SurfaceFlux" array_group="IFHSurfaceFluxGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH22SurfaceFlux" array_group="IFHSurfaceFluxGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH23SurfaceFlux" array_group="IFHSurfaceFluxGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH24SurfaceFlux" array_group="IFHSurfaceFluxGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH25SurfaceFlux" array_group="IFHSurfaceFluxGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH26SurfaceFlux" array_group="IFHSurfaceFluxGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH27SurfaceFlux" array_group="IFHSurfaceFluxGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH28SurfaceFlux" array_group="IFHSurfaceFluxGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH29SurfaceFlux" array_group="IFHSurfaceFluxGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH30SurfaceFlux" array_group="IFHSurfaceFluxGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH31SurfaceFlux" array_group="IFHSurfaceFluxGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH32SurfaceFlux" array_group="IFHSurfaceFluxGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH33SurfaceFlux" array_group="IFHSurfaceFluxGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH34SurfaceFlux" array_group="IFHSurfaceFluxGRP" units="IFH unit m^{-3}"/>
+			</var_array>
+			<var_array name="IFHTracersSurfaceFluxRunoff" type="real" dimensions="nCells Time" packages="IFHTracersPKG">
+				<var name="IFH01SurfaceFluxRunoff" array_group="IFHSurfaceFluxRunoffGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH02SurfaceFluxRunoff" array_group="IFHSurfaceFluxRunoffGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH03SurfaceFluxRunoff" array_group="IFHSurfaceFluxRunoffGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH04SurfaceFluxRunoff" array_group="IFHSurfaceFluxRunoffGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH05SurfaceFluxRunoff" array_group="IFHSurfaceFluxRunoffGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH06SurfaceFluxRunoff" array_group="IFHSurfaceFluxRunoffGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH07SurfaceFluxRunoff" array_group="IFHSurfaceFluxRunoffGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH08SurfaceFluxRunoff" array_group="IFHSurfaceFluxRunoffGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH09SurfaceFluxRunoff" array_group="IFHSurfaceFluxRunoffGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH10SurfaceFluxRunoff" array_group="IFHSurfaceFluxRunoffGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH11SurfaceFluxRunoff" array_group="IFHSurfaceFluxRunoffGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH12SurfaceFluxRunoff" array_group="IFHSurfaceFluxRunoffGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH13SurfaceFluxRunoff" array_group="IFHSurfaceFluxRunoffGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH14SurfaceFluxRunoff" array_group="IFHSurfaceFluxRunoffGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH15SurfaceFluxRunoff" array_group="IFHSurfaceFluxRunoffGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH16SurfaceFluxRunoff" array_group="IFHSurfaceFluxRunoffGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH17SurfaceFluxRunoff" array_group="IFHSurfaceFluxRunoffGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH18SurfaceFluxRunoff" array_group="IFHSurfaceFluxRunoffGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH19SurfaceFluxRunoff" array_group="IFHSurfaceFluxRunoffGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH20SurfaceFluxRunoff" array_group="IFHSurfaceFluxRunoffGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH21SurfaceFluxRunoff" array_group="IFHSurfaceFluxRunoffGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH22SurfaceFluxRunoff" array_group="IFHSurfaceFluxRunoffGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH23SurfaceFluxRunoff" array_group="IFHSurfaceFluxRunoffGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH24SurfaceFluxRunoff" array_group="IFHSurfaceFluxRunoffGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH25SurfaceFluxRunoff" array_group="IFHSurfaceFluxRunoffGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH26SurfaceFluxRunoff" array_group="IFHSurfaceFluxRunoffGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH27SurfaceFluxRunoff" array_group="IFHSurfaceFluxRunoffGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH28SurfaceFluxRunoff" array_group="IFHSurfaceFluxRunoffGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH29SurfaceFluxRunoff" array_group="IFHSurfaceFluxRunoffGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH30SurfaceFluxRunoff" array_group="IFHSurfaceFluxRunoffGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH31SurfaceFluxRunoff" array_group="IFHSurfaceFluxRunoffGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH32SurfaceFluxRunoff" array_group="IFHSurfaceFluxRunoffGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH33SurfaceFluxRunoff" array_group="IFHSurfaceFluxRunoffGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH34SurfaceFluxRunoff" array_group="IFHSurfaceFluxRunoffGRP" units="IFH unit m^{-3}"/>
+			</var_array>
+			<var_array name="IFHTracersSurfaceFluxRemoved" type="real" dimensions="nCells Time" packages="IFHTracersPKG">
+				<var name="IFH01SurfaceFluxRemoved" array_group="IFHSurfaceFluxRemovedGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH02SurfaceFluxRemoved" array_group="IFHSurfaceFluxRemovedGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH03SurfaceFluxRemoved" array_group="IFHSurfaceFluxRemovedGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH04SurfaceFluxRemoved" array_group="IFHSurfaceFluxRemovedGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH05SurfaceFluxRemoved" array_group="IFHSurfaceFluxRemovedGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH06SurfaceFluxRemoved" array_group="IFHSurfaceFluxRemovedGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH07SurfaceFluxRemoved" array_group="IFHSurfaceFluxRemovedGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH08SurfaceFluxRemoved" array_group="IFHSurfaceFluxRemovedGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH09SurfaceFluxRemoved" array_group="IFHSurfaceFluxRemovedGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH10SurfaceFluxRemoved" array_group="IFHSurfaceFluxRemovedGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH11SurfaceFluxRemoved" array_group="IFHSurfaceFluxRemovedGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH12SurfaceFluxRemoved" array_group="IFHSurfaceFluxRemovedGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH13SurfaceFluxRemoved" array_group="IFHSurfaceFluxRemovedGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH14SurfaceFluxRemoved" array_group="IFHSurfaceFluxRemovedGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH15SurfaceFluxRemoved" array_group="IFHSurfaceFluxRemovedGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH16SurfaceFluxRemoved" array_group="IFHSurfaceFluxRemovedGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH17SurfaceFluxRemoved" array_group="IFHSurfaceFluxRemovedGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH18SurfaceFluxRemoved" array_group="IFHSurfaceFluxRemovedGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH19SurfaceFluxRemoved" array_group="IFHSurfaceFluxRemovedGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH20SurfaceFluxRemoved" array_group="IFHSurfaceFluxRemovedGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH21SurfaceFluxRemoved" array_group="IFHSurfaceFluxRemovedGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH22SurfaceFluxRemoved" array_group="IFHSurfaceFluxRemovedGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH23SurfaceFluxRemoved" array_group="IFHSurfaceFluxRemovedGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH24SurfaceFluxRemoved" array_group="IFHSurfaceFluxRemovedGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH25SurfaceFluxRemoved" array_group="IFHSurfaceFluxRemovedGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH26SurfaceFluxRemoved" array_group="IFHSurfaceFluxRemovedGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH27SurfaceFluxRemoved" array_group="IFHSurfaceFluxRemovedGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH28SurfaceFluxRemoved" array_group="IFHSurfaceFluxRemovedGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH29SurfaceFluxRemoved" array_group="IFHSurfaceFluxRemovedGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH30SurfaceFluxRemoved" array_group="IFHSurfaceFluxRemovedGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH31SurfaceFluxRemoved" array_group="IFHSurfaceFluxRemovedGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH32SurfaceFluxRemoved" array_group="IFHSurfaceFluxRemovedGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH33SurfaceFluxRemoved" array_group="IFHSurfaceFluxRemovedGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH34SurfaceFluxRemoved" array_group="IFHSurfaceFluxRemovedGRP" units="IFH unit m^{-3}"/>
+			</var_array>
+		</var_struct>
+		<var_struct name="tracersSurfaceRestoringFields" time_levs="1">
+			<var_array name="IFHTracersPistonVelocity" type="real" dimensions="nCells Time" packages="IFHTracersSurfaceRestoringPKG">
+				<var name="IFH01PistonVelocity" array_group="IFHPVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH02PistonVelocity" array_group="IFHPVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH03PistonVelocity" array_group="IFHPVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH04PistonVelocity" array_group="IFHPVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH05PistonVelocity" array_group="IFHPVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH06PistonVelocity" array_group="IFHPVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH07PistonVelocity" array_group="IFHPVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH08PistonVelocity" array_group="IFHPVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH09PistonVelocity" array_group="IFHPVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH10PistonVelocity" array_group="IFHPVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH11PistonVelocity" array_group="IFHPVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH12PistonVelocity" array_group="IFHPVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH13PistonVelocity" array_group="IFHPVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH14PistonVelocity" array_group="IFHPVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH15PistonVelocity" array_group="IFHPVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH16PistonVelocity" array_group="IFHPVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH17PistonVelocity" array_group="IFHPVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH18PistonVelocity" array_group="IFHPVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH19PistonVelocity" array_group="IFHPVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH20PistonVelocity" array_group="IFHPVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH21PistonVelocity" array_group="IFHPVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH22PistonVelocity" array_group="IFHPVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH23PistonVelocity" array_group="IFHPVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH24PistonVelocity" array_group="IFHPVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH25PistonVelocity" array_group="IFHPVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH26PistonVelocity" array_group="IFHPVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH27PistonVelocity" array_group="IFHPVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH28PistonVelocity" array_group="IFHPVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH29PistonVelocity" array_group="IFHPVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH30PistonVelocity" array_group="IFHPVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH31PistonVelocity" array_group="IFHPVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH32PistonVelocity" array_group="IFHPVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH33PistonVelocity" array_group="IFHPVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH34PistonVelocity" array_group="IFHPVGRP" units="IFH unit m^{-3}"/>
+			</var_array>
+			<var_array name="IFHTracersSurfaceRestoringValue" type="real" dimensions="nCells Time" packages="IFHTracersSurfaceRestoringPKG">
+				<var name="IFH01SurfaceRestoringValue" array_group="IFHSRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH02SurfaceRestoringValue" array_group="IFHSRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH03SurfaceRestoringValue" array_group="IFHSRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH04SurfaceRestoringValue" array_group="IFHSRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH05SurfaceRestoringValue" array_group="IFHSRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH06SurfaceRestoringValue" array_group="IFHSRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH07SurfaceRestoringValue" array_group="IFHSRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH08SurfaceRestoringValue" array_group="IFHSRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH09SurfaceRestoringValue" array_group="IFHSRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH10SurfaceRestoringValue" array_group="IFHSRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH11SurfaceRestoringValue" array_group="IFHSRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH12SurfaceRestoringValue" array_group="IFHSRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH13SurfaceRestoringValue" array_group="IFHSRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH14SurfaceRestoringValue" array_group="IFHSRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH15SurfaceRestoringValue" array_group="IFHSRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH16SurfaceRestoringValue" array_group="IFHSRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH17SurfaceRestoringValue" array_group="IFHSRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH18SurfaceRestoringValue" array_group="IFHSRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH19SurfaceRestoringValue" array_group="IFHSRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH20SurfaceRestoringValue" array_group="IFHSRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH21SurfaceRestoringValue" array_group="IFHSRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH22SurfaceRestoringValue" array_group="IFHSRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH23SurfaceRestoringValue" array_group="IFHSRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH24SurfaceRestoringValue" array_group="IFHSRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH25SurfaceRestoringValue" array_group="IFHSRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH26SurfaceRestoringValue" array_group="IFHSRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH27SurfaceRestoringValue" array_group="IFHSRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH28SurfaceRestoringValue" array_group="IFHSRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH29SurfaceRestoringValue" array_group="IFHSRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH30SurfaceRestoringValue" array_group="IFHSRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH31SurfaceRestoringValue" array_group="IFHSRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH32SurfaceRestoringValue" array_group="IFHSRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH33SurfaceRestoringValue" array_group="IFHSRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH34SurfaceRestoringValue" array_group="IFHSRVGRP" units="IFH unit m^{-3}"/>
+			</var_array>
+		</var_struct>
+		<var_struct name="tracersInteriorRestoringFields" time_levs="1">
+			<var_array name="IFHTracersInteriorRestoringRate" type="real" dimensions="nVertLevels nCells Time" packages="IFHTracersInteriorRestoringPKG">
+				<var name="IFH01InteriorRestoringRate" array_group="IFHIRRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH02InteriorRestoringRate" array_group="IFHIRRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH03InteriorRestoringRate" array_group="IFHIRRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH04InteriorRestoringRate" array_group="IFHIRRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH05InteriorRestoringRate" array_group="IFHIRRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH06InteriorRestoringRate" array_group="IFHIRRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH07InteriorRestoringRate" array_group="IFHIRRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH08InteriorRestoringRate" array_group="IFHIRRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH09InteriorRestoringRate" array_group="IFHIRRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH10InteriorRestoringRate" array_group="IFHIRRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH11InteriorRestoringRate" array_group="IFHIRRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH12InteriorRestoringRate" array_group="IFHIRRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH13InteriorRestoringRate" array_group="IFHIRRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH14InteriorRestoringRate" array_group="IFHIRRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH15InteriorRestoringRate" array_group="IFHIRRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH16InteriorRestoringRate" array_group="IFHIRRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH17InteriorRestoringRate" array_group="IFHIRRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH18InteriorRestoringRate" array_group="IFHIRRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH19InteriorRestoringRate" array_group="IFHIRRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH20InteriorRestoringRate" array_group="IFHIRRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH21InteriorRestoringRate" array_group="IFHIRRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH22InteriorRestoringRate" array_group="IFHIRRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH23InteriorRestoringRate" array_group="IFHIRRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH24InteriorRestoringRate" array_group="IFHIRRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH25InteriorRestoringRate" array_group="IFHIRRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH26InteriorRestoringRate" array_group="IFHIRRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH27InteriorRestoringRate" array_group="IFHIRRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH28InteriorRestoringRate" array_group="IFHIRRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH29InteriorRestoringRate" array_group="IFHIRRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH30InteriorRestoringRate" array_group="IFHIRRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH31InteriorRestoringRate" array_group="IFHIRRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH32InteriorRestoringRate" array_group="IFHIRRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH33InteriorRestoringRate" array_group="IFHIRRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH34InteriorRestoringRate" array_group="IFHIRRGRP" units="IFH unit m^{-3}"/>
+			</var_array>
+			<var_array name="IFHTracersInteriorRestoringValue" type="real" dimensions="nVertLevels nCells Time" packages="IFHTracersInteriorRestoringPKG">
+				<var name="IFH01InteriorRestoringValue" array_group="IFHIRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH02InteriorRestoringValue" array_group="IFHIRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH03InteriorRestoringValue" array_group="IFHIRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH04InteriorRestoringValue" array_group="IFHIRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH05InteriorRestoringValue" array_group="IFHIRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH06InteriorRestoringValue" array_group="IFHIRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH07InteriorRestoringValue" array_group="IFHIRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH08InteriorRestoringValue" array_group="IFHIRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH09InteriorRestoringValue" array_group="IFHIRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH10InteriorRestoringValue" array_group="IFHIRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH11InteriorRestoringValue" array_group="IFHIRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH12InteriorRestoringValue" array_group="IFHIRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH13InteriorRestoringValue" array_group="IFHIRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH14InteriorRestoringValue" array_group="IFHIRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH15InteriorRestoringValue" array_group="IFHIRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH16InteriorRestoringValue" array_group="IFHIRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH17InteriorRestoringValue" array_group="IFHIRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH18InteriorRestoringValue" array_group="IFHIRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH19InteriorRestoringValue" array_group="IFHIRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH20InteriorRestoringValue" array_group="IFHIRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH21InteriorRestoringValue" array_group="IFHIRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH22InteriorRestoringValue" array_group="IFHIRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH23InteriorRestoringValue" array_group="IFHIRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH24InteriorRestoringValue" array_group="IFHIRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH25InteriorRestoringValue" array_group="IFHIRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH26InteriorRestoringValue" array_group="IFHIRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH27InteriorRestoringValue" array_group="IFHIRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH28InteriorRestoringValue" array_group="IFHIRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH29InteriorRestoringValue" array_group="IFHIRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH30InteriorRestoringValue" array_group="IFHIRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH31InteriorRestoringValue" array_group="IFHIRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH32InteriorRestoringValue" array_group="IFHIRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH33InteriorRestoringValue" array_group="IFHIRVGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH34InteriorRestoringValue" array_group="IFHIRVGRP" units="IFH unit m^{-3}"/>
+			</var_array>
+		</var_struct>
+		<var_struct name="tracersExponentialDecayFields" time_levs="1">
+			<var_array name="IFHTracersExponentialDecayRate" type="real" dimensions="Time" packages="IFHTracersExponentialDecayPKG">
+				<var name="IFH01ExponentialDecayRate" array_group="IFHEDRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH02ExponentialDecayRate" array_group="IFHEDRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH03ExponentialDecayRate" array_group="IFHEDRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH04ExponentialDecayRate" array_group="IFHEDRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH05ExponentialDecayRate" array_group="IFHEDRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH06ExponentialDecayRate" array_group="IFHEDRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH07ExponentialDecayRate" array_group="IFHEDRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH08ExponentialDecayRate" array_group="IFHEDRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH09ExponentialDecayRate" array_group="IFHEDRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH10ExponentialDecayRate" array_group="IFHEDRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH11ExponentialDecayRate" array_group="IFHEDRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH12ExponentialDecayRate" array_group="IFHEDRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH13ExponentialDecayRate" array_group="IFHEDRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH14ExponentialDecayRate" array_group="IFHEDRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH15ExponentialDecayRate" array_group="IFHEDRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH16ExponentialDecayRate" array_group="IFHEDRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH17ExponentialDecayRate" array_group="IFHEDRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH18ExponentialDecayRate" array_group="IFHEDRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH19ExponentialDecayRate" array_group="IFHEDRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH20ExponentialDecayRate" array_group="IFHEDRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH21ExponentialDecayRate" array_group="IFHEDRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH22ExponentialDecayRate" array_group="IFHEDRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH23ExponentialDecayRate" array_group="IFHEDRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH24ExponentialDecayRate" array_group="IFHEDRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH25ExponentialDecayRate" array_group="IFHEDRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH26ExponentialDecayRate" array_group="IFHEDRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH27ExponentialDecayRate" array_group="IFHEDRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH28ExponentialDecayRate" array_group="IFHEDRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH29ExponentialDecayRate" array_group="IFHEDRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH30ExponentialDecayRate" array_group="IFHEDRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH31ExponentialDecayRate" array_group="IFHEDRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH32ExponentialDecayRate" array_group="IFHEDRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH33ExponentialDecayRate" array_group="IFHEDRGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH34ExponentialDecayRate" array_group="IFHEDRGRP" units="IFH unit m^{-3}"/>
+			</var_array>
+		</var_struct>
+		<var_struct name="tracersIdealAgeFields" time_levs="1">
+			<var_array name="IFHTracersIdealAgeMask" type="real" dimensions="nCells Time" packages="IFHTracersIdealAgePKG">
+				<var name="IFH01IdealAgeMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH02IdealAgeMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH03IdealAgeMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH04IdealAgeMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH05IdealAgeMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH06IdealAgeMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH07IdealAgeMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH08IdealAgeMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH09IdealAgeMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH10IdealAgeMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH11IdealAgeMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH12IdealAgeMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH13IdealAgeMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH14IdealAgeMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH15IdealAgeMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH16IdealAgeMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH17IdealAgeMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH18IdealAgeMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH19IdealAgeMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH20IdealAgeMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH21IdealAgeMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH22IdealAgeMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH23IdealAgeMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH24IdealAgeMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH25IdealAgeMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH26IdealAgeMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH27IdealAgeMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH28IdealAgeMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH29IdealAgeMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH30IdealAgeMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH31IdealAgeMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH32IdealAgeMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH33IdealAgeMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH34IdealAgeMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+			</var_array>
+		</var_struct>
+		<var_struct name="tracersTTDFields" time_levs="1">
+			<var_array name="IFHTracersTTDMask" type="real" dimensions="nCells Time" packages="IFHTracersTTDPKG">
+				<var name="IFH01TTDMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH02TTDMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH03TTDMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH04TTDMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH05TTDMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH06TTDMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH07TTDMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH08TTDMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH09TTDMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH10TTDMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH11TTDMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH12TTDMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH13TTDMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH14TTDMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH15TTDMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH16TTDMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH17TTDMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH18TTDMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH19TTDMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH20TTDMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH21TTDMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH22TTDMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH23TTDMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH24TTDMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH25TTDMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH26TTDMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH27TTDMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH28TTDMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH29TTDMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH30TTDMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH31TTDMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH32TTDMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH33TTDMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+				<var name="IFH34TTDMask" array_group="IFHGRP" units="IFH unit m^{-3}"/>
+			</var_array>
+		</var_struct>
+	</var_struct>
+
+	<var_struct name="diagnostics" time_levs="1">
+		<var_array name="IFHTracersHorAdvTend" type="real" dimensions="nVertLevels nCells Time" packages="IRFTracerBudgetPKG">
+			<var name="IFH01HorAdvTend" array_group="IFHTracersHorAdvTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH02HorAdvTend" array_group="IFHTracersHorAdvTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH03HorAdvTend" array_group="IFHTracersHorAdvTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH04HorAdvTend" array_group="IFHTracersHorAdvTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH05HorAdvTend" array_group="IFHTracersHorAdvTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH06HorAdvTend" array_group="IFHTracersHorAdvTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH07HorAdvTend" array_group="IFHTracersHorAdvTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH08HorAdvTend" array_group="IFHTracersHorAdvTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH09HorAdvTend" array_group="IFHTracersHorAdvTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH10HorAdvTend" array_group="IFHTracersHorAdvTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH11HorAdvTend" array_group="IFHTracersHorAdvTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH12HorAdvTend" array_group="IFHTracersHorAdvTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH13HorAdvTend" array_group="IFHTracersHorAdvTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH14HorAdvTend" array_group="IFHTracersHorAdvTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH15HorAdvTend" array_group="IFHTracersHorAdvTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH16HorAdvTend" array_group="IFHTracersHorAdvTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH17HorAdvTend" array_group="IFHTracersHorAdvTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH18HorAdvTend" array_group="IFHTracersHorAdvTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH19HorAdvTend" array_group="IFHTracersHorAdvTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH20HorAdvTend" array_group="IFHTracersHorAdvTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH21HorAdvTend" array_group="IFHTracersHorAdvTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH22HorAdvTend" array_group="IFHTracersHorAdvTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH23HorAdvTend" array_group="IFHTracersHorAdvTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH24HorAdvTend" array_group="IFHTracersHorAdvTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH25HorAdvTend" array_group="IFHTracersHorAdvTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH26HorAdvTend" array_group="IFHTracersHorAdvTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH27HorAdvTend" array_group="IFHTracersHorAdvTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH28HorAdvTend" array_group="IFHTracersHorAdvTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH29HorAdvTend" array_group="IFHTracersHorAdvTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH30HorAdvTend" array_group="IFHTracersHorAdvTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH31HorAdvTend" array_group="IFHTracersHorAdvTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH32HorAdvTend" array_group="IFHTracersHorAdvTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH33HorAdvTend" array_group="IFHTracersHorAdvTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH34HorAdvTend" array_group="IFHTracersHorAdvTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+		</var_array>
+		<var_array name="IFHTracersHorMixTend" type="real" dimensions="nVertLevels nCells Time" packages="IRFTracerBudgetPKG">
+			<var name="IFH01HorMixTend" array_group="IFHTracersHorMixTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH02HorMixTend" array_group="IFHTracersHorMixTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH03HorMixTend" array_group="IFHTracersHorMixTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH04HorMixTend" array_group="IFHTracersHorMixTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH05HorMixTend" array_group="IFHTracersHorMixTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH06HorMixTend" array_group="IFHTracersHorMixTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH07HorMixTend" array_group="IFHTracersHorMixTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH08HorMixTend" array_group="IFHTracersHorMixTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH09HorMixTend" array_group="IFHTracersHorMixTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH10HorMixTend" array_group="IFHTracersHorMixTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH11HorMixTend" array_group="IFHTracersHorMixTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH12HorMixTend" array_group="IFHTracersHorMixTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH13HorMixTend" array_group="IFHTracersHorMixTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH14HorMixTend" array_group="IFHTracersHorMixTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH15HorMixTend" array_group="IFHTracersHorMixTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH16HorMixTend" array_group="IFHTracersHorMixTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH17HorMixTend" array_group="IFHTracersHorMixTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH18HorMixTend" array_group="IFHTracersHorMixTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH19HorMixTend" array_group="IFHTracersHorMixTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH20HorMixTend" array_group="IFHTracersHorMixTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH21HorMixTend" array_group="IFHTracersHorMixTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH22HorMixTend" array_group="IFHTracersHorMixTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH23HorMixTend" array_group="IFHTracersHorMixTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH24HorMixTend" array_group="IFHTracersHorMixTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH25HorMixTend" array_group="IFHTracersHorMixTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH26HorMixTend" array_group="IFHTracersHorMixTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH27HorMixTend" array_group="IFHTracersHorMixTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH28HorMixTend" array_group="IFHTracersHorMixTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH29HorMixTend" array_group="IFHTracersHorMixTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH30HorMixTend" array_group="IFHTracersHorMixTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH31HorMixTend" array_group="IFHTracersHorMixTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH32HorMixTend" array_group="IFHTracersHorMixTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH33HorMixTend" array_group="IFHTracersHorMixTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+			<var name="IFH34HorMixTend" array_group="IFHTracersHorMixTendGroup" units="IFH unit m^{-3} s^{-1}"/>
+		</var_array>
+	</var_struct>

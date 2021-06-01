@@ -149,10 +149,10 @@ module ocn_diagnostics_variables
       activeTracerHorizontalAdvectionEdgeFlux, &
       activeTracerVerticalAdvectionTopFlux,    &
       activeTracerVertMixTendency,             &
-      IRFTracersHorAdvTend,    &
-      IRFTracersVertAdvTend, &
-      IRFTracersHorMixTend, &
-      IRFTracersVertMixTend
+      IFHTracersHorAdvTend,    &
+      IFVTracersVertAdvTend, &
+      IFHTracersHorMixTend, &
+      IFVTracersVertMixTend
 
 
    real (kind=RKIND), pointer :: daysSinceStartOfSim
@@ -303,11 +303,13 @@ contains
                    salinitySurfaceRestoringTendency)
       end if
 
-      if ( config_use_IRFTracers ) then
-         call mpas_pool_get_array(diagnosticsPool,'IRFTracersHorAdvTend',IRFTracersHorAdvTend)
-         call mpas_pool_get_array(diagnosticsPool,'IRFTracersVertAdvTend',IRFTracersVertAdvTend)
-         call mpas_pool_get_array(diagnosticsPool,'IRFTracersHorMixTend',IRFTracersHorMixTend)
-         call mpas_pool_get_array(diagnosticsPool,'IRFTracersVertMixTend',IRFTracersVertMixTend)
+      if ( config_use_IFHTracers ) then
+         call mpas_pool_get_array(diagnosticsPool,'IFHTracersHorAdvTend',IFHTracersHorAdvTend)
+         call mpas_pool_get_array(diagnosticsPool,'IFHTracersHorMixTend',IFHTracersHorMixTend)
+      endif
+      if ( config_use_IFVTracers ) then
+         call mpas_pool_get_array(diagnosticsPool,'IFVTracersVertAdvTend',IFVTracersVertAdvTend)
+         call mpas_pool_get_array(diagnosticsPool,'IFVTracersVertMixTend',IFVTracersVertMixTend)
       endif
 
       ! Retrieve pointers for configurations where land_ice_flux_mode is enabled

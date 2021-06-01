@@ -98,7 +98,7 @@ module ocn_tracer_advection_mono
                                              minLevelEdgeBot, maxLevelEdgeTop, &
                                              highOrderAdvectionMask,           &
                                              edgeSignOnCell, meshPool,         &
-                                             computeBudgets, computeIRFs,      &
+                                             computeBudgets, tracerGroupName,      &
                                              limiterOn)!{{{
 
       !*** Input/Output parameters
@@ -142,8 +142,8 @@ module ocn_tracer_advection_mono
          meshPool               !< [in] Mesh information
       logical, intent(in) :: &
          computeBudgets         !< [in] Flag to compute active tracer budgets
-      logical, intent(in) :: &
-         computeIRFs            !< [in] Flag to compute IRF tracer budgets
+      character (len=*), intent(in) :: &
+         tracerGroupName     !< [in] Tracer name to check if active tracers
       logical, intent(in) :: &
          limiterOn              !< [in] Flag to limit this tracer group
 
@@ -523,12 +523,12 @@ module ocn_tracer_advection_mono
         !$omp end do
         !$omp end parallel
 
-        if (computeIRFs) then
+        if (tracerGroupName == 'IFHTracers') then
            !$omp parallel
            !$omp do schedule(runtime) private(k)
            do iCell = 1, nCells
              do k = 1, maxLevelCell(iCell)
-                 IRFTracersHorAdvTend(iTracer,k,iCell) = workTend(k,iCell)
+                 IFHTracersHorAdvTend(iTracer,k,iCell) = workTend(k,iCell)
              end do
            end do ! iCell loop
            !$omp end do
@@ -880,12 +880,12 @@ module ocn_tracer_advection_mono
           !$omp end parallel
         endif
 
-        if (computeIRFs) then
+        if (tracerGroupName == 'IFVTracers') then
            !$omp parallel
            !$omp do schedule(runtime) private(k)
            do iCell = 1, nCells
              do k = 1, maxLevelCell(iCell)
-                 IRFTracersVertAdvTend(iTracer,k,iCell) = workTend(k,iCell)
+                 IFVTracersVertAdvTend(iTracer,k,iCell) = workTend(k,iCell)
              end do
            end do ! iCell loop
            !$omp end do

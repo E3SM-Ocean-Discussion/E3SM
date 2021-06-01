@@ -175,7 +175,7 @@ module ocn_core_interface
       logical, pointer :: config_use_bulk_wind_stress
       logical, pointer :: config_use_bulk_thickness_flux
       logical, pointer :: config_compute_active_tracer_budgets
-      logical, pointer :: config_use_IRFTracers
+      logical, pointer :: config_use_IFHTracers, config_use_IFVTracers
       character (len=StrKIND), pointer :: config_land_ice_flux_mode
 
        type (mpas_pool_iterator_type) :: groupItr
@@ -271,8 +271,9 @@ module ocn_core_interface
       ! test for tracer budget
       !
       call mpas_pool_get_package(packagePool, 'IRFTracerBudgetPKGActive', IRFTracerBudgetPKGActive)
-      call mpas_pool_get_config(configPool, 'config_use_IRFTracers', config_use_IRFTracers)
-      if ( config_use_IRFTracers) then
+      call mpas_pool_get_config(configPool, 'config_use_IFHTracers', config_use_IFHTracers)
+      call mpas_pool_get_config(configPool, 'config_use_IFVTracers', config_use_IFVTracers)
+      if ( config_use_IFHTracers.or.config_use_IFVTracers) then
          IRFTracerBudgetPKGActive = .true.
       end if
 

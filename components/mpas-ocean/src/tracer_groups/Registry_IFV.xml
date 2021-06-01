@@ -1,0 +1,183 @@
+<!-- Registry for Impulse Response Function tracer group -->
+	<nml_record name="tracer_forcing_IFVTracers">
+		<nml_option name="config_use_IFVTracers" type="logical" default_value=".false." units="unitless"
+			description="if true, the 'IFVGRP' category is enabled for the run"
+			possible_values=".true. or .false."
+		/>
+		<nml_option name="config_IFVTracers_limit_advection" type="logical" default_value=".false." units="unitless"
+			description="if true, the IFVTracers limiter for advection is on"
+			possible_values=".true. or .false."
+		/>
+		<nml_option name="config_IFVTracers_normalize_by_layerThickness" type="logical" default_value=".false." units="unitless"
+			description="if true, the IFVTracers Tend variables are divided by layerThickness"
+			possible_values=".true. or .false."
+		/>
+		<nml_option name="config_use_IFVTracers_surface_bulk_forcing" type="logical" default_value=".false." units="unitless"
+			description="if true, surface bulk forcing from coupler is added to surfaceTracerFlux in 'IFVGRP' category"
+			possible_values=".true. or .false."
+		/>
+		<nml_option name="config_use_IFVTracers_surface_restoring" type="logical" default_value=".false." units="unitless"
+			description="if true, surface restoring source is applied to tracers in 'IFVGRP' category"
+			possible_values=".true. or .false."
+		/>
+		<nml_option name="config_use_IFVTracers_interior_restoring" type="logical" default_value=".false." units="unitless"
+			description="if true, interior restoring source is applied to tracers in 'IFVGRP' category"
+			possible_values=".true. or .false."
+		/>
+		<nml_option name="config_use_IFVTracers_exponential_decay" type="logical" default_value=".false." units="unitless"
+			description="if true, exponential decay source is applied to tracers in 'IFVGRP' category"
+			possible_values=".true. or .false."
+		/>
+		<nml_option name="config_use_IFVTracers_idealAge_forcing" type="logical" default_value=".false." units="unitless"
+			description="if true, idealAge forcing source is applied to tracers in 'IFVGRP' category"
+			possible_values=".true. or .false."
+		/>
+		<nml_option name="config_use_IFVTracers_ttd_forcing" type="logical" default_value=".false." units="unitless"
+			description="if true, transit time distribution forcing source is applied to tracers in 'IFVGRP' category"
+			possible_values=".true. or .false."
+		/>
+		<nml_option name="config_use_IFVTracers_surface_value" type="logical" default_value=".false." units="unitless"
+			description="if true, surface value is computed for 'IFVGRP' category"
+			possible_values=".true. or .false."
+		/>
+		<nml_option name="config_use_IFVTracers_sea_ice_coupling" type="logical" default_value=".false." units="unitless"
+			description="if true, couple IFV fields with sea ice"
+			possible_values=".true. or .false."
+		/>
+	</nml_record>
+
+	<packages>
+		<package name="IFVTracersPKG" description="This package includes variables required to include IFVGRP."/>
+		<package name="IFVTracersBulkRestoringPKG" description="This package includes variables required to compute bulk restoring on the IFV tracer group."/>
+		<package name="IFVTracersSurfaceRestoringPKG" description="This package includes variables required to compute surface restoring on the IFV tracer group."/>
+		<package name="IFVTracersInteriorRestoringPKG" description="This package includes variables required to compute interior restoring on the IFV tracer group."/>
+		<package name="IFVTracersExponentialDecayPKG" description="This package includes variables required to compute exponential decay on the IFV tracer group."/>
+		<package name="IFVTracersIdealAgePKG" description="This package includes variables required to compute ideal age forcing on the IFV tracer group."/>
+		<package name="IFVTracersTTDPKG" description="This package includes variables required to compute transit-time distribution forcing on the IFV tracer group."/>
+	</packages>
+
+	<var_struct name="state" time_levs="2">
+		<var_struct name="tracers" time_levs="2">
+			<var_array name="IFVTracers" dimensions="nVertLevels nCells Time" type="real" packages="IFVTracersPKG" >
+				<var name="IFV01" array_group="IFVGRP" units="IFV unit m^{-3}"/>
+				<var name="IFV02" array_group="IFVGRP" units="IFV unit m^{-3}"/>
+				<var name="IFV03" array_group="IFVGRP" units="IFV unit m^{-3}"/>
+				<var name="IFV04" array_group="IFVGRP" units="IFV unit m^{-3}"/>
+				<var name="IFV05" array_group="IFVGRP" units="IFV unit m^{-3}"/>
+			</var_array>
+		</var_struct>
+	</var_struct>
+
+	<var_struct name="tend" time_levs="1">
+		<var_struct name="tracersTend" time_levs="1">
+			<var_array name="IFVTracersTend" type="real" dimensions="nVertLevels nCells Time" packages="IFVTracersPKG">
+				<var name="IFV01Tend" array_group="IFVGRP" units="IFV unit m^{-3} s^{-1}"/>
+				<var name="IFV02Tend" array_group="IFVGRP" units="IFV unit m^{-3} s^{-1}"/>
+				<var name="IFV03Tend" array_group="IFVGRP" units="IFV unit m^{-3} s^{-1}"/>
+				<var name="IFV04Tend" array_group="IFVGRP" units="IFV unit m^{-3} s^{-1}"/>
+				<var name="IFV05Tend" array_group="IFVGRP" units="IFV unit m^{-3} s^{-1}"/>
+			</var_array>
+		</var_struct>
+	</var_struct>
+
+	<var_struct name="forcing" time_levs="1">
+		<var_struct name="tracersSurfaceFlux" time_levs="1">
+			<var_array name="IFVTracersSurfaceFlux" type="real" dimensions="nCells Time" packages="IFVTracersPKG">
+				<var name="IFV01SurfaceFlux" array_group="IFVSurfaceFluxGRP" units="IFV unit m^{-3}"/>
+				<var name="IFV02SurfaceFlux" array_group="IFVSurfaceFluxGRP" units="IFV unit m^{-3}"/>
+				<var name="IFV03SurfaceFlux" array_group="IFVSurfaceFluxGRP" units="IFV unit m^{-3}"/>
+				<var name="IFV04SurfaceFlux" array_group="IFVSurfaceFluxGRP" units="IFV unit m^{-3}"/>
+				<var name="IFV05SurfaceFlux" array_group="IFVSurfaceFluxGRP" units="IFV unit m^{-3}"/>
+			</var_array>
+			<var_array name="IFVTracersSurfaceFluxRunoff" type="real" dimensions="nCells Time" packages="IFVTracersPKG">
+				<var name="IFV01SurfaceFluxRunoff" array_group="IFVSurfaceFluxRunoffGRP" units="IFV unit m^{-3}"/>
+				<var name="IFV02SurfaceFluxRunoff" array_group="IFVSurfaceFluxRunoffGRP" units="IFV unit m^{-3}"/>
+				<var name="IFV03SurfaceFluxRunoff" array_group="IFVSurfaceFluxRunoffGRP" units="IFV unit m^{-3}"/>
+				<var name="IFV04SurfaceFluxRunoff" array_group="IFVSurfaceFluxRunoffGRP" units="IFV unit m^{-3}"/>
+				<var name="IFV05SurfaceFluxRunoff" array_group="IFVSurfaceFluxRunoffGRP" units="IFV unit m^{-3}"/>
+			</var_array>
+			<var_array name="IFVTracersSurfaceFluxRemoved" type="real" dimensions="nCells Time" packages="IFVTracersPKG">
+				<var name="IFV01SurfaceFluxRemoved" array_group="IFVSurfaceFluxRemovedGRP" units="IFV unit m^{-3}"/>
+				<var name="IFV02SurfaceFluxRemoved" array_group="IFVSurfaceFluxRemovedGRP" units="IFV unit m^{-3}"/>
+				<var name="IFV03SurfaceFluxRemoved" array_group="IFVSurfaceFluxRemovedGRP" units="IFV unit m^{-3}"/>
+				<var name="IFV04SurfaceFluxRemoved" array_group="IFVSurfaceFluxRemovedGRP" units="IFV unit m^{-3}"/>
+				<var name="IFV05SurfaceFluxRemoved" array_group="IFVSurfaceFluxRemovedGRP" units="IFV unit m^{-3}"/>
+			</var_array>
+		</var_struct>
+		<var_struct name="tracersSurfaceRestoringFields" time_levs="1">
+			<var_array name="IFVTracersPistonVelocity" type="real" dimensions="nCells Time" packages="IFVTracersSurfaceRestoringPKG">
+				<var name="IFV01PistonVelocity" array_group="IFVPVGRP" units="IFV unit m^{-3}"/>
+				<var name="IFV02PistonVelocity" array_group="IFVPVGRP" units="IFV unit m^{-3}"/>
+				<var name="IFV03PistonVelocity" array_group="IFVPVGRP" units="IFV unit m^{-3}"/>
+				<var name="IFV04PistonVelocity" array_group="IFVPVGRP" units="IFV unit m^{-3}"/>
+				<var name="IFV05PistonVelocity" array_group="IFVPVGRP" units="IFV unit m^{-3}"/>
+			</var_array>
+			<var_array name="IFVTracersSurfaceRestoringValue" type="real" dimensions="nCells Time" packages="IFVTracersSurfaceRestoringPKG">
+				<var name="IFV01SurfaceRestoringValue" array_group="IFVSRVGRP" units="IFV unit m^{-3}"/>
+				<var name="IFV02SurfaceRestoringValue" array_group="IFVSRVGRP" units="IFV unit m^{-3}"/>
+				<var name="IFV03SurfaceRestoringValue" array_group="IFVSRVGRP" units="IFV unit m^{-3}"/>
+				<var name="IFV04SurfaceRestoringValue" array_group="IFVSRVGRP" units="IFV unit m^{-3}"/>
+				<var name="IFV05SurfaceRestoringValue" array_group="IFVSRVGRP" units="IFV unit m^{-3}"/>
+			</var_array>
+		</var_struct>
+		<var_struct name="tracersInteriorRestoringFields" time_levs="1">
+			<var_array name="IFVTracersInteriorRestoringRate" type="real" dimensions="nVertLevels nCells Time" packages="IFVTracersInteriorRestoringPKG">
+				<var name="IFV01InteriorRestoringRate" array_group="IFVVRRGRP" units="IFV unit m^{-3}"/>
+				<var name="IFV02InteriorRestoringRate" array_group="IFVVRRGRP" units="IFV unit m^{-3}"/>
+				<var name="IFV03InteriorRestoringRate" array_group="IFVVRRGRP" units="IFV unit m^{-3}"/>
+				<var name="IFV04InteriorRestoringRate" array_group="IFVVRRGRP" units="IFV unit m^{-3}"/>
+				<var name="IFV05InteriorRestoringRate" array_group="IFVVRRGRP" units="IFV unit m^{-3}"/>
+			</var_array>
+			<var_array name="IFVTracersInteriorRestoringValue" type="real" dimensions="nVertLevels nCells Time" packages="IFVTracersInteriorRestoringPKG">
+				<var name="IFV01InteriorRestoringValue" array_group="IFVIRVGRP" units="IFV unit m^{-3}"/>
+				<var name="IFV02InteriorRestoringValue" array_group="IFVIRVGRP" units="IFV unit m^{-3}"/>
+				<var name="IFV03InteriorRestoringValue" array_group="IFVIRVGRP" units="IFV unit m^{-3}"/>
+				<var name="IFV04InteriorRestoringValue" array_group="IFVIRVGRP" units="IFV unit m^{-3}"/>
+				<var name="IFV05InteriorRestoringValue" array_group="IFVIRVGRP" units="IFV unit m^{-3}"/>
+			</var_array>
+		</var_struct>
+		<var_struct name="tracersExponentialDecayFields" time_levs="1">
+			<var_array name="IFVTracersExponentialDecayRate" type="real" dimensions="Time" packages="IFVTracersExponentialDecayPKG">
+				<var name="IFV01ExponentialDecayRate" array_group="IFVEDRGRP" units="IFV unit m^{-3}"/>
+				<var name="IFV02ExponentialDecayRate" array_group="IFVEDRGRP" units="IFV unit m^{-3}"/>
+				<var name="IFV03ExponentialDecayRate" array_group="IFVEDRGRP" units="IFV unit m^{-3}"/>
+				<var name="IFV04ExponentialDecayRate" array_group="IFVEDRGRP" units="IFV unit m^{-3}"/>
+				<var name="IFV05ExponentialDecayRate" array_group="IFVEDRGRP" units="IFV unit m^{-3}"/>
+			</var_array>
+		</var_struct>
+		<var_struct name="tracersIdealAgeFields" time_levs="1">
+			<var_array name="IFVTracersIdealAgeMask" type="real" dimensions="nCells Time" packages="IFVTracersIdealAgePKG">
+				<var name="IFV01IdealAgeMask" array_group="IFVGRP" units="IFV unit m^{-3}"/>
+				<var name="IFV02IdealAgeMask" array_group="IFVGRP" units="IFV unit m^{-3}"/>
+				<var name="IFV03IdealAgeMask" array_group="IFVGRP" units="IFV unit m^{-3}"/>
+				<var name="IFV04IdealAgeMask" array_group="IFVGRP" units="IFV unit m^{-3}"/>
+				<var name="IFV05IdealAgeMask" array_group="IFVGRP" units="IFV unit m^{-3}"/>
+			</var_array>
+		</var_struct>
+		<var_struct name="tracersTTDFields" time_levs="1">
+			<var_array name="IFVTracersTTDMask" type="real" dimensions="nCells Time" packages="IFVTracersTTDPKG">
+				<var name="IFV01TTDMask" array_group="IFVGRP" units="IFV unit m^{-3}"/>
+				<var name="IFV02TTDMask" array_group="IFVGRP" units="IFV unit m^{-3}"/>
+				<var name="IFV03TTDMask" array_group="IFVGRP" units="IFV unit m^{-3}"/>
+				<var name="IFV04TTDMask" array_group="IFVGRP" units="IFV unit m^{-3}"/>
+				<var name="IFV05TTDMask" array_group="IFVGRP" units="IFV unit m^{-3}"/>
+			</var_array>
+		</var_struct>
+	</var_struct>
+
+	<var_struct name="diagnostics" time_levs="1">
+		<var_array name="IFVTracersVertAdvTend" type="real" dimensions="nVertLevels nCells Time" packages="IRFTracerBudgetPKG">
+			<var name="IFV01VertAdvTend" array_group="IFVTracersVertAdvTendGroup" units="IFV unit m^{-3} s^{-1}"/>
+			<var name="IFV02VertAdvTend" array_group="IFVTracersVertAdvTendGroup" units="IFV unit m^{-3} s^{-1}"/>
+			<var name="IFV03VertAdvTend" array_group="IFVTracersVertAdvTendGroup" units="IFV unit m^{-3} s^{-1}"/>
+			<var name="IFV04VertAdvTend" array_group="IFVTracersVertAdvTendGroup" units="IFV unit m^{-3} s^{-1}"/>
+			<var name="IFV05VertAdvTend" array_group="IFVTracersVertAdvTendGroup" units="IFV unit m^{-3} s^{-1}"/>
+		</var_array>
+		<var_array name="IFVTracersVertMixTend" type="real" dimensions="nVertLevels nCells Time" packages="IRFTracerBudgetPKG">
+			<var name="IFV01VertMixTend" array_group="IFVTracersVertMixTendGroup" units="IFV unit m^{-3} s^{-1}"/>
+			<var name="IFV02VertMixTend" array_group="IFVTracersVertMixTendGroup" units="IFV unit m^{-3} s^{-1}"/>
+			<var name="IFV03VertMixTend" array_group="IFVTracersVertMixTendGroup" units="IFV unit m^{-3} s^{-1}"/>
+			<var name="IFV04VertMixTend" array_group="IFVTracersVertMixTendGroup" units="IFV unit m^{-3} s^{-1}"/>
+			<var name="IFV05VertMixTend" array_group="IFVTracersVertMixTendGroup" units="IFV unit m^{-3} s^{-1}"/>
+		</var_array>
+	</var_struct>

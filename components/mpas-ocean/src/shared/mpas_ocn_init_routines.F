@@ -175,7 +175,8 @@ contains
                ! Copy Impulse Response Functions from time index 1 to time 2
                ! That is because we copy it from index 2 to 1 at the beginning
                ! of each time step to reset the IRFs.
-               if ( trim(groupItr % memberName) == 'IRFTracers' ) then
+               if ( trim(groupItr % memberName) == 'IFVTracers'.or. &
+                    trim(groupItr % memberName) == 'IFHTracers' ) then
                   call mpas_pool_get_array(tracersPool, groupItr % memberName, tracersGroupNew, 2)
                   !$omp do schedule(runtime) private(k)
                   do iCell = 1, nCells
