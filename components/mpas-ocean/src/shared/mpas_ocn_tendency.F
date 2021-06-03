@@ -1057,6 +1057,20 @@ contains
             !$omp end parallel
          endif ! compute budgets
 
+         if (trim(groupItr % memberName)=='IFHTracers') then
+            !$omp parallel
+            !$omp do schedule(runtime)
+            do iCell = 1, nCellsAll
+            do k=1,nVertLevels
+            do n=1,nTracersGroup
+              IFHTracersHorMixTend(n,k,iCell) = tracerGroupTend(n,k,iCell)
+            enddo
+            enddo
+            enddo
+            !$omp end do
+            !$omp end parallel
+         endif
+
          call ocn_tracer_hmix_tend(meshPool, layerThickEdge, &
                                    layerThickness, zMid, tracerGroup, &
                                    RediKappa, slopeTriadUp, &
@@ -1080,6 +1094,20 @@ contains
             !$omp end do
             !$omp end parallel
          endif ! compute budgets
+
+         if (trim(groupItr % memberName)=='IFHTracers') then
+            !$omp parallel
+            !$omp do schedule(runtime)
+            do iCell = 1, nCellsAll
+            do k=1,nVertLevels
+            do n=1,nTracersGroup
+              IFHTracersHorMixTend(n,k,iCell) = tracerGroupTend(n,k,iCell) - IFHTracersHorMixTend(n,k,iCell)
+            enddo
+            enddo
+            enddo
+            !$omp end do
+            !$omp end parallel
+         endif
 
          !
          ! convert the surface tracer flux into a tracer tendency by
