@@ -513,7 +513,7 @@
 <config_salinity_restoring_under_sea_ice>.false.</config_salinity_restoring_under_sea_ice>
 
 <!-- tracer_forcing_debugTracers -->
-<config_use_debugTracers>.false.</config_use_debugTracers>
+<config_use_debugTracers>.true.</config_use_debugTracers>
 <config_reset_debugTracers_near_surface>.false.</config_reset_debugTracers_near_surface>
 <config_reset_debugTracers_top_nLayers>20</config_reset_debugTracers_top_nLayers>
 <config_debugTracers_limit_advection>.false.</config_debugTracers_limit_advection>
