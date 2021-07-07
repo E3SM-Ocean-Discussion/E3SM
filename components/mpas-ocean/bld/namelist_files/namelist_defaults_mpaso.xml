@@ -567,7 +567,7 @@
 <config_use_MacroMoleculesTracers_sea_ice_coupling>.false.</config_use_MacroMoleculesTracers_sea_ice_coupling>
 
 <!-- tracer_forcing_IFVTracers -->
-<config_use_IFVTracers>.false.</config_use_IFVTracers>
+<config_use_IFVTracers>.true.</config_use_IFVTracers>
 <config_IFVTracers_limit_advection>.false.</config_IFVTracers_limit_advection>
 <config_IFVTracers_normalize_by_layerThickness>.false.</config_IFVTracers_normalize_by_layerThickness>
 <config_use_IFVTracers_surface_bulk_forcing>.false.</config_use_IFVTracers_surface_bulk_forcing>
@@ -580,7 +580,7 @@
 <config_use_IFVTracers_sea_ice_coupling>.false.</config_use_IFVTracers_sea_ice_coupling>
 
 <!-- tracer_forcing_IFHTracers -->
-<config_use_IFHTracers>.false.</config_use_IFHTracers>
+<config_use_IFHTracers>.true.</config_use_IFHTracers>
 <config_IFHTracers_limit_advection>.false.</config_IFHTracers_limit_advection>
 <config_IFHTracers_normalize_by_layerThickness>.false.</config_IFHTracers_normalize_by_layerThickness>
 <config_use_IFHTracers_surface_bulk_forcing>.false.</config_use_IFHTracers_surface_bulk_forcing>
