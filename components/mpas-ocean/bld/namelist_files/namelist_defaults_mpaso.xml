@@ -516,6 +516,7 @@
 <config_use_debugTracers>.false.</config_use_debugTracers>
 <config_reset_debugTracers_near_surface>.false.</config_reset_debugTracers_near_surface>
 <config_reset_debugTracers_top_nLayers>20</config_reset_debugTracers_top_nLayers>
+<config_debugTracers_limit_advection>.false.</config_debugTracers_limit_advection>
 <config_use_debugTracers_surface_bulk_forcing>.false.</config_use_debugTracers_surface_bulk_forcing>
 <config_use_debugTracers_surface_restoring>.false.</config_use_debugTracers_surface_restoring>
 <config_use_debugTracers_interior_restoring>.false.</config_use_debugTracers_interior_restoring>
@@ -564,6 +565,32 @@
 <config_use_MacroMoleculesTracers_ttd_forcing>.false.</config_use_MacroMoleculesTracers_ttd_forcing>
 <config_use_MacroMoleculesTracers_surface_value>.false.</config_use_MacroMoleculesTracers_surface_value>
 <config_use_MacroMoleculesTracers_sea_ice_coupling>.false.</config_use_MacroMoleculesTracers_sea_ice_coupling>
+
+<!-- tracer_forcing_IFVTracers -->
+<config_use_IFVTracers>.false.</config_use_IFVTracers>
+<config_IFVTracers_limit_advection>.false.</config_IFVTracers_limit_advection>
+<config_IFVTracers_normalize_by_layerThickness>.false.</config_IFVTracers_normalize_by_layerThickness>
+<config_use_IFVTracers_surface_bulk_forcing>.false.</config_use_IFVTracers_surface_bulk_forcing>
+<config_use_IFVTracers_surface_restoring>.false.</config_use_IFVTracers_surface_restoring>
+<config_use_IFVTracers_interior_restoring>.false.</config_use_IFVTracers_interior_restoring>
+<config_use_IFVTracers_exponential_decay>.false.</config_use_IFVTracers_exponential_decay>
+<config_use_IFVTracers_idealAge_forcing>.false.</config_use_IFVTracers_idealAge_forcing>
+<config_use_IFVTracers_ttd_forcing>.false.</config_use_IFVTracers_ttd_forcing>
+<config_use_IFVTracers_surface_value>.false.</config_use_IFVTracers_surface_value>
+<config_use_IFVTracers_sea_ice_coupling>.false.</config_use_IFVTracers_sea_ice_coupling>
+
+<!-- tracer_forcing_IFHTracers -->
+<config_use_IFHTracers>.false.</config_use_IFHTracers>
+<config_IFHTracers_limit_advection>.false.</config_IFHTracers_limit_advection>
+<config_IFHTracers_normalize_by_layerThickness>.false.</config_IFHTracers_normalize_by_layerThickness>
+<config_use_IFHTracers_surface_bulk_forcing>.false.</config_use_IFHTracers_surface_bulk_forcing>
+<config_use_IFHTracers_surface_restoring>.false.</config_use_IFHTracers_surface_restoring>
+<config_use_IFHTracers_interior_restoring>.false.</config_use_IFHTracers_interior_restoring>
+<config_use_IFHTracers_exponential_decay>.false.</config_use_IFHTracers_exponential_decay>
+<config_use_IFHTracers_idealAge_forcing>.false.</config_use_IFHTracers_idealAge_forcing>
+<config_use_IFHTracers_ttd_forcing>.false.</config_use_IFHTracers_ttd_forcing>
+<config_use_IFHTracers_surface_value>.false.</config_use_IFHTracers_surface_value>
+<config_use_IFHTracers_sea_ice_coupling>.false.</config_use_IFHTracers_sea_ice_coupling>
 
 <!-- AM_globalStats -->
 <config_AM_globalStats_enable>.true.</config_AM_globalStats_enable>

@@ -2355,6 +2355,14 @@ Valid values: Any positive integer value greater than or equal to 0.
 Default: Defined in namelist_defaults.xml
 </entry>
 
+<entry id="config_debugTracers_limit_advection" type="logical"
+	category="tracer_forcing_debugTracers" group="tracer_forcing_debugTracers">
+if true, the debugTracers limiter for advection is on
+
+Valid values: .true. or .false.
+Default: Defined in namelist_defaults.xml
+</entry>
+
 <entry id="config_use_debugTracers_surface_bulk_forcing" type="logical"
 	category="tracer_forcing_debugTracers" group="tracer_forcing_debugTracers">
 if true, surface bulk forcing from coupler is added to surfaceTracerFlux in 'debugTracers' category
@@ -2695,6 +2703,188 @@ Default: Defined in namelist_defaults.xml
 <entry id="config_use_MacroMoleculesTracers_sea_ice_coupling" type="logical"
 	category="tracer_forcing_MacroMoleculesTracers" group="tracer_forcing_MacroMoleculesTracers">
 if true, couple MacroMolecules fields with sea ice
+
+Valid values: .true. or .false.
+Default: Defined in namelist_defaults.xml
+</entry>
+
+
+<!-- tracer_forcing_IFVTracers -->
+
+<entry id="config_use_IFVTracers" type="logical"
+	category="tracer_forcing_IFVTracers" group="tracer_forcing_IFVTracers">
+if true, the 'IFVGRP' category is enabled for the run
+
+Valid values: .true. or .false.
+Default: Defined in namelist_defaults.xml
+</entry>
+
+<entry id="config_IFVTracers_limit_advection" type="logical"
+	category="tracer_forcing_IFVTracers" group="tracer_forcing_IFVTracers">
+if true, the IFVTracers limiter for advection is on
+
+Valid values: .true. or .false.
+Default: Defined in namelist_defaults.xml
+</entry>
+
+<entry id="config_IFVTracers_normalize_by_layerThickness" type="logical"
+	category="tracer_forcing_IFVTracers" group="tracer_forcing_IFVTracers">
+if true, the IFVTracers Tend variables are divided by layerThickness
+
+Valid values: .true. or .false.
+Default: Defined in namelist_defaults.xml
+</entry>
+
+<entry id="config_use_IFVTracers_surface_bulk_forcing" type="logical"
+	category="tracer_forcing_IFVTracers" group="tracer_forcing_IFVTracers">
+if true, surface bulk forcing from coupler is added to surfaceTracerFlux in 'IFVGRP' category
+
+Valid values: .true. or .false.
+Default: Defined in namelist_defaults.xml
+</entry>
+
+<entry id="config_use_IFVTracers_surface_restoring" type="logical"
+	category="tracer_forcing_IFVTracers" group="tracer_forcing_IFVTracers">
+if true, surface restoring source is applied to tracers in 'IFVGRP' category
+
+Valid values: .true. or .false.
+Default: Defined in namelist_defaults.xml
+</entry>
+
+<entry id="config_use_IFVTracers_interior_restoring" type="logical"
+	category="tracer_forcing_IFVTracers" group="tracer_forcing_IFVTracers">
+if true, interior restoring source is applied to tracers in 'IFVGRP' category
+
+Valid values: .true. or .false.
+Default: Defined in namelist_defaults.xml
+</entry>
+
+<entry id="config_use_IFVTracers_exponential_decay" type="logical"
+	category="tracer_forcing_IFVTracers" group="tracer_forcing_IFVTracers">
+if true, exponential decay source is applied to tracers in 'IFVGRP' category
+
+Valid values: .true. or .false.
+Default: Defined in namelist_defaults.xml
+</entry>
+
+<entry id="config_use_IFVTracers_idealAge_forcing" type="logical"
+	category="tracer_forcing_IFVTracers" group="tracer_forcing_IFVTracers">
+if true, idealAge forcing source is applied to tracers in 'IFVGRP' category
+
+Valid values: .true. or .false.
+Default: Defined in namelist_defaults.xml
+</entry>
+
+<entry id="config_use_IFVTracers_ttd_forcing" type="logical"
+	category="tracer_forcing_IFVTracers" group="tracer_forcing_IFVTracers">
+if true, transit time distribution forcing source is applied to tracers in 'IFVGRP' category
+
+Valid values: .true. or .false.
+Default: Defined in namelist_defaults.xml
+</entry>
+
+<entry id="config_use_IFVTracers_surface_value" type="logical"
+	category="tracer_forcing_IFVTracers" group="tracer_forcing_IFVTracers">
+if true, surface value is computed for 'IFVGRP' category
+
+Valid values: .true. or .false.
+Default: Defined in namelist_defaults.xml
+</entry>
+
+<entry id="config_use_IFVTracers_sea_ice_coupling" type="logical"
+	category="tracer_forcing_IFVTracers" group="tracer_forcing_IFVTracers">
+if true, couple IFV fields with sea ice
+
+Valid values: .true. or .false.
+Default: Defined in namelist_defaults.xml
+</entry>
+
+
+<!-- tracer_forcing_IFHTracers -->
+
+<entry id="config_use_IFHTracers" type="logical"
+	category="tracer_forcing_IFHTracers" group="tracer_forcing_IFHTracers">
+if true, the 'IFHGRP' category is enabled for the run
+
+Valid values: .true. or .false.
+Default: Defined in namelist_defaults.xml
+</entry>
+
+<entry id="config_IFHTracers_limit_advection" type="logical"
+	category="tracer_forcing_IFHTracers" group="tracer_forcing_IFHTracers">
+if true, the IFHTracers limiter for advection is on
+
+Valid values: .true. or .false.
+Default: Defined in namelist_defaults.xml
+</entry>
+
+<entry id="config_IFHTracers_normalize_by_layerThickness" type="logical"
+	category="tracer_forcing_IFHTracers" group="tracer_forcing_IFHTracers">
+if true, the IFHTracers Tend variables are divided by layerThickness
+
+Valid values: .true. or .false.
+Default: Defined in namelist_defaults.xml
+</entry>
+
+<entry id="config_use_IFHTracers_surface_bulk_forcing" type="logical"
+	category="tracer_forcing_IFHTracers" group="tracer_forcing_IFHTracers">
+if true, surface bulk forcing from coupler is added to surfaceTracerFlux in 'IFHGRP' category
+
+Valid values: .true. or .false.
+Default: Defined in namelist_defaults.xml
+</entry>
+
+<entry id="config_use_IFHTracers_surface_restoring" type="logical"
+	category="tracer_forcing_IFHTracers" group="tracer_forcing_IFHTracers">
+if true, surface restoring source is applied to tracers in 'IFHGRP' category
+
+Valid values: .true. or .false.
+Default: Defined in namelist_defaults.xml
+</entry>
+
+<entry id="config_use_IFHTracers_interior_restoring" type="logical"
+	category="tracer_forcing_IFHTracers" group="tracer_forcing_IFHTracers">
+if true, interior restoring source is applied to tracers in 'IFHGRP' category
+
+Valid values: .true. or .false.
+Default: Defined in namelist_defaults.xml
+</entry>
+
+<entry id="config_use_IFHTracers_exponential_decay" type="logical"
+	category="tracer_forcing_IFHTracers" group="tracer_forcing_IFHTracers">
+if true, exponential decay source is applied to tracers in 'IFHGRP' category
+
+Valid values: .true. or .false.
+Default: Defined in namelist_defaults.xml
+</entry>
+
+<entry id="config_use_IFHTracers_idealAge_forcing" type="logical"
+	category="tracer_forcing_IFHTracers" group="tracer_forcing_IFHTracers">
+if true, idealAge forcing source is applied to tracers in 'IFHGRP' category
+
+Valid values: .true. or .false.
+Default: Defined in namelist_defaults.xml
+</entry>
+
+<entry id="config_use_IFHTracers_ttd_forcing" type="logical"
+	category="tracer_forcing_IFHTracers" group="tracer_forcing_IFHTracers">
+if true, transit time distribution forcing source is applied to tracers in 'IFHGRP' category
+
+Valid values: .true. or .false.
+Default: Defined in namelist_defaults.xml
+</entry>
+
+<entry id="config_use_IFHTracers_surface_value" type="logical"
+	category="tracer_forcing_IFHTracers" group="tracer_forcing_IFHTracers">
+if true, surface value is computed for 'IFHGRP' category
+
+Valid values: .true. or .false.
+Default: Defined in namelist_defaults.xml
+</entry>
+
+<entry id="config_use_IFHTracers_sea_ice_coupling" type="logical"
+	category="tracer_forcing_IFHTracers" group="tracer_forcing_IFHTracers">
+if true, couple IFH fields with sea ice
 
 Valid values: .true. or .false.
 Default: Defined in namelist_defaults.xml
