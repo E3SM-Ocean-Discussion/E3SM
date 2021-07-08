@@ -942,6 +942,7 @@ add_default($nl, 'config_use_activeTracers_ttd_forcing');
 add_default($nl, 'config_use_debugTracers');
 add_default($nl, 'config_reset_debugTracers_near_surface');
 add_default($nl, 'config_reset_debugTracers_top_nLayers');
+add_default($nl, 'config_debugTracers_limit_advection');
 add_default($nl, 'config_use_debugTracers_surface_bulk_forcing');
 add_default($nl, 'config_use_debugTracers_surface_restoring');
 add_default($nl, 'config_use_debugTracers_interior_restoring');
@@ -1047,6 +1048,38 @@ add_default($nl, 'config_use_MacroMoleculesTracers_idealAge_forcing');
 add_default($nl, 'config_use_MacroMoleculesTracers_ttd_forcing');
 add_default($nl, 'config_use_MacroMoleculesTracers_surface_value');
 add_default($nl, 'config_use_MacroMoleculesTracers_sea_ice_coupling');
+
+#############################################
+# Namelist group: tracer_forcing_IFVTracers #
+#############################################
+
+add_default($nl, 'config_use_IFVTracers');
+add_default($nl, 'config_IFVTracers_limit_advection');
+add_default($nl, 'config_IFVTracers_normalize_by_layerThickness');
+add_default($nl, 'config_use_IFVTracers_surface_bulk_forcing');
+add_default($nl, 'config_use_IFVTracers_surface_restoring');
+add_default($nl, 'config_use_IFVTracers_interior_restoring');
+add_default($nl, 'config_use_IFVTracers_exponential_decay');
+add_default($nl, 'config_use_IFVTracers_idealAge_forcing');
+add_default($nl, 'config_use_IFVTracers_ttd_forcing');
+add_default($nl, 'config_use_IFVTracers_surface_value');
+add_default($nl, 'config_use_IFVTracers_sea_ice_coupling');
+
+#############################################
+# Namelist group: tracer_forcing_IFHTracers #
+#############################################
+
+add_default($nl, 'config_use_IFHTracers');
+add_default($nl, 'config_IFHTracers_limit_advection');
+add_default($nl, 'config_IFHTracers_normalize_by_layerThickness');
+add_default($nl, 'config_use_IFHTracers_surface_bulk_forcing');
+add_default($nl, 'config_use_IFHTracers_surface_restoring');
+add_default($nl, 'config_use_IFHTracers_interior_restoring');
+add_default($nl, 'config_use_IFHTracers_exponential_decay');
+add_default($nl, 'config_use_IFHTracers_idealAge_forcing');
+add_default($nl, 'config_use_IFHTracers_ttd_forcing');
+add_default($nl, 'config_use_IFHTracers_surface_value');
+add_default($nl, 'config_use_IFHTracers_sea_ice_coupling');
 
 ##################################
 # Namelist group: AM_globalStats #
@@ -1637,6 +1670,8 @@ my @groups = qw(run_modes
                 tracer_forcing_ecosystracers
                 tracer_forcing_dmstracers
                 tracer_forcing_macromoleculestracers
+                tracer_forcing_ifvtracers
+                tracer_forcing_ifhtracers
                 am_globalstats
                 am_surfaceareaweightedaverages
                 am_watermasscensus

@@ -96,7 +96,8 @@ module ocn_tracer_advection
       !*** Local variables
 
       logical :: &
-         computeBudgets      ! flag to compute active tracer budget
+         computeBudgets,    &! flag to compute active tracer budget
+         limiterOn           ! flag to limit tracer group
 
       real (kind=RKIND), dimension(:,:), pointer, contiguous :: &
          advCoefs, advCoefs3rd ! advection coefficients
@@ -136,9 +137,18 @@ module ocn_tracer_advection
 
       ! determine whether active tracer budgets should be computed
       computeBudgets = (budgetDiagsOn .and. tracerGroupName == 'activeTracers')
+      if (config_IFVTracers_limit_advection.and.(tracerGroupName == 'IFVTracers').or. &
+          config_IFHTracers_limit_advection.and.(tracerGroupName == 'IFHTracers').or. &
+          config_debugTracers_limit_advection.and.(tracerGroupName == 'debugTracers')) then
+        limiterOn = .true.
+      else
+        limiterOn = .false.
+      endif
 
       ! call specific advection routine based on choice of monotonicity
-      if (monotonicOn) then
+      !!!!! MRP IRFs: need to change this so it is less confusing
+      if (monotonicOn.or.limiterOn) then
+         call mpas_log_write('Calling mono_tend for tracer group '//tracerGroupName)
          call ocn_tracer_advection_mono_tend(tend, tracers, layerThickness,    &
                                              normalThicknessFlux, w, dt,       &
                                              advCoefs, advCoefs3rd,            &
@@ -147,13 +157,15 @@ module ocn_tracer_advection
                                              minLevelEdgeBot, maxLevelEdgeTop, &
                                              highOrderAdvectionMask,           &
                                              edgeSignOnCell, meshPool,         &
-                                             computeBudgets)
+                                             computeBudgets, tracerGroupName,      &
+                                             limiterOn)
 
       else
+         call mpas_log_write('Calling std_tend for tracer group '//tracerGroupName)
          call ocn_tracer_advection_std_tend(tracers, advCoefs, advCoefs3rd, &
             nAdvCellsForEdge, advCellsForEdge, normalThicknessFlux, w, layerThickness, &
             layerThickness, dt, meshPool, tend, minLevelCell, maxLevelCell, &
-            minLevelEdgeBot, maxLevelEdgeTop, highOrderAdvectionMask, edgeSignOnCell)
+            minLevelEdgeBot, maxLevelEdgeTop, highOrderAdvectionMask, edgeSignOnCell, tracerGroupName)
       endif
 
       call mpas_timer_stop("tracer adv")

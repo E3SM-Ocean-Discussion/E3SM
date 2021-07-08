@@ -148,7 +148,12 @@ module ocn_diagnostics_variables
       activeTracerVerticalAdvectionTendency,   &
       activeTracerHorizontalAdvectionEdgeFlux, &
       activeTracerVerticalAdvectionTopFlux,    &
-      activeTracerVertMixTendency
+      activeTracerVertMixTendency,             &
+      IFHTracersHorAdvTend,    &
+      IFVTracersVertAdvTend, &
+      IFHTracersHorMixTend, &
+      IFVTracersVertMixTend
+
 
    real (kind=RKIND), pointer :: daysSinceStartOfSim
    character (len=StrKIND), pointer :: xtime, simulationStartTime
@@ -297,6 +302,15 @@ contains
                   'salinitySurfaceRestoringTendency', &
                    salinitySurfaceRestoringTendency)
       end if
+
+      if ( config_use_IFHTracers ) then
+         call mpas_pool_get_array(diagnosticsPool,'IFHTracersHorAdvTend',IFHTracersHorAdvTend)
+         call mpas_pool_get_array(diagnosticsPool,'IFHTracersHorMixTend',IFHTracersHorMixTend)
+      endif
+      if ( config_use_IFVTracers ) then
+         call mpas_pool_get_array(diagnosticsPool,'IFVTracersVertAdvTend',IFVTracersVertAdvTend)
+         call mpas_pool_get_array(diagnosticsPool,'IFVTracersVertMixTend',IFVTracersVertMixTend)
+      endif
 
       ! Retrieve pointers for configurations where land_ice_flux_mode is enabled
       if ( trim(config_land_ice_flux_mode) /= 'off' ) then

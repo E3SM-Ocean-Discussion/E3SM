@@ -1168,6 +1168,16 @@ def buildnml(case, caseroot, compname):
         lines.append('    <var_array name="activeTracerVerticalAdvectionTopFlux"/>')
         lines.append('    <var_array name="activeTracerHorizontalAdvectionEdgeFlux"/>')
         lines.append('    <var_array name="totalFreshWaterTemperatureFlux"/>')
+
+        # These Impulse Function variables only appear if IFH or IFV are on.
+        # MRP note before merge: the next two variables are not needed if they are the sum of the others.
+        lines.append('    <var_array name="IFHTracersTend"/>')
+        lines.append('    <var_array name="IFVTracersTend"/>')
+        lines.append('    <var_array name="IFHTracersHorAdvTend"/>')
+        lines.append('    <var_array name="IFVTracersVertAdvTend"/>')
+        lines.append('    <var_array name="IFHTracersHorMixTend"/>')
+        lines.append('    <var_array name="IFVTracersVertMixTend"/>')
+
         if ocn_iceberg == 'true':
             lines.append('    <var name="icebergHeatFlux"/>')
             lines.append('    <var name="icebergFreshWaterFlux"/>')

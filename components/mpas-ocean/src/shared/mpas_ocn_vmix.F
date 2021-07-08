@@ -1185,6 +1185,14 @@ contains
                   !$omp end do
                   !$omp end parallel
                endif
+            elseif (trim(groupItr % memberName) == 'IFVTracers') then
+                  !$omp parallel
+                  !$omp do schedule(runtime)
+                  do iCell = 1, nCells
+                     IFVTracersVertMixTend(:,:,iCell)=tracersGroup(:,:,iCell)
+                  end do
+                  !$omp end do
+                  !$omp end parallel
             endif
 
             if ( associated(tracersGroup) ) then
@@ -1214,6 +1222,15 @@ contains
                   !$omp end do
                   !$omp end parallel
                endif
+            elseif (trim(groupItr % memberName) == 'IFVTracers') then
+                  !$omp parallel
+                  !$omp do schedule(runtime)
+                  do iCell = 1, nCells
+                     IFVTracersVertMixTend(:,:,iCell) = &
+                        (tracersGroup(:,:,iCell) - IFVTracersVertMixTend(:,:,iCell)) / dt
+                  end do
+                  !$omp end do
+                  !$omp end parallel
             endif
 
          end if
