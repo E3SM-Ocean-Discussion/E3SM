@@ -2571,7 +2571,7 @@
 			 description="barotropic average of GM  Bolus velocity"
 			 packages="splitTimeIntegrator"
 		/>
-		<var name="layerThicknessEdge" type="real" dimensions="nVertLevels nEdges Time" units="m"
+		<var name="layerThicknessEdgeMean" type="real" dimensions="nVertLevels nEdges Time" units="m"
 			 description="layer thickness averaged from cell center to edges"
 			 packages="forwardMode;analysisMode"
 		/>

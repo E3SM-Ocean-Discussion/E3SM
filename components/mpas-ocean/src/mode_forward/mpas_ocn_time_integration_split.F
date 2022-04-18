@@ -379,48 +379,27 @@ module ocn_time_integration_split
       ! Initialize * variables that are used to compute baroclinic
       ! tendencies below.
 
-! mrp current head
       !$omp parallel
-      !$omp do schedule(runtime) private(k)
+      !$omp do schedule(runtime) private(k, thicknessSum)
       do iEdge = 1,nEdgesAll
-      do k = 1,nVertLevels
 
-         normalBaroclinicVelocityCur(k,iEdge) = &
-                                 normalVelocityCur(k,iEdge) - &
-                         normalBarotropicVelocityCur(iEdge)
+         ! Compute barotropic component ubar at the beginning of every time step
+         thicknessSum  = layerThicknessEdge(1,iEdge)
+         normalBarotropicVelocityCur(iEdge) = normalVelocityCur(1,iEdge) * layerThicknessEdge(1,iEdge)
+         do k = 2, maxLevelEdgeTop(iEdge)
+            thicknessSum  =  thicknessSum + layerThicknessEdge(k,iEdge)
+            normalBarotropicVelocityCur(iEdge) = normalBarotropicVelocityCur(iEdge) + normalVelocityCur(k,iEdge) * layerThicknessEdge(k,iEdge)
+         enddo
+         normalBarotropicVelocityCur(iEdge) = normalBarotropicVelocityCur(iEdge) / thicknessSum
 
-         normalVelocityNew(k,iEdge) = normalVelocityCur(k,iEdge)
-
-         normalBaroclinicVelocityNew(k,iEdge) = &
-         normalBaroclinicVelocityCur(k,iEdge)
-      end do
+         ! Compute baroclinic component u' = u - ubar at the beginning of every time step
+         do k = 1, nVertLevels !mrp, could tighten these bounds later: maxLevelEdgeTop % array(iEdge)
+            normalBaroclinicVelocityCur(k,iEdge) = normalVelocityCur(k,iEdge) - normalBarotropicVelocityCur(iEdge)
+            normalVelocityNew(k,iEdge) = normalVelocityCur(k,iEdge)
+            normalBaroclinicVelocityNew(k,iEdge) = normalBaroclinicVelocityCur(k,iEdge)
+         end do
       end do
       !$omp end do
-! mrp current head end
-
-! mrp PR begin
-         !$omp parallel
-         !$omp do schedule(runtime) private(k, thicknessSum)
-         do iEdge = 1, nEdges
-
-            ! Compute barotropic component
-            thicknessSum  = layerThicknessEdge(1,iEdge)
-            normalBarotropicVelocityCur(iEdge) = normalVelocityCur(1,iEdge) * layerThicknessEdge(1,iEdge)
-            do k = 2, maxLevelEdgeTop(iEdge)
-               thicknessSum  =  thicknessSum + layerThicknessEdge(k,iEdge)
-               normalBarotropicVelocityCur(iEdge) = normalBarotropicVelocityCur(iEdge) + normalVelocityCur(k,iEdge) * layerThicknessEdge(k,iEdge)
-            enddo
-            normalBarotropicVelocityCur(iEdge) = normalBarotropicVelocityCur(iEdge) / thicknessSum
-
-            ! Compute baroclinic component
-            do k = 1, nVertLevels !maxLevelEdgeTop % array(iEdge)
-               normalBaroclinicVelocityCur(k,iEdge) = normalVelocityCur(k,iEdge) - normalBarotropicVelocityCur(iEdge)
-               normalVelocityNew(k,iEdge) = normalVelocityCur(k,iEdge)
-               normalBaroclinicVelocityNew(k,iEdge) = normalBaroclinicVelocityCur(k,iEdge)
-            end do
-         end do
-         !$omp end do
-! mrp PR end
 
       !$omp do schedule(runtime) private(k)
       do iCell = 1, nCellsAll
