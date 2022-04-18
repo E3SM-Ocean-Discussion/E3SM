@@ -89,7 +89,6 @@ module ocn_time_integration_split
       nBtrSubcycles     ! number of barotropic subcycles
 
    real (kind=RKIND) :: &
-      useVelocityCorrection,&! mask for velocity correction
       splitFact          ! mask for terms in split or unsplit cases
 
 !***********************************************************************
@@ -173,7 +172,6 @@ module ocn_time_integration_split
          flux,             &! temp for computing flux for barotropic
          sshEdge,          &! sea surface height at edge
          CoriolisTerm,     &! temp for computing coriolis term (fuperp)
-         normalVelocityCorrection, &! velocity correction
          temp,             &! temp for holding vars at new time
          temp_h,           &! temporary for phi
          temp_mask,        &! temporary mask (edgeMask)
@@ -381,16 +379,7 @@ module ocn_time_integration_split
       ! Initialize * variables that are used to compute baroclinic
       ! tendencies below.
 
-      ! The baroclinic velocity needs be recomputed at the beginning
-      ! of a timestep because the implicit vertical mixing is
-      ! conducted on the total u.  We keep normalBarotropicVelocity
-      ! from the previous timestep.
-      ! Note that normalBaroclinicVelocity may now include a
-      ! barotropic component, because the weights layerThickness
-      ! have changed.  That is OK, because the barotropicForcing
-      ! variable subtracts out the barotropic component from the
-      ! baroclinic.
-
+! mrp current head
       !$omp parallel
       !$omp do schedule(runtime) private(k)
       do iEdge = 1,nEdgesAll
@@ -407,6 +396,31 @@ module ocn_time_integration_split
       end do
       end do
       !$omp end do
+! mrp current head end
+
+! mrp PR begin
+         !$omp parallel
+         !$omp do schedule(runtime) private(k, thicknessSum)
+         do iEdge = 1, nEdges
+
+            ! Compute barotropic component
+            thicknessSum  = layerThicknessEdge(1,iEdge)
+            normalBarotropicVelocityCur(iEdge) = normalVelocityCur(1,iEdge) * layerThicknessEdge(1,iEdge)
+            do k = 2, maxLevelEdgeTop(iEdge)
+               thicknessSum  =  thicknessSum + layerThicknessEdge(k,iEdge)
+               normalBarotropicVelocityCur(iEdge) = normalBarotropicVelocityCur(iEdge) + normalVelocityCur(k,iEdge) * layerThicknessEdge(k,iEdge)
+            enddo
+            normalBarotropicVelocityCur(iEdge) = normalBarotropicVelocityCur(iEdge) / thicknessSum
+
+            ! Compute baroclinic component
+            do k = 1, nVertLevels !maxLevelEdgeTop % array(iEdge)
+               normalBaroclinicVelocityCur(k,iEdge) = normalVelocityCur(k,iEdge) - normalBarotropicVelocityCur(iEdge)
+               normalVelocityNew(k,iEdge) = normalVelocityCur(k,iEdge)
+               normalBaroclinicVelocityNew(k,iEdge) = normalBaroclinicVelocityCur(k,iEdge)
+            end do
+         end do
+         !$omp end do
+! mrp PR end
 
       !$omp do schedule(runtime) private(k)
       do iCell = 1, nCellsAll
@@ -1414,17 +1428,9 @@ module ocn_time_integration_split
             ! debugging, and can be removed later.
             call mpas_timer_start('btr se ssh verif')
 
-            ! Correction velocity
-            !   normalVelocityCorrection = (Flux - Sum(h u*))/H
-            ! or, for the full latex version:
-            !{\bf u}^{corr} = \left( {\overline {\bf F}}
-            !  - \sum_{k=1}^{N^{edge}} h_{k,*}^{edge}
-            ! {\bf u}_k^{avg} \right)
-            ! \left/ \sum_{k=1}^{N^{edge}} h_{k,*}^{edge}   \right.
+            nEdges = nEdgesHalo(config_num_halos+1 ) mrp check min w nEdgesPtr in PR
 
-            allocate(uTemp(nVertLevels))
-            nEdges = nEdgesHalo(config_num_halos-1 )
-
+! mrp current head
             !$omp parallel
             !$omp do schedule(runtime) &
             !$omp private(k, uTemp, normalThicknessFluxSum, &
@@ -1482,6 +1488,44 @@ module ocn_time_integration_split
             !$omp end parallel
 
             deallocate(uTemp)
+! mrp current head end
+
+! mrp PR begin
+               !$omp parallel
+               !$omp do schedule(runtime) private(k, thicknessSum)
+               do iEdge = 1, nEdges
+
+                  ! thicknessSum is initialized outside the loop because on land boundaries
+                  ! maxLevelEdgeTop=0, but I want to initialize thicknessSum with a
+                  ! nonzero value to avoid a NaN.
+                  thicknessSum  = layerThicknessEdge(1,iEdge)
+                  BtrAvgOfBaroclinicVelocity(iEdge) = normalBaroclinicVelocityNew(1,iEdge) * layerThicknessEdge(1,iEdge)
+                  BtrAvgOfGMBolusVelocity(iEdge) = normalGMBolusVelocity(1,iEdge) * layerThicknessEdge(1,iEdge)
+                  do k = 2, maxLevelEdgeTop(iEdge)
+                     thicknessSum  =  thicknessSum + layerThicknessEdge(k,iEdge)
+                     BtrAvgOfBaroclinicVelocity(iEdge) = BtrAvgOfBaroclinicVelocity(iEdge) + normalBaroclinicVelocityNew(k,iEdge) * layerThicknessEdge(k,iEdge)
+                     BtrAvgOfGMBolusVelocity(iEdge) = BtrAvgOfGMBolusVelocity(iEdge) + normalGMBolusVelocity(k,iEdge) * layerThicknessEdge(k,iEdge)
+                  enddo
+                  BtrAvgOfBaroclinicVelocity(iEdge) = BtrAvgOfBaroclinicVelocity(iEdge) / thicknessSum
+                  BtrAvgOfGMBolusVelocity(iEdge) = BtrAvgOfGMBolusVelocity(iEdge) / thicknessSum
+
+                  ! Compute barotropic velocity from thickness flux.
+                  normalBarotropicVelocityNew(iEdge) = barotropicThicknessFlux(iEdge) / thicknessSum
+
+                  do k = 1, nVertLevels
+
+                     ! Compute transport velocity, used to transport thickness and tracers.
+                     normalTransportVelocity(k,iEdge) = edgeMask(k,iEdge) &
+                          *(  normalBarotropicVelocityNew(iEdge) &
+                            + normalBaroclinicVelocityNew(k,iEdge) - BtrAvgOfBaroclinicVelocity(iEdge) &
+                            + normalGMBolusVelocity(k,iEdge) - BtrAvgOfGMBolusVelocity(iEdge) )
+                  enddo
+
+               end do ! iEdge
+               !$omp end do
+               !$omp end parallel
+
+! mrp PR begin end
 
             call mpas_timer_stop('btr se ssh verif')
 
@@ -1708,7 +1752,8 @@ module ocn_time_integration_split
                ! This is u used in next iteration or step
                normalVelocityNew(k,iEdge) = edgeMask(k,iEdge)* &
                          ( normalBarotropicVelocityNew(iEdge) + &
-                           normalBaroclinicVelocityNew(k,iEdge) )
+                           normalBaroclinicVelocityNew(k,iEdge) - &
+                           BtrAvgOfBaroclinicVelocity(iEdge) )
 
             enddo
             end do ! iEdge
