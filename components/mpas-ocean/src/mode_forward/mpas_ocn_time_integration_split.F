@@ -1409,104 +1409,42 @@ module ocn_time_integration_split
 
             nEdges = nEdgesHalo(config_num_halos+1 ) !mrp check min w nEdgesPtr in PR
 
-! mrp current head
-!            !$omp parallel
-!            !$omp do schedule(runtime) &
-!            !$omp private(k, uTemp, normalThicknessFluxSum, &
-!            !$omp         thicknessSum, normalVelocityCorrection)
-!            do iEdge = 1, nEdges
-!
-!               ! velocity for normalVelocityCorrectionection is
-!               ! normalBarotropicVelocity +
-!               ! normalBaroclinicVelocity + uBolus
-!               uTemp(:) = normalBarotropicVelocityNew(iEdge) &
-!                      + normalBaroclinicVelocityNew(:,iEdge) &
-!                      +       normalGMBolusVelocity(:,iEdge)
-!
-!               ! thicknessSum is initialized outside the loop because
-!               ! on land boundaries maxLevelEdgeTop=0, but I want to
-!               ! initialize thicknessSum with a nonzero value to avoid
-!               ! a NaN.
-!               normalThicknessFluxSum = layerThickEdgeFlux(minLevelEdgeBot(iEdge),iEdge)* &
-!                                        uTemp(minLevelEdgeBot(iEdge))
-!               thicknessSum  = layerThickEdgeFlux(minLevelEdgeBot(iEdge),iEdge)
-!
-!               do k = minLevelEdgeBot(iEdge)+1, maxLevelEdgeTop(iEdge)
-!                  normalThicknessFluxSum = normalThicknessFluxSum + &
-!                                           layerThickEdgeFlux(k,iEdge)*&
-!                                           uTemp(k)
-!                  thicknessSum = thicknessSum + &
-!                                 layerThickEdgeFlux(k,iEdge)
-!               enddo
-!
-!               normalVelocityCorrection = useVelocityCorrection* &
-!                             ((barotropicThicknessFlux(iEdge) - &
-!                               normalThicknessFluxSum)/thicknessSum)
-!
-!               do k = 1, nVertLevels
-!
-!                  ! normalTransportVelocity = normalBarotropicVelocity
-!                  !                         + normalBaroclinicVelocity
-!                  !                         + normalGMBolusVelocity
-!                  !                         + normalVelocityCorrection
-!                  ! This is u used in advective terms for layerThickness
-!                  ! and tracers in tendency calls in stage 3.
-!                  !mrp note: in QC version, there is an if
-!                  !    (config_use_GM) on adding normalGMBolusVelocity
-!                  !    I think it is not needed because
-!                  !    normalGMBolusVelocity=0 when GM not on.
-!                  normalTransportVelocity(k,iEdge) = edgeMask(k,iEdge) &
-!                           *(normalBarotropicVelocityNew(iEdge)   + &
-!                             normalBaroclinicVelocityNew(k,iEdge) + &
-!                             normalGMBolusVelocity(k,iEdge) + &
-!                             normalVelocityCorrection )
-!               enddo
-!
-!            end do ! iEdge
-!            !$omp end do
-!            !$omp end parallel
-!
-!            deallocate(uTemp)
-! mrp current head end
+            !$omp parallel
+            !$omp do schedule(runtime) private(k, thicknessSum)
+            do iEdge = 1, nEdges
 
-! mrp PR begin
-               !$omp parallel
-               !$omp do schedule(runtime) private(k, thicknessSum)
-               do iEdge = 1, nEdges
+               ! thicknessSum is initialized outside the loop because on land boundaries
+               ! maxLevelEdgeTop=0, but I want to initialize thicknessSum with a
+               ! nonzero value to avoid a NaN.
+               thicknessSum  = layerThickEdgeMean(1,iEdge)
+               BtrAvgOfBaroclinicVelocity(iEdge) = normalBaroclinicVelocityNew(1,iEdge) * layerThickEdgeMean(1,iEdge)
+               ! note, BtrAvgOfGMBolusVelocity could be changed from an array
+               ! to a scalar if it is not needed to save for later inspection
+               BtrAvgOfGMBolusVelocity(iEdge) = normalGMBolusVelocity(1,iEdge) * layerThickEdgeMean(1,iEdge)
+               do k = minLevelEdgeBot(iEdge)+1, maxLevelEdgeTop(iEdge)
+                  thicknessSum  =  thicknessSum + layerThickEdgeMean(k,iEdge)
+                  BtrAvgOfBaroclinicVelocity(iEdge) = BtrAvgOfBaroclinicVelocity(iEdge) + normalBaroclinicVelocityNew(k,iEdge) * layerThickEdgeMean(k,iEdge)
+                  BtrAvgOfGMBolusVelocity(iEdge) = BtrAvgOfGMBolusVelocity(iEdge) + normalGMBolusVelocity(k,iEdge) * layerThickEdgeMean(k,iEdge)
+               enddo
+               BtrAvgOfBaroclinicVelocity(iEdge) = BtrAvgOfBaroclinicVelocity(iEdge) / thicknessSum
+               BtrAvgOfGMBolusVelocity(iEdge) = BtrAvgOfGMBolusVelocity(iEdge) / thicknessSum
 
-                  ! thicknessSum is initialized outside the loop because on land boundaries
-                  ! maxLevelEdgeTop=0, but I want to initialize thicknessSum with a
-                  ! nonzero value to avoid a NaN.
-                  thicknessSum  = layerThickEdgeMean(1,iEdge)
-                  BtrAvgOfBaroclinicVelocity(iEdge) = normalBaroclinicVelocityNew(1,iEdge) * layerThickEdgeMean(1,iEdge)
-                  ! note, BtrAvgOfGMBolusVelocity could be changed from an array
-                  ! to a scalar if it is not needed to save for later inspection
-                  BtrAvgOfGMBolusVelocity(iEdge) = normalGMBolusVelocity(1,iEdge) * layerThickEdgeMean(1,iEdge)
-                  do k = minLevelEdgeBot(iEdge)+1, maxLevelEdgeTop(iEdge)
-                     thicknessSum  =  thicknessSum + layerThickEdgeMean(k,iEdge)
-                     BtrAvgOfBaroclinicVelocity(iEdge) = BtrAvgOfBaroclinicVelocity(iEdge) + normalBaroclinicVelocityNew(k,iEdge) * layerThickEdgeMean(k,iEdge)
-                     BtrAvgOfGMBolusVelocity(iEdge) = BtrAvgOfGMBolusVelocity(iEdge) + normalGMBolusVelocity(k,iEdge) * layerThickEdgeMean(k,iEdge)
-                  enddo
-                  BtrAvgOfBaroclinicVelocity(iEdge) = BtrAvgOfBaroclinicVelocity(iEdge) / thicknessSum
-                  BtrAvgOfGMBolusVelocity(iEdge) = BtrAvgOfGMBolusVelocity(iEdge) / thicknessSum
+               ! Compute barotropic velocity from thickness flux.
+               normalBarotropicVelocityNew(iEdge) = barotropicThicknessFlux(iEdge) / thicknessSum
 
-                  ! Compute barotropic velocity from thickness flux.
-                  normalBarotropicVelocityNew(iEdge) = barotropicThicknessFlux(iEdge) / thicknessSum
+               do k = 1, nVertLevels
 
-                  do k = 1, nVertLevels
+                  ! Compute transport velocity, used to transport thickness and tracers.
+                  normalTransportVelocity(k,iEdge) = edgeMask(k,iEdge) &
+                       *(  normalBarotropicVelocityNew(iEdge) &
+                         + normalBaroclinicVelocityNew(k,iEdge) - BtrAvgOfBaroclinicVelocity(iEdge) &
+                         + normalGMBolusVelocity(k,iEdge) - BtrAvgOfGMBolusVelocity(iEdge) )
+               enddo
 
-                     ! Compute transport velocity, used to transport thickness and tracers.
-                     normalTransportVelocity(k,iEdge) = edgeMask(k,iEdge) &
-                          *(  normalBarotropicVelocityNew(iEdge) &
-                            + normalBaroclinicVelocityNew(k,iEdge) - BtrAvgOfBaroclinicVelocity(iEdge) &
-                            + normalGMBolusVelocity(k,iEdge) - BtrAvgOfGMBolusVelocity(iEdge) )
-                  enddo
+            end do ! iEdge
+            !$omp end do
+            !$omp end parallel
 
-               end do ! iEdge
-               !$omp end do
-               !$omp end parallel
-
-! mrp PR end
 
             call mpas_timer_stop('btr se ssh verif')
 
