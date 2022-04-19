@@ -1214,7 +1214,6 @@ contains
          nullify(BtrAvgOfBaroclinicVelocity,              &
                  BtrAvgOfGMBolusVelocity)
       end if
-      end if
       if ( trim(config_time_integrator) == 'split_implicit' ) then
          nullify(SIvec_r0,              &
                  SIvec_r00,             &
