@@ -1416,27 +1416,36 @@ module ocn_time_integration_split
                ! thicknessSum is initialized outside the loop because on land boundaries
                ! maxLevelEdgeTop=0, but I want to initialize thicknessSum with a
                ! nonzero value to avoid a NaN.
-               thicknessSum  = layerThickEdgeMean(1,iEdge)
-               BtrAvgOfBaroclinicVelocity(iEdge) = normalBaroclinicVelocityNew(1,iEdge) * layerThickEdgeMean(1,iEdge)
+               k = minLevelEdgeBot(iEdge)
+               thicknessSum = 1.0e-15_RKIND
+               BtrAvgOfBaroclinicVelocity(iEdge) = 0.0_RKIND
+               BtrAvgOfGMBolusVelocity(iEdge) = 0.0_RKIND
                ! note, BtrAvgOfGMBolusVelocity could be changed from an array
                ! to a scalar if it is not needed to save for later inspection
-               BtrAvgOfGMBolusVelocity(iEdge) = normalGMBolusVelocity(1,iEdge) * layerThickEdgeMean(1,iEdge)
-               do k = minLevelEdgeBot(iEdge)+1, maxLevelEdgeTop(iEdge)
-                  thicknessSum  =  thicknessSum + layerThickEdgeMean(k,iEdge)
-                  BtrAvgOfBaroclinicVelocity(iEdge) = BtrAvgOfBaroclinicVelocity(iEdge) + normalBaroclinicVelocityNew(k,iEdge) * layerThickEdgeMean(k,iEdge)
-                  BtrAvgOfGMBolusVelocity(iEdge) = BtrAvgOfGMBolusVelocity(iEdge) + normalGMBolusVelocity(k,iEdge) * layerThickEdgeMean(k,iEdge)
+               do k = minLevelEdgeBot(iEdge), maxLevelEdgeTop(iEdge)
+                  thicknessSum  =  thicknessSum + layerThickEdgeFlux(k,iEdge)
+                  BtrAvgOfBaroclinicVelocity(iEdge) = BtrAvgOfBaroclinicVelocity(iEdge) + normalBaroclinicVelocityNew(k,iEdge) * layerThickEdgeFlux(k,iEdge)
+                  BtrAvgOfGMBolusVelocity(iEdge) = BtrAvgOfGMBolusVelocity(iEdge) + normalGMBolusVelocity(k,iEdge) * layerThickEdgeFlux(k,iEdge)
                enddo
                BtrAvgOfBaroclinicVelocity(iEdge) = BtrAvgOfBaroclinicVelocity(iEdge) / thicknessSum
                BtrAvgOfGMBolusVelocity(iEdge) = BtrAvgOfGMBolusVelocity(iEdge) / thicknessSum
 
                ! Compute barotropic velocity from thickness flux.
-               normalBarotropicVelocityNew(iEdge) = barotropicThicknessFlux(iEdge) / thicknessSum
+               ! mrp changed back. With this commented out, barotropic velocity
+               ! is computed from average of subcycles above.
+               ! Before, we had
+               ! Set momentum velocity (normalVelocity) to:
+               ! u = F/H + u' - btrAvg( u' )
+               ! with this commented out, we have
+               ! u = subcycleAvg(ubar) + u' - btrAvg( u' )
+               !normalBarotropicVelocityNew(iEdge) = barotropicThicknessFlux(iEdge) / thicknessSum
 
                do k = 1, nVertLevels
 
                   ! Compute transport velocity, used to transport thickness and tracers.
+                  ! uTr = F/H + u' - btrAvg( u' ) + uBolus - btrAvg( uBolus )
                   normalTransportVelocity(k,iEdge) = edgeMask(k,iEdge) &
-                       *(  normalBarotropicVelocityNew(iEdge) &
+                       *(  barotropicThicknessFlux(iEdge) / thicknessSum &
                          + normalBaroclinicVelocityNew(k,iEdge) - BtrAvgOfBaroclinicVelocity(iEdge) &
                          + normalGMBolusVelocity(k,iEdge) - BtrAvgOfGMBolusVelocity(iEdge) )
                enddo
@@ -1444,7 +1453,6 @@ module ocn_time_integration_split
             end do ! iEdge
             !$omp end do
             !$omp end parallel
-
 
             call mpas_timer_stop('btr se ssh verif')
 
