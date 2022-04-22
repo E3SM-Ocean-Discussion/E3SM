@@ -186,7 +186,7 @@ module ocn_diagnostics_variables
    real (kind=RKIND), dimension(:), pointer :: betaEdge
    real (kind=RKIND), dimension(:), pointer :: gmResolutionTaper
 
-   real (kind=RKIND), dimension(:), pointer :: BtrAvgOfBaroclinicVelocity, BtrAvgOfGMBolusVelocity
+   real (kind=RKIND), dimension(:), pointer :: BtrAvgOfBaroclinicVelocity, BtrAvgOfGMBolusVelocity, normalVelocityCorrection
 
    ! Semi-implicit Array Pointers
    real (kind=RKIND), dimension(:), pointer :: SIvec_r0,SIvec_r00,SIvec_r1 ,SIvec_rh0,SIvec_rh1,SIvec_ph0,SIvec_ph1
@@ -591,6 +591,7 @@ contains
          call mpas_pool_get_array(diagnosticsPool, 'BtrAvgOfBaroclinicVelocity', BtrAvgOfBaroclinicVelocity)
          call mpas_pool_get_array(diagnosticsPool, 'BtrAvgOfGMBolusVelocity', BtrAvgOfGMBolusVelocity)
       end if
+         call mpas_pool_get_array(diagnosticsPool, 'normalVelocityCorrection', normalVelocityCorrection)
 
       ! Semi-implicit Array Pointer retrievals
       if (trim(config_time_integrator) == 'split_implicit') then
@@ -775,6 +776,7 @@ contains
           trim(config_time_integrator) == 'split_implicit') then
          !$acc enter data create(                       &
          !$acc                   BtrAvgOfBaroclinicVelocity,              &
+         !$acc                   normalVelocityCorrection,              &
          !$acc                   BtrAvgOfGMBolusVelocity              &
          !$acc                   )
       end if
@@ -1018,6 +1020,7 @@ contains
           trim(config_time_integrator) == 'split_implicit') then
          !$acc exit data delete(                        &
          !$acc                   BtrAvgOfBaroclinicVelocity,              &
+         !$acc                   normalVelocityCorrection,              &
          !$acc                   BtrAvgOfGMBolusVelocity              &
          !$acc                   )
       end if
@@ -1212,6 +1215,7 @@ contains
       if (trim(config_time_integrator) == 'split_explicit' .or. &
           trim(config_time_integrator) == 'split_implicit') then
          nullify(BtrAvgOfBaroclinicVelocity,              &
+                 normalVelocityCorrection,              &
                  BtrAvgOfGMBolusVelocity)
       end if
       if ( trim(config_time_integrator) == 'split_implicit' ) then
