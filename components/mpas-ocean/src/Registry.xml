@@ -1147,6 +1147,22 @@
 					description="number of iterations of the velocity corrector step in stage 2"
 					possible_values="any positive integer, but typically 1, 2, or 3"
 		/>
+		<nml_option name="config_btr_new1_resplit" type="logical" default_value=".false." units="unitless"
+					description="experimental flag"
+					possible_values=".true. or .false."
+		/>
+		<nml_option name="config_btr_new2_ubtr_foH" type="logical" default_value=".false." units="unitless"
+					description="experimental flag"
+					possible_values=".true. or .false."
+		/>
+		<nml_option name="config_btr_new3_VelCor" type="logical" default_value=".false." units="unitless"
+					description="experimental flag"
+					possible_values=".true. or .false."
+		/>
+		<nml_option name="config_btr_new4_sub_btrAvgbclV" type="logical" default_value=".false." units="unitless"
+					description="experimental flag"
+					possible_values=".true. or .false."
+		/>
 		<nml_option name="config_vel_correction" type="logical" default_value=".true." units="unitless"
 					description="If true, the velocity correction term is included in the horizontal advection of thickness and tracers"
 					possible_values=".true. or .false."
@@ -2566,6 +2582,18 @@
 		<var name="tangentialVelocity" type="real" dimensions="nVertLevels nEdges Time" units="m s^{-1}"
 			 description="horizontal velocity, tangential to an edge"
 			 packages="forwardMode;analysisMode"
+		/>
+		<var name="BtrAvgOfBaroclinicVelocity" type="real" dimensions="nEdges Time" units="m s^{-1}"
+			 description="barotropic average of baroclinic velocity"
+			 packages="splitTimeIntegrator"
+		/>
+		<var name="BtrAvgOfGMBolusVelocity" type="real" dimensions="nEdges Time" units="m s^{-1}"
+			 description="barotropic average of GM  Bolus velocity"
+			 packages="splitTimeIntegrator"
+		/>
+		<var name="normalVelocityCorrection" type="real" dimensions="nEdges Time" units="m s^{-1}"
+			 description="read it"
+			 packages="splitTimeIntegrator"
 		/>
 		<var name="layerThicknessEdgeMean" type="real" dimensions="nVertLevels nEdges Time" units="m"
 			 description="layer thickness averaged from cell center to edges"
