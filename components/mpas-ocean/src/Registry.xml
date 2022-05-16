@@ -2061,12 +2061,16 @@
 	<var_struct name="state" time_levs="2">
 		<var name="normalVelocity" type="real" dimensions="nVertLevels nEdges Time" units="m s^{-1}"
 			 description="horizontal velocity, normal component to an edge"
+			 missing_value="MPAS_REAL_FILLVAL"
+
 		/>
 		<var name="layerThickness" type="real" dimensions="nVertLevels nCells Time" units="m"
 			 description="layer thickness"
+			 missing_value="-1e34"
 		/>
 		<var name="ssh" type="real" dimensions="nCells Time" units="m"
 			 description="sea surface height"
+			 missing_value="FILLVAL"
 		/>
 
 		<!-- FIELDS FOR FREQUENCY FILTERED THICKNESS -->

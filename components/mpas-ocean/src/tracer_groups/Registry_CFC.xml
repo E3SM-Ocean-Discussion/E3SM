@@ -49,7 +49,7 @@
 
 	<var_struct name="state" time_levs="2">
 		<var_struct name="tracers" time_levs="2">
-			<var_array name="CFCTracers" dimensions="nVertLevels nCells Time" type="real" packages="CFCTracersPKG"  default_value="0.0">
+			<var_array name="CFCTracers" dimensions="nVertLevels nCells Time" type="real"  missing_value="MPAS_REAL_FILLVAL" packages="CFCTracersPKG"  default_value="0.0">
 				<!-- Add constituents of tracer group -->
 				<var name="CFC11" array_group="CFCGRP" units="mol m^{-3}"
 			description="CFC11"
@@ -63,7 +63,7 @@
 
 	<var_struct name="tend" time_levs="1">
 		<var_struct name="tracersTend" time_levs="1">
-			<var_array name="CFCTracersTend" type="real" dimensions="nVertLevels nCells Time" packages="CFCTracersPKG">
+			<var_array name="CFCTracersTend" type="real" dimensions="nVertLevels nCells Time"  missing_value="MPAS_REAL_FILLVAL" packages="CFCTracersPKG">
 				<!-- Add constituents of tracer group -->
 				<var name="CFC11Tend" array_group="CFCGRP" units="mol m^{-3} s^{-1}"
 			description="CFC11 Tendency"
@@ -77,7 +77,7 @@
 
 	<var_struct name="forcing" time_levs="1">
 		<var_struct name="tracersSurfaceFlux" time_levs="1">
-			<var_array name="CFCTracersSurfaceFlux" type="real" dimensions="nCells Time" packages="CFCTracersPKG">
+			<var_array name="CFCTracersSurfaceFlux" type="real" dimensions="nCells Time"  missing_value="MPAS_REAL_FILLVAL" packages="CFCTracersPKG">
 				<!-- Add constituents of tracer group -->
 				<var name="CFC11SurfaceFlux" array_group="CFCSurfaceFluxGRP" units="mol m^{-3} m s^{-1}"
 			description="CFC11 Surface Flux"
@@ -86,7 +86,7 @@
 			description="CFC12 Surface Flux"
 				/>
 			</var_array>
-			<var_array name="CFCTracersSurfaceFluxRunoff" type="real" dimensions="nCells Time" packages="CFCTracersPKG">
+			<var_array name="CFCTracersSurfaceFluxRunoff" type="real" dimensions="nCells Time"  missing_value="MPAS_REAL_FILLVAL" packages="CFCTracersPKG">
 				<!-- Add constituents of tracer group -->
 				<var name="CFCSurfaceFluxRunoff" array_group="CFCSurfaceFluxRunoffGRP" units="mol m^{-3} m s^{-1}"
 					description="CFC11 Surface Flux Due to Runoff"
@@ -95,7 +95,7 @@
 					description="CFC12 Surface Flux Due to Runoff"
 				/>
 			</var_array>
-			<var_array name="CFCTracersSurfaceFluxRemoved" type="real" dimensions="nCells Time" packages="CFCTracersPKG">
+			<var_array name="CFCTracersSurfaceFluxRemoved" type="real" dimensions="nCells Time"  missing_value="MPAS_REAL_FILLVAL" packages="CFCTracersPKG">
 				<!-- Add constituents of tracer group -->
 				<var name="CFCSurfaceFluxRemoved" array_group="CFCSurfaceFluxRemovedGRP" units="mol m^{-3} m s^{-1}"
 					description="CFC11 Surface Flux that is ignored"
@@ -106,7 +106,7 @@
 			</var_array>
 		</var_struct>
 
-		<var_struct name="CFC11FluxDiagnostics" time_levs="1" packages="CFCTracersPKG">
+		<var_struct name="CFC11FluxDiagnostics" time_levs="1"  missing_value="MPAS_REAL_FILLVAL" packages="CFCTracersPKG">
 			<var name="CFC11_flux_ifrac" type="real" dimensions="nCells Time" units="none"
 				description="Ice Fraction used in CFC11 flux calculation"
 			/>
@@ -132,7 +132,7 @@
 				description="Wind Speed used in CFC11 flux calculation"
 			/>
 		</var_struct>
-		<var_struct name="CFC12FluxDiagnostics" time_levs="1" packages="CFCTracersPKG">
+		<var_struct name="CFC12FluxDiagnostics" time_levs="1"  missing_value="MPAS_REAL_FILLVAL" packages="CFCTracersPKG">
 			<var name="CFC12_flux_ifrac" type="real" dimensions="nCells Time" units="none"
 				description="Ice Fraction used in CFC12 flux calculation"
 			/>
@@ -160,7 +160,7 @@
 		</var_struct>
 
 		<var_struct name="tracersSurfaceRestoringFields" time_levs="1">
-			<var_array name="CFCTracersPistonVelocity" type="real" dimensions="nCells Time" packages="CFCTracersSurfaceRestoringPKG">
+			<var_array name="CFCTracersPistonVelocity" type="real" dimensions="nCells Time"  missing_value="MPAS_REAL_FILLVAL" packages="CFCTracersSurfaceRestoringPKG">
 				<var name="CFC11PistonVelocity" array_group="CFCPVGRP" units="m s^{-1}"
 				description="A non-negative field controlling the rate at which CFC11 is restored to CFC11SurfaceRestoringValue"
 				/>
@@ -168,7 +168,7 @@
 				description="A non-negative field controlling the rate at which CFC12 is restored to CFC12SurfaceRestoringValue"
 				/>
 			</var_array>
-			<var_array name="CFCTracersSurfaceRestoringValue" type="real" dimensions="nCells Time" packages="CFCTracersSurfaceRestoringPKG">
+			<var_array name="CFCTracersSurfaceRestoringValue" type="real" dimensions="nCells Time"  missing_value="MPAS_REAL_FILLVAL" packages="CFCTracersSurfaceRestoringPKG">
 				<var name="CFC11SurfaceRestoringValue" array_group="CFCSRVGRP" units="mol m^{3}"
 				description="Tracer is restored toward this field at a rate controlled by CFC11PistonVelocity."
 				/>
@@ -178,7 +178,7 @@
 			</var_array>
 		</var_struct>
 		<var_struct name="tracersInteriorRestoringFields" time_levs="1">
-			<var_array name="CFCTracersInteriorRestoringRate" type="real" dimensions="nVertLevels nCells Time" packages="CFCTracersInteriorRestoringPKG">
+			<var_array name="CFCTracersInteriorRestoringRate" type="real" dimensions="nVertLevels nCells Time"  missing_value="MPAS_REAL_FILLVAL" packages="CFCTracersInteriorRestoringPKG">
 				<var name="CFC11InteriorRestoringRate" array_group="CFCIRRGRP" units="{s}^-1"
 				description="A non-negative field controlling the rate at which CFC11 is restored to CFC11InteriorRestoringValue"
 				/>
@@ -186,7 +186,7 @@
 				description="A non-negative field controlling the rate at which CFC12 is restored to CFC12InteriorRestoringValue"
 				/>
 			</var_array>
-			<var_array name="CFCTracersInteriorRestoringValue" type="real" dimensions="nVertLevels nCells Time" packages="CFCTracersInteriorRestoringPKG">
+			<var_array name="CFCTracersInteriorRestoringValue" type="real" dimensions="nVertLevels nCells Time"  missing_value="MPAS_REAL_FILLVAL" packages="CFCTracersInteriorRestoringPKG">
 				<var name="CFC11InteriorRestoringValue" array_group="CFCIRVGRP" units="mol m^{3}"
 				description="Tracer is restored toward this field at a rate controlled by CFC11InteriorRestoringRate."
 				/>
@@ -196,7 +196,7 @@
 			</var_array>
 		</var_struct>
 		<var_struct name="tracersExponentialDecayFields" time_levs="1">
-			<var_array name="CFCTracersExponentialDecayRate" type="real" dimensions="Time" packages="CFCTracersExponentialDecayPKG">
+			<var_array name="CFCTracersExponentialDecayRate" type="real" dimensions="Time"  missing_value="MPAS_REAL_FILLVAL" packages="CFCTracersExponentialDecayPKG">
 				<var name="CFC11ExponentialDecayRate" array_group="CFCGRP" units="s^{-1}"
 				description="A non-negative field controlling the exponential decay of CFC11"
 				/>
@@ -206,7 +206,7 @@
 			</var_array>
 		</var_struct>
 		<var_struct name="tracersIdealAgeFields" time_levs="1">
-			<var_array name="CFCTracersIdealAgeMask" type="real" dimensions="nCells Time" packages="CFCTracersIdealAgePKG">
+			<var_array name="CFCTracersIdealAgeMask" type="real" dimensions="nCells Time"  missing_value="MPAS_REAL_FILLVAL" packages="CFCTracersIdealAgePKG">
 				<var name="CFC11IdealAgeMask" array_group="CFCGRP" units="unitless"
 				description="In top layer, CFC11 is reset to CFC11 * CFC11IdealAgeMask, valid values of CFC11IdealAgeMask or 0 and 1"
 				/>
@@ -216,7 +216,7 @@
 			</var_array>
 		</var_struct>
 		<var_struct name="tracersTTDFields" time_levs="1">
-			<var_array name="CFC11TracersTTDMask" type="real" dimensions="nCells Time" packages="CFCTracersTTDPKG">
+			<var_array name="CFC11TracersTTDMask" type="real" dimensions="nCells Time"  missing_value="MPAS_REAL_FILLVAL" packages="CFCTracersTTDPKG">
 				<var name="CFC11TTDMask" array_group="CFCGRP" units="unitless"
 				description="In top layer, CFC11 is reset to TTDMask, valid values of CFC11TTDMask or 0 and 1"
 				/>
@@ -225,7 +225,7 @@
 				/>
 			</var_array>
 		</var_struct>
-		<var_struct name="CFCAuxiliary" time_levs="1" packages="CFCTracersPKG">
+		<var_struct name="CFCAuxiliary" time_levs="1"  missing_value="MPAS_REAL_FILLVAL" packages="CFCTracersPKG">
 			<var name="pCFC11" type="real" dimensions="nCells Time" units="mole fraction"
 				description="Mole Fraction of Atmospheric CFC11"
 			/>

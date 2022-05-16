@@ -89,7 +89,7 @@
 
 	<var_struct name="state" time_levs="2">
 		<var_struct name="tracers" time_levs="2">
-			<var_array name="ecosysTracers" dimensions="nVertLevels nCells Time" type="real" packages="ecosysTracersPKG" >
+			<var_array name="ecosysTracers" dimensions="nVertLevels nCells Time" type="real"  missing_value="MPAS_REAL_FILLVAL" packages="ecosysTracersPKG" >
 				<!-- Add constituents of tracer group -->
 				<var name="PO4" array_group="ecosysGRP" units="mmol P m^{-3}"
 					description="Dissolved Inorganic Phosphate"
@@ -193,7 +193,7 @@
 
 	<var_struct name="tend" time_levs="1">
 		<var_struct name="tracersTend" time_levs="1">
-			<var_array name="ecosysTracersTend" type="real" dimensions="nVertLevels nCells Time" packages="ecosysTracersPKG">
+			<var_array name="ecosysTracersTend" type="real" dimensions="nVertLevels nCells Time"  missing_value="MPAS_REAL_FILLVAL" packages="ecosysTracersPKG">
 				<!-- Add constituents of tracer group -->
 				<var name="PO4Tend" array_group="ecosysGRP" units="mmol P m^{-3} s^{-1}"
 					description="Dissolved Inorganic Phosphate Tendency"
@@ -297,7 +297,7 @@
 
 	<var_struct name="forcing" time_levs="1">
 		<var_struct name="tracersSurfaceFlux" time_levs="1">
-			<var_array name="ecosysTracersSurfaceFlux" type="real" dimensions="nCells Time" packages="ecosysTracersPKG">
+			<var_array name="ecosysTracersSurfaceFlux" type="real" dimensions="nCells Time"  missing_value="MPAS_REAL_FILLVAL" packages="ecosysTracersPKG">
 				<!-- Add constituents of tracer group -->
 				<var name="PO4SurfaceFlux" array_group="ecosysSurfaceFluxGRP" units="mmol P m^{-3} m s^{-1}"
 					description="Dissolved Inorganic Phosphate Surface Flux"
@@ -396,7 +396,7 @@
 					description="Diazotroph Phosphorus Surface Flux"
 				/>
 			</var_array>
-			<var_array name="ecosysTracersSurfaceFluxRunoff" type="real" dimensions="nCells Time" packages="ecosysTracersPKG">
+			<var_array name="ecosysTracersSurfaceFluxRunoff" type="real" dimensions="nCells Time"  missing_value="MPAS_REAL_FILLVAL" packages="ecosysTracersPKG">
 				<!-- Add constituents of tracer group -->
 				<var name="PO4SurfaceFluxRunoff" array_group="ecosysSurfaceFluxRunoffGRP" units="mmol P m^{-3} m s^{-1}"
 					description="Dissolved Inorganic Phosphate Surface Flux Due to Runoff"
@@ -495,7 +495,7 @@
 					description="Diazotroph Phosphorus Surface Flux Due to Runoff"
 				/>
 			</var_array>
-			<var_array name="ecosysTracersSurfaceFluxRemoved" type="real" dimensions="nCells Time" packages="ecosysTracersPKG">
+			<var_array name="ecosysTracersSurfaceFluxRemoved" type="real" dimensions="nCells Time"  missing_value="MPAS_REAL_FILLVAL" packages="ecosysTracersPKG">
 				<!-- Add constituents of tracer group -->
 				<var name="PO4SurfaceFluxRemoved" array_group="ecosysSurfaceFluxRemovedGRP" units="mmol P m^{-3} m s^{-1}"
 					description="Dissolved Inorganic Phosphate Surface Flux that is ignored"
@@ -596,7 +596,7 @@
 			</var_array>
 		</var_struct>
 
-		<var_struct name="ecosysAuxiliary" time_levs="1" packages="ecosysTracersPKG">
+		<var_struct name="ecosysAuxiliary" time_levs="1"  missing_value="MPAS_REAL_FILLVAL" packages="ecosysTracersPKG">
 			<var name="PH_PREV_3D" type="real" dimensions="nVertLevels nCells Time" units="pH"
 				description="pH (3D) from previous timestep"
 			/>
@@ -680,7 +680,7 @@
 			/>
 		</var_struct>
 
-		<var_struct name="ecosysSeaIceCoupling" time_levs="1" packages="ecosysTracersPKG">
+		<var_struct name="ecosysSeaIceCoupling" time_levs="1"  missing_value="MPAS_REAL_FILLVAL" packages="ecosysTracersPKG">
 			<var name="avgOceanSurfacePhytoC" type="real" dimensions="R3 nCells Time" units="mmol C m^{-3}"
 				description="Ocean Surface phytoplankton carbon concentration: (1,2,3) corresponds to (diat,sp,phaeo)"
 			/>
@@ -743,7 +743,7 @@
 			/>
 		</var_struct>
 
-		<var_struct name="ecosysDiagFieldsLevel1" time_levs="1" packages="ecosysTracersPKG">
+		<var_struct name="ecosysDiagFieldsLevel1" time_levs="1"  missing_value="MPAS_REAL_FILLVAL" packages="ecosysTracersPKG">
 			<var name="ecosys_diag_photoC_TOT_zint" type="real" dimensions="nCells Time" units="mmol C m^{-3} m s^{-1}"
 				description="Total C Fixation Vertical Integral"
 			/>
@@ -854,7 +854,7 @@
 			/>
 		</var_struct>
 
-		<var_struct name="ecosysDiagFieldsLevel2" time_levs="1" packages="ecosysTracersPKG">
+		<var_struct name="ecosysDiagFieldsLevel2" time_levs="1"  missing_value="MPAS_REAL_FILLVAL" packages="ecosysTracersPKG">
 			<var name="ecosys_diag_O2_PRODUCTION" type="real" dimensions="nVertLevels nCells Time" units="mmol O2 m^{-3} s^{-1}"
 				description="O2 Production"
 			/>
@@ -1016,7 +1016,7 @@
 			/>
 		</var_struct>
 
-		<var_struct name="ecosysDiagFieldsLevel3" time_levs="1" packages="ecosysTracersPKG">
+		<var_struct name="ecosysDiagFieldsLevel3" time_levs="1"  missing_value="MPAS_REAL_FILLVAL" packages="ecosysTracersPKG">
 			<var name="ecosys_diag_tot_bSi_form" type="real" dimensions="nVertLevels nCells Time" units="mmol Si m^{-3} s^{-1}"
 				description="Si Uptake"
 			/>
@@ -1115,7 +1115,7 @@
 			/>
 		</var_struct>
 
-		<var_struct name="ecosysDiagFieldsLevel4" time_levs="1" packages="ecosysTracersPKG">
+		<var_struct name="ecosysDiagFieldsLevel4" time_levs="1"  missing_value="MPAS_REAL_FILLVAL" packages="ecosysTracersPKG">
 			<var name="ecosys_diag_tot_CaCO3_form_zint" type="real" dimensions="nCells Time" units="mmol C m^{-3} m s^{-1}"
 				description="Total CaCO3 Formation Vertical Integral"
 			/>
@@ -1175,7 +1175,7 @@
 			/>
 		</var_struct>
 
-		<var_struct name="ecosysDiagFieldsLevel5" time_levs="1" packages="ecosysTracersPKG">
+		<var_struct name="ecosysDiagFieldsLevel5" time_levs="1"  missing_value="MPAS_REAL_FILLVAL" packages="ecosysTracersPKG">
 			<var name="ecosys_diag_PO4_RESTORE" type="real" dimensions="nVertLevels nCells Time" units="mmol P m^{-3} s^{-1}"
 				description="PO4 Restoring"
 			/>
@@ -1188,7 +1188,7 @@
 		</var_struct>
 
 		<var_struct name="tracersSurfaceRestoringFields" time_levs="1">
-			<var_array name="ecosysTracersPistonVelocity" type="real" dimensions="nCells Time" packages="ecosysTracersSurfaceRestoringPKG">
+			<var_array name="ecosysTracersPistonVelocity" type="real" dimensions="nCells Time"  missing_value="MPAS_REAL_FILLVAL" packages="ecosysTracersSurfaceRestoringPKG">
 				<var name="PO4PistonVelocity" array_group="ecosysPVGRP" units="m s^{-1}"
 			 description="A non-negative field controlling the rate at which PO4 is restored to PO4SurfaceRestoringValue"
 				/>
@@ -1286,7 +1286,7 @@
 			 description="A non-negative field controlling the rate at which diazP is restored to diazPSurfaceRestoringValue"
 				/>
 			</var_array>
-			<var_array name="ecosysTracersSurfaceRestoringValue" type="real" dimensions="nCells Time" packages="ecosysTracersSurfaceRestoringPKG">
+			<var_array name="ecosysTracersSurfaceRestoringValue" type="real" dimensions="nCells Time"  missing_value="MPAS_REAL_FILLVAL" packages="ecosysTracersSurfaceRestoringPKG">
 				<var name="PO4SurfaceRestoringValue" array_group="ecosysSRVGRP" units="m s^{-1}"
 			 description="A non-negative field controlling the rate at which PO4 is restored to PO4SurfaceRestoringValue"
 				/>
@@ -1386,7 +1386,7 @@
 			</var_array>
 		</var_struct>
 		<var_struct name="tracersInteriorRestoringFields" time_levs="1">
-			<var_array name="ecosysTracersInteriorRestoringRate" type="real" dimensions="nVertLevels nCells Time" packages="ecosysTracersInteriorRestoringPKG">
+			<var_array name="ecosysTracersInteriorRestoringRate" type="real" dimensions="nVertLevels nCells Time"  missing_value="MPAS_REAL_FILLVAL" packages="ecosysTracersInteriorRestoringPKG">
 				<var name="PO4InteriorRestoringRate" array_group="ecosysIRRGRP" units="{s}^-1"
 			 description="A non-negative field controlling the rate at which PO4 is restored to PO4InteriorRestoringValue"
 				/>
@@ -1484,7 +1484,7 @@
 			 description="A non-negative field controlling the rate at which diazP is restored to diazPInteriorRestoringValue"
 				/>
 			</var_array>
-			<var_array name="ecosysTracersInteriorRestoringValue" type="real" dimensions="nVertLevels nCells Time" packages="ecosysTracersInteriorRestoringPKG">
+			<var_array name="ecosysTracersInteriorRestoringValue" type="real" dimensions="nVertLevels nCells Time"  missing_value="MPAS_REAL_FILLVAL" packages="ecosysTracersInteriorRestoringPKG">
 				<var name="PO4InteriorRestoringValue" array_group="ecosysIRVGRP" units="mmol P m^{3}"
 			 description="Tracer is restored toward this field at a rate controlled by PO4InteriorRestoringRate."
 				/>
@@ -1584,7 +1584,7 @@
 			</var_array>
 		</var_struct>
 		<var_struct name="tracersExponentialDecayFields" time_levs="1">
-			<var_array name="ecosysTracersExponentialDecayRate" type="real" dimensions="Time" packages="ecosysTracersExponentialDecayPKG">
+			<var_array name="ecosysTracersExponentialDecayRate" type="real" dimensions="Time"  missing_value="MPAS_REAL_FILLVAL" packages="ecosysTracersExponentialDecayPKG">
 				<var name="PO4ExponentialDecayRate" array_group="ecosysGRP" units="s^{-1}"
 			 description="A non-negative field controlling the exponential decay of PO4"
 				/>
@@ -1683,7 +1683,7 @@
 			</var_array>
 		</var_struct>
 		<var_struct name="tracersIdealAgeFields" time_levs="1">
-			<var_array name="ecosysTracersIdealAgeMask" type="real" dimensions="nCells Time" packages="ecosysTracersIdealAgePKG">
+			<var_array name="ecosysTracersIdealAgeMask" type="real" dimensions="nCells Time"  missing_value="MPAS_REAL_FILLVAL" packages="ecosysTracersIdealAgePKG">
 				<var name="PO4IdealAgeMask" array_group="ecosysGRP" units="unitless"
 			 description="In top layer, PO4 is reset to PO4 * PO4IdealAgeMask, valid values of PO4IdealAgeMask or 0 and 1"
 				/>
@@ -1783,7 +1783,7 @@
 			</var_array>
 		</var_struct>
 		<var_struct name="tracersTTDFields" time_levs="1">
-			<var_array name="ecosysTracersTTDMask" type="real" dimensions="nCells Time" packages="ecosysTracersTTDPKG">
+			<var_array name="ecosysTracersTTDMask" type="real" dimensions="nCells Time"  missing_value="MPAS_REAL_FILLVAL" packages="ecosysTracersTTDPKG">
 				<var name="PO4TTDMask" array_group="ecosysGRP" units="unitless"
 			 description="In top layer, PO4 is reset to TTDMask, valid values of PO4TTDMask or 0 and 1"
 				/>

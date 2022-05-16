@@ -216,9 +216,9 @@ contains
       do iEdge=1, nEdges
          normalVelocity(maxLevelEdgeTop(iEdge)+1:maxLevelEdgeBot(iEdge), iEdge) = 0.0_RKIND
 
-         normalVelocity(maxLevelEdgeBot(iEdge)+1:nVertLevels,iEdge) = -1.0e34_RKIND
+         normalVelocity(maxLevelEdgeBot(iEdge)+1:nVertLevels,iEdge) = MPAS_REAL_FILLVAL
          
-         normalVelocity(1:minLevelEdgeTop(iEdge)-1,iEdge) = -1.0e34_RKIND
+         normalVelocity(1:minLevelEdgeTop(iEdge)-1,iEdge) = MPAS_REAL_FILLVAL
       end do
 
       call mpas_pool_begin_iteration(tracersPool)
@@ -227,8 +227,8 @@ contains
             call mpas_pool_get_array(tracersPool, groupItr % memberName, tracersGroup, 1)
             if ( associated(tracersGroup) ) then
                do iCell=1,nCells
-                  tracersGroup(:, maxLevelCell(iCell)+1:nVertLevels,iCell) =  -1.0e34_RKIND
-                  tracersGroup(:, 1:minLevelCell(iCell)-1,iCell) =  -1.0e34_RKIND
+                  tracersGroup(:, maxLevelCell(iCell)+1:nVertLevels,iCell) =  MPAS_REAL_FILLVAL
+                  tracersGroup(:, 1:minLevelCell(iCell)-1,iCell) =  MPAS_REAL_FILLVAL
                end do
             end if
          end if

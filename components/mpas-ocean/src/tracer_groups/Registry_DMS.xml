@@ -49,7 +49,7 @@
 
 	<var_struct name="state" time_levs="2">
 		<var_struct name="tracers" time_levs="2">
-			<var_array name="DMSTracers" dimensions="nVertLevels nCells Time" type="real" packages="DMSTracersPKG" >
+			<var_array name="DMSTracers" dimensions="nVertLevels nCells Time" type="real"  missing_value="MPAS_REAL_FILLVAL" packages="DMSTracersPKG" >
 				<!-- Add constituents of tracer group -->
 				<var name="DMS" array_group="DMSGRP" units="mmol m^{-3}"
 			description="Dimethyl Sulfide"
@@ -63,7 +63,7 @@
 
 	<var_struct name="tend" time_levs="1">
 		<var_struct name="tracersTend" time_levs="1">
-			<var_array name="DMSTracersTend" type="real" dimensions="nVertLevels nCells Time" packages="DMSTracersPKG">
+			<var_array name="DMSTracersTend" type="real" dimensions="nVertLevels nCells Time"  missing_value="MPAS_REAL_FILLVAL" packages="DMSTracersPKG">
 				<!-- Add constituents of tracer group -->
 				<var name="DMSTend" array_group="DMSGRP" units="mmol m^{-3} s^{-1}"
 			description="Dimethyl Sulfide Tendency"
@@ -77,7 +77,7 @@
 
 	<var_struct name="forcing" time_levs="1">
 		<var_struct name="tracersSurfaceFlux" time_levs="1">
-			<var_array name="DMSTracersSurfaceFlux" type="real" dimensions="nCells Time" packages="DMSTracersPKG">
+			<var_array name="DMSTracersSurfaceFlux" type="real" dimensions="nCells Time"  missing_value="MPAS_REAL_FILLVAL" packages="DMSTracersPKG">
 				<!-- Add constituents of tracer group -->
 				<var name="DMSSurfaceFlux" array_group="DMSSurfaceFluxGRP" units="mmol m^{-3} m s^{-1}"
 			description="Dimethyl Sulfide Surface Flux"
@@ -86,7 +86,7 @@
 			description="Dimethyl Sulfoniopropionate Surface Flux"
 				/>
 			</var_array>
-			<var_array name="DMSTracersSurfaceFluxRunoff" type="real" dimensions="nCells Time" packages="DMSTracersPKG">
+			<var_array name="DMSTracersSurfaceFluxRunoff" type="real" dimensions="nCells Time"  missing_value="MPAS_REAL_FILLVAL" packages="DMSTracersPKG">
 				<!-- Add constituents of tracer group -->
 				<var name="DMSSurfaceFluxRunoff" array_group="DMSSurfaceFluxRunoffGRP" units="mmol m^{-3} m s^{-1}"
 					description="Dimethyl Sulfide Surface Flux Due to Runoff"
@@ -95,7 +95,7 @@
 					description="Dimethyl Sulfoniopropionate Surface Flux Due to Runoff"
 				/>
 			</var_array>
-			<var_array name="DMSTracersSurfaceFluxRemoved" type="real" dimensions="nCells Time" packages="DMSTracersPKG">
+			<var_array name="DMSTracersSurfaceFluxRemoved" type="real" dimensions="nCells Time"  missing_value="MPAS_REAL_FILLVAL" packages="DMSTracersPKG">
 				<!-- Add constituents of tracer group -->
 				<var name="DMSSurfaceFluxRemoved" array_group="DMSSurfaceFluxRemovedGRP" units="mmol m^{-3} m s^{-1}"
 					description="Dimethyl Sulfide Surface Flux that is ignored"
@@ -105,7 +105,7 @@
 				/>
 			</var_array>
 		</var_struct>
-		<var_struct name="DMSSeaIceCoupling" time_levs="1" packages="DMSTracersPKG">
+		<var_struct name="DMSSeaIceCoupling" time_levs="1"  missing_value="MPAS_REAL_FILLVAL" packages="DMSTracersPKG">
 			<var name="avgOceanSurfaceDMS" type="real" dimensions="nCells Time" units="mmolS m^{-3}"
 				description="Ocean Surface DMS concentration"
 			/>
@@ -119,7 +119,7 @@
 				description="Surface DMSP flux from sea ice"
 			/>
 		</var_struct>
-		<var_struct name="DMSFluxDiagnostics" time_levs="1" packages="DMSTracersPKG">
+		<var_struct name="DMSFluxDiagnostics" time_levs="1"  missing_value="MPAS_REAL_FILLVAL" packages="DMSTracersPKG">
 			<var name="dms_flux_diag_ifrac" type="real" dimensions="nCells Time" units="none"
 				description="Ice Fraction used in DMS flux calculation"
 			/>
@@ -146,7 +146,7 @@
 			/>
 		</var_struct>
 		<var_struct name="tracersSurfaceRestoringFields" time_levs="1">
-			<var_array name="DMSTracersPistonVelocity" type="real" dimensions="nCells Time" packages="DMSTracersSurfaceRestoringPKG">
+			<var_array name="DMSTracersPistonVelocity" type="real" dimensions="nCells Time"  missing_value="MPAS_REAL_FILLVAL" packages="DMSTracersSurfaceRestoringPKG">
 				<var name="DMSPistonVelocity" array_group="DMSPVGRP" units="m s^{-1}"
 			 description="A non-negative field controlling the rate at which DMS is restored to DMSSurfaceRestoringValue"
 				/>
@@ -154,7 +154,7 @@
 			 description="A non-negative field controlling the rate at which DMSP is restored to DMSPSurfaceRestoringValue"
 				/>
 			</var_array>
-			<var_array name="DMSTracersSurfaceRestoringValue" type="real" dimensions="nCells Time" packages="DMSTracersSurfaceRestoringPKG">
+			<var_array name="DMSTracersSurfaceRestoringValue" type="real" dimensions="nCells Time"  missing_value="MPAS_REAL_FILLVAL" packages="DMSTracersSurfaceRestoringPKG">
 				<var name="DMSSurfaceRestoringValue" array_group="DMSSRVGRP" units="mmol m^{3}"
 			 description="Tracer is restored toward this field at a rate controlled by DMSPistonVelocity."
 				/>
@@ -164,7 +164,7 @@
 			</var_array>
 		</var_struct>
 		<var_struct name="tracersInteriorRestoringFields" time_levs="1">
-			<var_array name="DMSTracersInteriorRestoringRate" type="real" dimensions="nVertLevels nCells Time" packages="DMSTracersInteriorRestoringPKG">
+			<var_array name="DMSTracersInteriorRestoringRate" type="real" dimensions="nVertLevels nCells Time"  missing_value="MPAS_REAL_FILLVAL" packages="DMSTracersInteriorRestoringPKG">
 				<var name="DMSInteriorRestoringRate" array_group="DMSIRRGRP" units="{s}^-1"
 			 description="A non-negative field controlling the rate at which DMS is restored to DMSInteriorRestoringValue"
 				/>
@@ -172,7 +172,7 @@
 			 description="A non-negative field controlling the rate at which DMSP is restored to DMSPInteriorRestoringValue"
 				/>
 			</var_array>
-			<var_array name="DMSTracersInteriorRestoringValue" type="real" dimensions="nVertLevels nCells Time" packages="DMSTracersInteriorRestoringPKG">
+			<var_array name="DMSTracersInteriorRestoringValue" type="real" dimensions="nVertLevels nCells Time"  missing_value="MPAS_REAL_FILLVAL" packages="DMSTracersInteriorRestoringPKG">
 				<var name="DMSInteriorRestoringValue" array_group="DMSIRVGRP" units="mmol m^{3}"
 			 description="Tracer is restored toward this field at a rate controlled by DMSInteriorRestoringRate."
 				/>
@@ -182,7 +182,7 @@
 			</var_array>
 		</var_struct>
 		<var_struct name="tracersExponentialDecayFields" time_levs="1">
-			<var_array name="DMSTracersExponentialDecayRate" type="real" dimensions="Time" packages="DMSTracersExponentialDecayPKG">
+			<var_array name="DMSTracersExponentialDecayRate" type="real" dimensions="Time"  missing_value="MPAS_REAL_FILLVAL" packages="DMSTracersExponentialDecayPKG">
 				<var name="DMSExponentialDecayRate" array_group="DMSGRP" units="s^{-1}"
 			 description="A non-negative field controlling the exponential decay of DMS"
 				/>
@@ -192,7 +192,7 @@
 			</var_array>
 		</var_struct>
 		<var_struct name="tracersIdealAgeFields" time_levs="1">
-			<var_array name="DMSTracersIdealAgeMask" type="real" dimensions="nCells Time" packages="DMSTracersIdealAgePKG">
+			<var_array name="DMSTracersIdealAgeMask" type="real" dimensions="nCells Time"  missing_value="MPAS_REAL_FILLVAL" packages="DMSTracersIdealAgePKG">
 				<var name="DMSIdealAgeMask" array_group="DMSGRP" units="unitless"
 			 description="In top layer, DMS is reset to DMS * DMSIdealAgeMask, valid values of DMSIdealAgeMask or 0 and 1"
 				/>
@@ -202,7 +202,7 @@
 			</var_array>
 		</var_struct>
 		<var_struct name="tracersTTDFields" time_levs="1">
-			<var_array name="DMSTracersTTDMask" type="real" dimensions="nCells Time" packages="DMSTracersTTDPKG">
+			<var_array name="DMSTracersTTDMask" type="real" dimensions="nCells Time"  missing_value="MPAS_REAL_FILLVAL" packages="DMSTracersTTDPKG">
 				<var name="DMSTTDMask" array_group="DMSGRP" units="unitless"
 			 description="In top layer, DMS is reset to TTDMask, valid values of DMSTTDMask or 0 and 1"
 				/>

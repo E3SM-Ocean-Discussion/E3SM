@@ -25,6 +25,7 @@ module ocn_vmix
    use mpas_derived_types
    use mpas_pool_routines
    use mpas_timer
+   use mpas_io
    use ocn_mesh
 
    use mpas_constants
@@ -1042,8 +1043,8 @@ contains
                tracers(iTracer,k,iCell) = (rTemp(iTracer,k) - C(k)*tracers(iTracer,k+1,iCell)) / bTemp(k)
             enddo
          enddo
-         tracers(:,1:Nsurf-1,iCell) = -1e34
-         tracers(:,N+1:nVertLevels,iCell) = -1e34
+         tracers(:,1:Nsurf-1,iCell) = MPAS_REAL_FILLVAL
+         tracers(:,N+1:nVertLevels,iCell) = MPAS_REAL_FILLVAL
 
       end do
 #ifndef MPAS_OPENACC
