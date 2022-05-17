@@ -45,7 +45,7 @@
 
 	<var_struct name="state" time_levs="2">
 		<var_struct name="tracers" time_levs="2">
-			<var_array name="TEMPLATEGRP" dimensions="nVertLevels nCells Time" type="real"  missing_value="MPAS_REAL_FILLVAL" packages="TEMPLATEGRPPKG" >
+			<var_array name="TEMPLATEGRP" dimensions="nVertLevels nCells Time" type="real"  missing_value="FILLVAL" packages="TEMPLATEGRPPKG" >
 				<!-- Add constituents of tracer group -->
 			</var_array>
 		</var_struct>
@@ -53,7 +53,7 @@
 
 	<var_struct name="tend" time_levs="1">
 		<var_struct name="tracersTend" time_levs="1">
-			<var_array name="TEMPLATEGRPTend" type="real" dimensions="nVertLevels nCells Time"  missing_value="MPAS_REAL_FILLVAL" packages="TEMPLATEGRPPKG">
+			<var_array name="TEMPLATEGRPTend" type="real" dimensions="nVertLevels nCells Time"  missing_value="FILLVAL" packages="TEMPLATEGRPPKG">
 				<!-- Add constituents of tracer group -->
 			</var_array>
 		</var_struct>
@@ -61,7 +61,7 @@
 
 	<var_struct name="forcing" time_levs="1">
 		<var_struct name="tracersSurfaceFlux" time_levs="1">
-			<var_array name="TEMPLATEGRPSurfaceFlux" type="real" dimensions="nCells Time"  missing_value="MPAS_REAL_FILLVAL" packages="TEMPLATEGRPPKG">
+			<var_array name="TEMPLATEGRPSurfaceFlux" type="real" dimensions="nCells Time"  missing_value="FILLVAL" packages="TEMPLATEGRPPKG">
 				<!-- Add constituents of tracer group -->
 			</var_array>
 		</var_struct>

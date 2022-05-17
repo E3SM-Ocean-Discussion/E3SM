@@ -2061,11 +2061,11 @@
 	<var_struct name="state" time_levs="2">
 		<var name="normalVelocity" type="real" dimensions="nVertLevels nEdges Time" units="m s^{-1}"
 			 description="horizontal velocity, normal component to an edge"
-			 missing_value="MPAS_REAL_FILLVAL"
+			 missing_value="FILLVAL"
 		/>
 		<var name="layerThickness" type="real" dimensions="nVertLevels nCells Time" units="m"
 			 description="layer thickness"
-			 missing_value="MPAS_REAL_FILLVAL"
+			 missing_value="FILLVAL"
 		/>
 		<var name="ssh" type="real" dimensions="nCells Time" units="m"
 			 description="sea surface height"
@@ -2553,51 +2553,51 @@
 		</var_array>
 		<var name="zMid" type="real" dimensions="nVertLevels nCells Time" units="m"
 			 description="z-coordinate of the mid-depth of the layer"
-			 missing_value="MPAS_REAL_FILLVAL"
+			 missing_value="FILLVAL"
 		/>
 		<var name="zTop" type="real" dimensions="nVertLevels nCells Time" units="m"
 			 description="z-coordinate of the top of the layer"
-			 missing_value="MPAS_REAL_FILLVAL"
+			 missing_value="FILLVAL"
 		/>
 
 		<var name="density" type="real" dimensions="nVertLevels nCells Time" units="kg m^{-3}"
 			 description="density"
-			 missing_value="MPAS_REAL_FILLVAL"
+			 missing_value="FILLVAL"
 		/>
 		<var name="displacedDensity" type="real" dimensions="nVertLevels nCells Time" units="kg m^{-3}"
 			 description="Density displaced adiabatically to the mid-depth one layer deeper.  That is, layer k has been displaced to the depth of layer k+1."
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
+			 missing_value="FILLVAL"
 		/>
 		<var name="potentialDensity" type="real" dimensions="nVertLevels nCells Time" units="kg m^{-3}"
 			 description="potential density: density displaced adiabatically to the mid-depth of top layer"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
+			 missing_value="FILLVAL"
 		/>
 		<var name="inSituThermalExpansionCoeff"
 			 type="real" dimensions="nVertLevels nCells Time" units="C^{-1}"
 			 description="Thermal expansion coefficient (alpha), defined as $-1/\rho d\rho/dT$ (note negative sign).  This is in situ, i.e. not displaced to another depth."
-			 missing_value="MPAS_REAL_FILLVAL"
+			 missing_value="FILLVAL"
 		/>
 		<var name="inSituSalineContractionCoeff"
 			 type="real" dimensions="nVertLevels nCells Time" units="PSU^{-1}"
 			 description="Saline contraction coefficient (beta), defined as $1/\rho d\rho/dS$.  This is also called the haline contraction coefficient.  This is in situ, i.e. not displaced to another depth."
-			 missing_value="MPAS_REAL_FILLVAL"
+			 missing_value="FILLVAL"
 		/>
 
 		<var name="BruntVaisalaFreqTop" type="real" dimensions="nVertLevels nCells Time" units="s^{-2}"
 			 description="Brunt Vaisala frequency defined at the center (horizontally) and top (vertically) of cell"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
+			 missing_value="FILLVAL"
 		/>
 		<var name="montgomeryPotential" type="real" dimensions="nVertLevels nCells Time" units="m^2 s^{-2}"
 			 description="Montgomery potential, may be used as the pressure for isopycnal coordinates."
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
+			 missing_value="FILLVAL"
 		/>
 		<var name="pressure" type="real" dimensions="nVertLevels nCells Time" units="N m^{-2}"
 			 description="pressure used in the momentum equation"
-			 missing_value="MPAS_REAL_FILLVAL"
+			 missing_value="FILLVAL"
 		/>
 		<var name="modifyLandIcePressureMask" type="integer" dimensions="nCells Time" units="unitless"
 			description="A mask indicating where landIcePressure can be modified during iterative init.  The mask is 1 under (and perhaps near) ice shelves and 0 elsewhere."
