@@ -1858,8 +1858,8 @@ contains
          ! Note the negative sign, since bottomDepth is positive
          ! and z-coordinates are negative below the surface.
          k = maxLevelCell(iCell)
-         zMid(k:nVertLevels,iCell) = -bottomDepth(iCell) + 0.5_RKIND*layerThickness(k,iCell)
-         zTop(k:nVertLevels,iCell) = -bottomDepth(iCell) + layerThickness(k,iCell)
+         zMid(k,iCell) = -bottomDepth(iCell) + 0.5_RKIND*layerThickness(k,iCell)
+         zTop(k,iCell) = -bottomDepth(iCell) + layerThickness(k,iCell)
 
          do k = maxLevelCell(iCell)-1, minLevelCell(iCell), -1
             zMid(k,iCell) = zMid(k+1,iCell)  &
