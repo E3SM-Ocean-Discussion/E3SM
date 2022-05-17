@@ -29,6 +29,7 @@ module ocn_time_integration_split
    use mpas_timer
    use mpas_threading
    use mpas_timekeeping
+   use mpas_io
    use mpas_log
 
    use ocn_config
@@ -414,6 +415,8 @@ module ocn_time_integration_split
       !$omp do schedule(runtime) private(k)
       do iCell = 1, nCellsAll
          sshNew(iCell) = sshCur(iCell)
+         layerThicknessNew(1:minLevelCell(iCell)-1,iCell) = MPAS_REAL_FILLVAL
+         layerThicknessNew(maxLevelCell(iCell)+1:nVertLevels,iCell) = MPAS_REAL_FILLVAL
          do k = minLevelCell(iCell), maxLevelCell(iCell)
             layerThicknessNew(k,iCell) = layerThicknessCur(k,iCell)
          end do

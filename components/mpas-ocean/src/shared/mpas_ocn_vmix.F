@@ -642,8 +642,8 @@ contains
          do k = N-1, Nsurf, -1
             normalVelocity(k,iEdge) = (rTemp(k) - C(k)*normalVelocity(k+1,iEdge)) / bTemp(k)
          enddo
-         normalVelocity(1:Nsurf-1,iEdge) = 0.0_RKIND
-         normalVelocity(N+1:nVertLevels,iEdge) = 0.0_RKIND
+         normalVelocity(1:Nsurf-1,iEdge) = MPAS_REAL_FILLVAL
+         normalVelocity(N+1:nVertLevels,iEdge) = MPAS_REAL_FILLVAL
 
         end if
       end do
@@ -872,8 +872,8 @@ contains
          do k = N-1, Nsurf, -1
             normalVelocity(k,iEdge) = (rTemp(k) - C(k)*normalVelocity(k+1,iEdge)) / bTemp(k)
          enddo
-         normalVelocity(1:Nsurf-1,iEdge) = 0.0_RKIND
-         normalVelocity(N+1:nVertLevels,iEdge) = 0.0_RKIND
+         normalVelocity(1:Nsurf-1,iEdge) = MPAS_REAL_FILLVAL
+         normalVelocity(N+1:nVertLevels,iEdge) = MPAS_REAL_FILLVAL
 
         end if
       end do

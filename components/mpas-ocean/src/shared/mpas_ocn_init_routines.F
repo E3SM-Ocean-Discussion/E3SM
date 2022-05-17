@@ -210,8 +210,7 @@ contains
       !$acc exit data delete(layerThickness, normalVelocity)
 #endif
 
-      layerThickness(:, nCells+1) = 0.0_RKIND
-
+      layerThickness(:, nCells+1) = MPAS_REAL_FILLVAL
 
       do iEdge=1, nEdges
          normalVelocity(maxLevelEdgeTop(iEdge)+1:maxLevelEdgeBot(iEdge), iEdge) = 0.0_RKIND
