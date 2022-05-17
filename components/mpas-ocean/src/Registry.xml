@@ -2062,125 +2062,106 @@
 		<var name="normalVelocity" type="real" dimensions="nVertLevels nEdges Time" units="m s^{-1}"
 			 description="horizontal velocity, normal component to an edge"
 			 missing_value="MPAS_REAL_FILLVAL"
+
 		/>
 		<var name="layerThickness" type="real" dimensions="nVertLevels nCells Time" units="m"
 			 description="layer thickness"
-			 missing_value="MPAS_REAL_FILLVAL"
+			 missing_value="-1e34"
 		/>
 		<var name="ssh" type="real" dimensions="nCells Time" units="m"
 			 description="sea surface height"
-			 missing_value="MPAS_REAL_FILLVAL"
+			 missing_value="FILLVAL"
 		/>
 
 		<!-- FIELDS FOR FREQUENCY FILTERED THICKNESS -->
 		<var name="highFreqThickness" type="real" dimensions="nVertLevels nCells Time" units="m"
 			 description="high frequency-filtered layer thickness"
 			 packages="thicknessFilter"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="lowFreqDivergence" type="real" dimensions="nVertLevels nCells Time" units="s^{-1}"
 			 description="low frequency-filtered divergence"
 			 packages="thicknessFilter"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 
 		<!-- FIELDS FOR FRAZIL ICE -->
 		<var name="accumulatedFrazilIceMass" type="real" dimensions="nCells Time" units="kg m^{-2}"
 			 description="Mass per unit area of frazil ice produced. Reset to zero at each coupling interval"
 			 packages="frazilIce"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="accumulatedFrazilIceSalinity" type="real" dimensions="nCells Time" units="kg m^{-2}"
 			 description="Salinity associated with accumulatedFrazilIceMass. Reset to zero at each coupling interval"
 			 packages="frazilIce"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="accumulatedLandIceFrazilSalinity" type="real" dimensions="nCells Time" units="kg m^{-2}"
 			 description="Salinity associated with accumulatedFrazilIceMass. Reset to zero at each coupling interval"
 			 packages="frazilIce"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 
 		<!-- FIELDS FOR LAND ICE STORAGE -->
 		<var name="accumulatedLandIceMass" type="real" dimensions="nCells Time" units="kg m^{-2}"
 			description="Mass per unit area of land ice produced at land ice-ocean interface. Only computed in 'standalone' mode where land-ice fluxes are computed in MPAS-O."
 			packages="landIceFluxesPKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="accumulatedLandIceHeat" type="real" dimensions="nCells Time" units="J m^{-2}"
 			description="Heat per unit area stored in land ice produced at land ice-ocean interface. Only computed in 'standalone' mode where land-ice fluxes are computed in MPAS-O."
 			packages="landIceFluxesPKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="accumulatedLandIceFrazilMass" type="real" dimensions="nCells Time" units="kg m^{-2}"
 			description="Mass per unit area of frazil ice produced under land ice.  Only computed when not coupled to a dynamic land-ice model."
 			packages="frazilIce"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 
 		<!-- FIELDS FOR SPLIT EXPLICIT TIME INTEGRATOR -->
 		<var name="normalBarotropicVelocity" type="real" dimensions="nEdges Time" units="m s^{-1}"
 			 description="barotropic velocity, used in split-explicit time-stepping"
 			 packages="splitTimeIntegrator"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="normalBarotropicVelocitySubcycle" type="real" dimensions="nEdges Time" units="m s^{-1}"
 			 description="barotropic velocity, used in subcycling in stage 2 of split-explicit time-stepping"
 			 packages="splitTimeIntegrator"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="sshSubcycle" type="real" dimensions="nCells Time" units="m"
 			 description="sea surface height, used in subcycling in stage 2 of split-explicit time-stepping"
 			 packages="splitTimeIntegrator"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="normalBaroclinicVelocity" type="real" dimensions="nVertLevels nEdges Time" units="m s^{-1}"
 			 description="baroclinic velocity, used in split-explicit time-stepping"
 			 packages="splitTimeIntegrator"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 
 		<!-- FIELD FOR LAND-ICE COUPLING -->
 		<var name="effectiveDensityInLandIce" type="real" dimensions="nCells Time" units="kg m^{-3}"
 			description="The effective ocean density within ice shelves based on Archimedes' principle."
 			packages="landIceCouplingPKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
         <!-- FIELDS FOR GOTM -->
 		<var name="gotmVertViscTopOfCell" type="real" dimensions="nVertLevelsP1 nCells Time" units="m^2 s^{-1}"
 			 description="GOTM: vertical viscosity defined at the cell center (horizontally) and top (vertically)"
 			 packages="gotmPKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="gotmVertDiffTopOfCell" type="real" dimensions="nVertLevelsP1 nCells Time" units="m^2 s^{-1}"
 			 description="GOTM: vertical diffusion defined at the cell center (horizontally) and top (vertically)"
 			 packages="gotmPKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="gotmTKETopOfCell" type="real" dimensions="nVertLevelsP1 nCells Time" units="m^2 s^{-2}"
 			 description="GOTM: turbulent kenetic energy defined at the cell center (horizontally) and top (vertically)"
 			 packages="gotmPKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="gotmKbTopOfCell" type="real" dimensions="nVertLevelsP1 nCells Time" units="m^2 s^{-4}"
 			 description="GOTM: (half) buoyancy variance defined at the cell center (horizontally) and top (vertically)"
 			 packages="gotmPKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="gotmEpsbTopOfCell" type="real" dimensions="nVertLevelsP1 nCells Time" units="m^2 s^{-5}"
 			 description="GOTM: destruction of buoyancy variance defined at the cell center (horizontally) and top (vertically)"
 			 packages="gotmPKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="gotmDissTopOfCell" type="real" dimensions="nVertLevelsP1 nCells Time" units="m^2 s^{-3}"
 			 description="GOTM: rate of dissipation defined at the cell center (horizontally) and top (vertically)"
 			 packages="gotmPKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="gotmLengthTopOfCell" type="real" dimensions="nVertLevelsP1 nCells Time" units="m"
 			 description="GOTM: turbulent length scale defined at the cell center (horizontally) and top (vertically)"
 			 packages="gotmPKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 	</var_struct>
 	<var_struct name="mesh" time_levs="1">
@@ -2421,7 +2402,6 @@
 	<var_struct name="verticalMesh" time_levs="1">
 		<var name="restingThickness" type="real" dimensions="nVertLevels nCells" units="m"
 			 description="Layer thickness when the ocean is at rest, i.e. without SSH or internal perturbations."
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="refZMid" type="real" dimensions="nVertLevels" units="m"
 			 description="Reference mid z-coordinate of ocean for each vertical level. This has a negative value."
@@ -2434,505 +2414,405 @@
 		<var name="tendNormalVelocity" type="real" dimensions="nVertLevels nEdges Time" units="m s^{-2}" name_in_code="normalVelocity"
 			 description="time tendency of normal component of velocity"
 			 packages="forwardMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="tendLayerThickness" type="real" dimensions="nVertLevels nCells Time" units="m s^{-1}" name_in_code="layerThickness"
 			 description="time tendency of layer thickness"
 			 packages="forwardMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="tendSSH" type="real" dimensions="nCells Time" units="m s^{-1}" name_in_code="ssh"
 			 description="time tendency of sea-surface height"
 			 packages="forwardMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="tendHighFreqThickness" type="real" dimensions="nVertLevels nCells Time" units="m s^{-1}" name_in_code="highFreqThickness"
 			 description="time tendency of high frequency-filtered layer thickness"
 			 packages="thicknessFilter"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="tendLowFreqDivergence" type="real" dimensions="nVertLevels nCells Time" units="m s^{-1}" name_in_code="lowFreqDivergence"
 			 description="time tendency of low frequency-filtered divergence"
 			 packages="thicknessFilter"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 	</var_struct>
 	<var_struct name="diagnostics" time_levs="1">
 		<var name="xtime" type="text" dimensions="Time" units="unitless"
 			 description="model time, with format 'YYYY-MM-DD_HH:MM:SS'"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="simulationStartTime" type="text" dimensions="" units="unitless" default_value="'no_date_available'"
 			 description="start time of first simulation, with format 'YYYY-MM-DD_HH:MM:SS'"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="daysSinceStartOfSim" type="real" dimensions="Time" units="days"
 			 description="Time since simulationStartTime, for plotting"
 	 	/>
 		<var name="salinitySurfaceRestoringTendency" type="real" dimensions="nCells Time" units="m PSU/s" packages="activeTracersSurfaceRestoringPKG"
 			 description="salinity tendency due to surface restoring"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var_array name="activeTracerSurfaceFluxTendency" type="real" dimensions="nVertLevels nCells Time" packages="tracerBudget">
 
 			<var name="temperatureSurfaceFluxTendency" array_group="activeTracerSfcFluxTendGroup" units="degrees Celsius per second" name_in_code="temperatureSurfaceFluxTendency"
 				description="potential temperature tendency due to surface fluxes"
-				 missing_value="MPAS_REAL_FILLVAL"
-		/>
+			/>
 			<var name="salinitySurfaceFluxTendency" array_group="activeTracerSfcFluxTendGroup" units="PSU per second" name_in_code="salinitySurfaceFluxTendency"
 				description="salinity tendency due to surface fluxes"
-				 missing_value="MPAS_REAL_FILLVAL"
-		/>
+			/>
 		</var_array>
 		<var name="temperatureShortWaveTendency" dimensions="nVertLevels nCells Time" units="degrees Celsius per second" packages="tracerBudget" name_in_code="temperatureShortWaveTendency" type="real"
 				 description="potential temperature tendency due to penetrating shortwave"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var_array name="activeTracerHorMixTendency" type="real" dimensions="nVertLevels nCells Time" packages="tracerBudget">
 			<var name="temperatureHorMixTendency" array_group="activeTracerHmixTendGroup" units="degrees Celsius per second" name_in_code="temperatureHorMixTendency"
 				description="potential temperature tendency due to horizontal mixing (including Redi)"
-				 missing_value="MPAS_REAL_FILLVAL"
-		/>
+			/>
 			<var name="salinityHorMixTendency" array_group="activeTracerHmixTendGroup" units="PSU per second" name_in_code="salinityHorMixTendency"
 				description="salinity tendency due to horizontal mixing (including Redi)"
-				 missing_value="MPAS_REAL_FILLVAL"
-		/>
+			/>
 		</var_array>
 		<var_array name="activeTracerNonLocalTendency" type="real" dimensions="nVertLevels nCells Time" packages="tracerBudget">
 			<var name="temperatureNonLocalTendency" array_group="activeTracerNLTendGroup" units="degrees Celsius per second" name_in_code="temperatureNonLocalTendency"
 				 description="potential temperature tendency due to kpp non-local flux"
-				 missing_value="MPAS_REAL_FILLVAL"
-		/>
+			/>
 			<var name="salinityNonLocalTendency" array_group="activeTracerNLTendGroup" units="PSU per second" name_in_code="salinityNonLocalTendency"
 				 description="salinity tendency due to kpp non-local flux"
-				 missing_value="MPAS_REAL_FILLVAL"
-		/>
+			/>
 		</var_array>
 		<var_array name="activeTracerVerticalAdvectionTopFlux" type="real" dimensions="nVertLevels nCells Time" packages="tracerBudget">
 			<var name="temperatureVerticalAdvectionTopFlux" array_group="activeTracerVertTopFluxGroup" units="C m s^{-1}" name_in_code="temperatureVerticalAdvectionTopFlux"
 				description="potential temperature vertical advective flux through top of cell"
-				 missing_value="MPAS_REAL_FILLVAL"
-		/>
+			/>
 			<var name="salinityVerticalAdvectionTopFlux" array_group="activeTracerVertTopFluxGroup" units="PSU m s^{-1}" name_in_code="salinityVerticalAdvectionTopFlux"
 				description="salinity advective vertical advective flux through top of cell"
-				 missing_value="MPAS_REAL_FILLVAL"
-		/>
+			/>
 		</var_array>
 		<var_array name="activeTracerHorizontalAdvectionEdgeFlux" type="real" dimensions="nVertLevels nEdges Time" packages="tracerBudget">
 			<var name="temperatureHorizontalAdvectionEdgeFlux" array_group="activeTracerHorAdvEdgeFluxGroup" units="C m s^{-1}" name_in_code="temperatureHorizontalAdvectionEdgeFlux"
 				description="potential temperature advective flux due to horizontal advection through edges"
-				 missing_value="MPAS_REAL_FILLVAL"
-		/>
+			/>
 			<var name="salinityHorizontalAdvectionEdgeFlux" array_group="activeTracerHorAdvEdgeFluxGroup" units="PSU m s^{-1}" name_in_code="salinityHorizontalAdvectionEdgeFlux"
 				description="salinity advective flux due to horizontal advection through edges"
-				 missing_value="MPAS_REAL_FILLVAL"
-		/>
+			/>
 		</var_array>
 		<var_array name="activeTracerHorizontalAdvectionTendency" type="real" dimensions="nVertLevels nCells Time" packages="tracerBudget">
 			<var name="temperatureHorizontalAdvectionTendency" array_group="activeTracerHorAdvTendGroup" units="degrees Celsius per second" name_in_code="temperatureHorizontaldvectionTendency"
 				description="potential temperature tendency due to horizontal advection"
-				 missing_value="MPAS_REAL_FILLVAL"
-		/>
+			/>
 			<var name="salinityHorizontalAdvectionTendency" array_group="activeTracerHorAdvTendGroup" units="PSU per second" name_in_code="salinityHorizontalAdvectionTendency"
 				description="salinity tendency due to horizontal advection"
-				 missing_value="MPAS_REAL_FILLVAL"
-		/>
+			/>
 		</var_array>
 		<var_array name="activeTracerVerticalAdvectionTendency" type="real" dimensions="nVertLevels nCells Time" packages="tracerBudget">
 			<var name="temperatureVerticalAdvectionTendency" array_group="activeTracerVertAdvTendGroup" units="degrees Celsius per second" name_in_code="temperatureVerticalAdvectionTendency"
 				description="potential temperature tendency due to vertical advection"
-				 missing_value="MPAS_REAL_FILLVAL"
-		/>
+			/>
 			<var name="salinityVerticalAdvectionTendency" array_group="activeTracerVertAdvTendGroup" units="PSU per second" name_in_code="salinityVerticalAdvectionTendency"
 				description="salinity tendency due to vertical advection"
-				 missing_value="MPAS_REAL_FILLVAL"
-		/>
+			/>
 		</var_array>
 		<var_array name="activeTracerVertMixTendency" type="real" dimensions="nVertLevels nCells Time" packages="tracerBudget">
 			<var name="temperatureVertMixTendency" array_group="activeTracerVertMixTendGroup" units="degrees Celsius per second" name_in_code="temperatureVertMixTendency"
 				 description="potential temperature tendency due to vertical mixing"
-				 missing_value="MPAS_REAL_FILLVAL"
-		/>
+			/>
 			<var name="salinityVertMixTendency" array_group="activeTracerVertMixTendGroup" units="PSU per second" name_in_code="salinityVertMixTendency"
 				 description="salinity tendency due to vertical mixing"
-				 missing_value="MPAS_REAL_FILLVAL"
-		/>
+			/>
 		</var_array>
 		<var_array name="tracersSurfaceValue" type="real" dimensions="nCells Time">
 			<var name="temperatureSurfaceValue" array_group="surfaceValues" units="degrees Celsius" name_in_code="temperatureSurfaceValue"
 				description="potential temperature extrapolated to ocean surface"
-				 missing_value="MPAS_REAL_FILLVAL"
-		/>
+			/>
 			<var name="salinitySurfaceValue" array_group="surfaceValues" units="PSU" name_in_code="salinitySurfaceValue"
 				description="salinity extrapolated to ocean surface"
-				 missing_value="MPAS_REAL_FILLVAL"
-		/>
+			/>
 		</var_array>
 		<var_array name="tracersSurfaceLayerValue" type="real" dimensions="nCells Time" packages="forwardMode;analysisMode">
 			<var name="temperatureSurfaceLayerValue" array_group="surfaceLayerValues" units="degrees Celsius" name_in_code="temperatureSurfaceLayerValue"
 				description="potential temperature averaged over ocean surface layer (generally 0.1 of the ocean boundary layer)"
-				 missing_value="MPAS_REAL_FILLVAL"
-		/>
+			/>
 			<var name="salinitySurfaceLayerValue" array_group="surfaceLayerValues" units="PSU" name_in_code="salinitySurfaceLayerValue"
 				description="salinity averaged over ocean surface layer (generally 0.1 of the ocean boundary layer)"
-				 missing_value="MPAS_REAL_FILLVAL"
-		/>
+			/>
 		</var_array>
 		<var name="normalVelocitySurfaceLayer" type="real" dimensions="nEdges Time" units="m s^{-1}"
 			 description="normal velocity averaged over ocean surface layer (generally 0.1 of the ocean boundary layer)"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var_array name="surfaceVelocity" type="real" dimensions="nCells Time" packages="forwardMode;analysisMode">
 			<var name="surfaceVelocityZonal" array_group="vel_zonal" units="m s^{-1}"
 				 description="Zonal surface velocity reconstructed at cell centers"
 
-				 missing_value="MPAS_REAL_FILLVAL"
-		/>
+			/>
 			<var name="surfaceVelocityMeridional" array_group="vel_meridional" units="m s^{-1}"
 				 description="Meridional surface velocity reconstructed at cell centers"
-				 missing_value="MPAS_REAL_FILLVAL"
-		/>
+			/>
 		</var_array>
 		<var name="surfacePressure" type="real" dimensions="nCells Time" units="Pa"
 			description="Pressure at the sea surface due to atmosphere, sea ice, frazil and land ice"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var_array name="SSHGradient" type="real" dimensions="nCells Time" packages="forwardMode;analysisMode">
 			<var name="SSHGradientZonal" array_group="ssh_zonal" units="m m^{-1}"
 				 description="Zonal gradient of SSH reconstructed at cell centers"
-				 missing_value="MPAS_REAL_FILLVAL"
-		/>
+			/>
 			<var name="SSHGradientMeridional" array_group="ssh_meridional" units="m m^{-1}"
 				 description="Meridional gradient of SSH reconstructed at cell centers"
-				 missing_value="MPAS_REAL_FILLVAL"
-		/>
+			/>
 		</var_array>
 		<var name="zMid" type="real" dimensions="nVertLevels nCells Time" units="m"
 			 description="z-coordinate of the mid-depth of the layer"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="zTop" type="real" dimensions="nVertLevels nCells Time" units="m"
 			 description="z-coordinate of the top of the layer"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 
 		<var name="density" type="real" dimensions="nVertLevels nCells Time" units="kg m^{-3}"
 			 description="density"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="displacedDensity" type="real" dimensions="nVertLevels nCells Time" units="kg m^{-3}"
 			 description="Density displaced adiabatically to the mid-depth one layer deeper.  That is, layer k has been displaced to the depth of layer k+1."
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="potentialDensity" type="real" dimensions="nVertLevels nCells Time" units="kg m^{-3}"
 			 description="potential density: density displaced adiabatically to the mid-depth of top layer"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="inSituThermalExpansionCoeff"
 			 type="real" dimensions="nVertLevels nCells Time" units="C^{-1}"
 			 description="Thermal expansion coefficient (alpha), defined as $-1/\rho d\rho/dT$ (note negative sign).  This is in situ, i.e. not displaced to another depth."
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="inSituSalineContractionCoeff"
 			 type="real" dimensions="nVertLevels nCells Time" units="PSU^{-1}"
 			 description="Saline contraction coefficient (beta), defined as $1/\rho d\rho/dS$.  This is also called the haline contraction coefficient.  This is in situ, i.e. not displaced to another depth."
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 
 		<var name="BruntVaisalaFreqTop" type="real" dimensions="nVertLevels nCells Time" units="s^{-2}"
 			 description="Brunt Vaisala frequency defined at the center (horizontally) and top (vertically) of cell"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="montgomeryPotential" type="real" dimensions="nVertLevels nCells Time" units="m^2 s^{-2}"
 			 description="Montgomery potential, may be used as the pressure for isopycnal coordinates."
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="pressure" type="real" dimensions="nVertLevels nCells Time" units="N m^{-2}"
 			 description="pressure used in the momentum equation"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="modifyLandIcePressureMask" type="integer" dimensions="nCells Time" units="unitless"
 			description="A mask indicating where landIcePressure can be modified during iterative init.  The mask is 1 under (and perhaps near) ice shelves and 0 elsewhere."
 			packages="initMode"
-			 missing_value="MPAS_INT_FILLVAL"
 		/>
 		<var name="normalTransportVelocity" type="real" dimensions="nVertLevels nEdges Time" units="m s^{-1}"
 			 description="horizontal velocity used to transport mass and tracers"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="wettingVelocity" type="real" dimensions="nVertLevels nEdges Time" units="m s^{-1}"
 			 description="Velocity to prevent drying of cell."
 			 packages="forwardMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="vertAleTransportTop" type="real" dimensions="nVertLevelsP1 nCells Time" units="m s^{-1}"
 			 description="vertical transport through the layer interface at the top of the cell"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="vertVelocityTop" type="real" dimensions="nVertLevelsP1 nCells Time" units="m s^{-1}"
 			 description="vertical velocity defined at center (horizontally) and top (vertically) of cell"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="vertTransportVelocityTop" type="real" dimensions="nVertLevelsP1 nCells Time" units="m s^{-1}"
 			 description="vertical tracer-transport velocity defined at center (horizontally) and top (vertically) of cell.  This is not the vertical ALE transport, but is Eulerian (fixed-frame) in the vertical, and computed from the continuity equation from the horizontal total tracer-transport velocity."
 			 packages="forwardMode;analysisMode"
 
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="vertGMBolusVelocityTop" type="real" dimensions="nVertLevelsP1 nCells Time" units="m s^{-1}"
 			 description="vertical tracer-transport velocity defined at center (horizontally) and top (vertically) of cell.  This is not the vertical ALE transport, but is Eulerian (fixed-frame) in the vertical, and computed from the continuity equation from the horizontal GM Bolus velocity."
 			 packages="forwardMode;analysisMode"
 
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="tangentialVelocity" type="real" dimensions="nVertLevels nEdges Time" units="m s^{-1}"
 			 description="horizontal velocity, tangential to an edge"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="layerThicknessEdgeMean" type="real" dimensions="nVertLevels nEdges Time" units="m"
 			 description="layer thickness averaged from cell center to edges"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="layerThicknessEdgeFlux" type="real" dimensions="nVertLevels nEdges Time" units="m"
 			 description="layer thickness used for fluxes through edges. May be centered, upwinded, or a combination of the two."
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="layerThicknessVertex" type="real" dimensions="nVertLevels nVertices Time" units="m"
 			 description="layer thickness averaged from cell center to vertices"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 
 		<var name="kineticEnergyCell" type="real" dimensions="nVertLevels nCells Time" units="m^2 s^{-2}"
 			 description="kinetic energy of horizontal velocity on cells"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="viscosity" type="real" dimensions="nVertLevels nEdges Time" units="m^2 s^{-1}"
 			 description="horizontal viscosity"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="divergence" type="real" dimensions="nVertLevels nCells Time" units="s^{-1}"
 			 description="divergence of horizontal velocity"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="circulation" type="real" dimensions="nVertLevels nVertices Time" units="m^2 s^{-1}"
 			 description="area-integrated vorticity"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="relativeVorticity" type="real" dimensions="nVertLevels nVertices Time" units="s^{-1}"
 			 description="curl of horizontal velocity, defined at vertices"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="relativeVorticityCell" type="real" dimensions="nVertLevels nCells Time" units="s^{-1}"
 			 description="curl of horizontal velocity, averaged from vertices to cell centers"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="normalizedRelativeVorticityEdge" type="real" dimensions="nVertLevels nEdges Time" units="s^{-1}"
 			 description="curl of horizontal velocity divided by layer thickness, averaged from vertices to edges"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="normalizedPlanetaryVorticityEdge" type="real" dimensions="nVertLevels nEdges Time" units="s^{-1}"
 			 description="earth's rotational rate (Coriolis parameter, f) divided by layer thickness, averaged from vertices to edges"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="normalizedRelativeVorticityCell" type="real" dimensions="nVertLevels nCells Time" units="s^{-1}"
 			 description="curl of horizontal velocity divided by layer thickness, averaged from vertices to cell centers"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="barotropicForcing" type="real" dimensions="nEdges Time" units="m s^{-2}"
 			 description="Barotropic tendency computed from the baroclinic equations in stage 1 of the split-explicit algorithm."
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="barotropicThicknessFlux" type="real" dimensions="nEdges Time" units="m^2 s^{-1}"
 			 description="Barotropic thickness flux at each edge, used to advance sea surface height in each subcycle of stage 2 of the split-explicit algorithm."
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 
 		<var name="velocityX" type="real" dimensions="nVertLevels nCells Time" units="m s^{-1}"
 			 description="component of horizontal velocity in the x-direction (cartesian)"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="velocityY" type="real" dimensions="nVertLevels nCells Time" units="m s^{-1}"
 			 description="component of horizontal velocity in the y-direction (cartesian)"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="velocityZ" type="real" dimensions="nVertLevels nCells Time" units="m s^{-1}"
 			 description="component of horizontal velocity in the z-direction (cartesian)"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="velocityZonal" type="real" dimensions="nVertLevels nCells Time" units="m s^{-1}"
 			 description="component of horizontal velocity in the eastward direction"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="velocityMeridional" type="real" dimensions="nVertLevels nCells Time" units="m s^{-1}"
 			 description="component of horizontal velocity in the northward direction"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="transportVelocityX" type="real" dimensions="nVertLevels nCells Time" units="m s^{-1}"
 			 description="component of horizontal velocity used to transport mass and tracers in the x-direction (cartesian)"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="transportVelocityY" type="real" dimensions="nVertLevels nCells Time" units="m s^{-1}"
 			 description="component of horizontal velocity used to transport mass and tracers in the y-direction (cartesian)"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="transportVelocityZ" type="real" dimensions="nVertLevels nCells Time" units="m s^{-1}"
 			 description="component of horizontal velocity used to transport mass and tracers in the z-direction (cartesian)"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="transportVelocityZonal" type="real" dimensions="nVertLevels nCells Time" units="m s^{-1}"
 			 description="component of horizontal velocity used to transport mass and tracers in the eastward direction"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="transportVelocityMeridional" type="real" dimensions="nVertLevels nCells Time" units="m s^{-1}"
 			 description="component of horizontal velocity used to transport mass and tracers in the northward direction"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="gradSSH" type="real" dimensions="nEdges Time" units=""
 			 description="Gradient of sea surface height at edges."
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="gradSSHX" type="real" dimensions="nCells Time" units=""
 			 description="X Component of the gradient of sea surface height at cell centers."
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="gradSSHY" type="real" dimensions="nCells Time" units=""
 			 description="Y Component of the gradient of sea surface height at cell centers."
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="gradSSHZ" type="real" dimensions="nCells Time" units=""
 			 description="Z Component of the gradient of sea surface height at cell centers."
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="gradSSHZonal" type="real" dimensions="nCells Time" units=""
 			 description="Zonal Component of the gradient of sea surface height at cell centers."
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="gradSSHMeridional" type="real" dimensions="nCells Time" units=""
 			 description="Meridional Component of the gradient of sea surface height at cell centers."
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="normalGMBolusVelocity" type="real" dimensions="nVertLevels nEdges Time" units="m s^{-1}"
 			 description="Bolus velocity in Gent-McWilliams eddy parameterization"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="cGMphaseSpeed" type="real" dimensions="nEdges Time" units="m s^{-1}"
 			description="phase speed for the bolus velocity calculation"
 			packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="betaEdge" type="real" dimensions="nEdges Time" units="m^{-1} s^{-1}"
 			description="meridional gradient of the coriolis parameter"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="gmKappaScaling" type="real" dimensions="nVertLevelsP1 nEdges Time" units="NA" default_value="1.0"
 			description="spatially and depth varying GM kappa.  The scaling is based on the Brunt Vaisala Frequency relative to a maximum value below the mixed layer, follows from Danabasoglu and Marshall 2007.  If config_GM_closure is not set to N2_dependent the scaling value is set to 1 everywhere."
 			packages="gm"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="RediKappaScaling" type="real" dimensions="nVertLevelsP1 nCells Time" units="NA"
 			description="Scaling coefficient for GM kappa. Varies from 0 to 1.  The scaling is based on the Brunt Vaisala Frequency relative to a maximum value below the mixed layer, follows from Danabasoglu and Marshall 2007.  If config_Redi_N2_based_taper_enable = .false. the scaling is set to 1 everywhere."
 			packages="gm"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="RediKappaSfcTaper" type="real" dimensions="nVertLevelsP1 nCells Time" units="NA"
 			description="Scaling coefficient for Redi kappa. Varies from 0 to 1."
 			packages="gm"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="rediLimiterCount" type="integer" dimensions="nVertLevels nCells Time" units="NA"
 			description="count of times redi limiter is invoked on a timestep"
 			packages="gm"
-			 missing_value="MPAS_INT_FILLVAL"
 		/>
 		<var name="GMBolusVelocityX" type="real" dimensions="nVertLevels nCells Time" units="m s^{-1}"
 			 description="Bolus velocity in Gent-McWilliams eddy parameterization, x-direction"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="GMBolusVelocityY" type="real" dimensions="nVertLevels nCells Time" units="m s^{-1}"
 			 description="Bolus velocity in Gent-McWilliams eddy parameterization, y-direction"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="GMBolusVelocityZ" type="real" dimensions="nVertLevels nCells Time" units="m s^{-1}"
 			 description="Bolus velocity in Gent-McWilliams eddy parameterization, z-direction"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="GMBolusVelocityZonal" type="real" dimensions="nVertLevels nCells Time" units="m s^{-1}"
 			 description="Bolus velocity in Gent-McWilliams eddy parameterization, zonal-direction"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="GMBolusVelocityMeridional" type="real" dimensions="nVertLevels nCells Time" units="m s^{-1}"
 			 description="Bolus velocity in Gent-McWilliams eddy parameterization, meridional-direction"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="RiTopOfCell" type="real" dimensions="nVertLevelsP1 nCells Time" units="nondimensional"
 			 description="gradient Richardson number defined at the center (horizontally) and top (vertically)"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="RiTopOfEdge" type="real" dimensions="nVertLevelsP1 nEdges Time" units="nondimensional"
 			 description="gradient Richardson number defined at the edge (horizontally) and top (vertically)"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="vertViscTopOfEdge" type="real" dimensions="nVertLevelsP1 nEdges Time" units="m^2 s^{-1}"
 			 description="vertical viscosity defined at the edge (horizontally) and top (vertically)"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="vertViscTopOfCell" type="real" dimensions="nVertLevelsP1 nCells Time" units="m^2 s^{-1}"
 			 description="vertical viscosity defined at the cell center (horizontally) and top (vertically)"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="vertDiffTopOfCell" type="real" dimensions="nVertLevelsP1 nCells Time" units="m^2 s^{-1}"
 			 description="vertical diffusion defined at the cell center (horizontally) and top (vertically)"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="bulkRichardsonNumber" type="real" dimensions="nVertLevels nCells Time" units="nondimensional"
 			 description="CVMix/KPP: bulk Richardson number"
@@ -2941,384 +2821,307 @@
 		<var name="bulkRichardsonNumberBuoy" type="real" dimensions="nVertLevels nCells Time" units="nondimensional"
 			 description="CVMix/KPP: contribution of buoyancy to bulk Richardson number"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="bulkRichardsonNumberShear" type="real" dimensions="nVertLevels nCells Time" units="nondimensional"
 			 description="CVMix/KPP: contribution of shear to bulk Richardson number"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="unresolvedShear" type="real" dimensions="nVertLevels nCells Time" units="m s^{-1}"
 			 description="CVMix/KPP: contribution of unresolved velocity to vertical shear"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="boundaryLayerDepth" type="real" dimensions="nCells Time" units="m"
 			 description="CVMix/KPP: diagnosed depth of the ocean surface boundary layer"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="boundaryLayerDepthSmooth" type="real" dimensions="nCells Time" units="m"
 			 description="CVMix/KPP: smoothed boundary layer depth"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="boundaryLayerDepthEdge" type="real" dimensions="nEdges Time" units="m"
 			 description="CVMix/KPP: diagnosed depth of the ocean surface boundary layer averaged to cell edges"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var_array name="vertNonLocalFlux" type="real" dimensions="nVertLevelsP1 nCells Time" packages="forwardMode;analysisMode">
 			<var name="vertNonLocalFluxTemp" array_group="vertNonLocalFlux" units="nondimensional" name_in_code="vertNonLocalFluxTemp"
 				 description="CVMix/KPP: nonlocal boundary layer mixing term for temperature"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		</var_array>
 		<var name="indexBoundaryLayerDepth" type="real" dimensions="nCells Time"  units="none"
 			 description="CVMix/KPP: int(indexBoundaryLayerDepth) is vertical layer within which boundaryLayerDepth resides. mod(indexBoundaryLayerDepth) indicates whether boundaryLayerDepth resides above layer center (value = 0.25) or below layer center (value=0.75)"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="indexSurfaceLayerDepth" type="real" dimensions="nCells Time" units="none"
 			 description="CVMix/KPP: surface layer entirely encompasses int(indexSurfaceLayerDepth) vertical layers and fraction(indexSurfaceLayerDepth) of the int(indexSurfaceLayerDepth)+1 layer."
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="surfaceFrictionVelocity" type="real" dimensions="nCells Time"  units="m s^{-1}"
 			 description="CVMix/KPP: diagnosed surface friction velocity defined as square root of (mag(wind stress) / reference density)"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="penetrativeTemperatureFluxOBL" type="real" dimensions="nCells Time" units="^\circ C m s^{-1}"
 			 description="CVMix/KPP: Penetrative temperature flux at the bottom of boundary layer due to solar radiation. Positive is into the ocean."
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="bottomLayerShortwaveTemperatureFlux" type="real" dimensions="nCells Time" units="W m^{-2}"
 			 description="Solar flux that reaches bottom of the ocean and does not impact temperature"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="surfaceBuoyancyForcing" type="real" dimensions="nCells Time" units="m^2 s^{-3}"
 			 description="CVMix/KPP: diagnosed surface buoyancy flux due to heat, salt and freshwater fluxes. Positive flux increases buoyancy."
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="indMLD" type="integer" dimensions="nCells Time" units="unitless"
 			description="index of model where mixed layer depth occurs (always one past)"
-			 missing_value="MPAS_INT_FILLVAL"
 		/>
 		<var name="slopeTriadUp" type="real" dimensions="nVertLevels TWO nEdges Time" units="non-dimensional" default_value="0.0"
 			 description="Magnitude of slope of isopycnal surface, using triad through this cell and edge, angled up. Uses expansion of equation of state."
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="slopeTriadDown" type="real" dimensions="nVertLevels TWO nEdges Time" units="non-dimensional" default_value="0.0"
 			 description="Magnitude of slope of isopycnal surface, using triad through this cell and edge, angled up. Uses expansion of equation of state."
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="k33" type="real" dimensions="nVertLevelsP1 nCells Time" units="m^2 s^{-1}"
 			 description="The (3,3) entry of the Redi diffusion tensor. Added to the model vertical diffusion. Defined at the top of cell k"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="gmStreamFuncTopOfEdge" type="real" dimensions="nVertLevelsP1 nEdges Time" units="m^2 s^{-1}"
 			 description="GM stream function"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="gmStreamFuncTopOfCell" type="real" dimensions="nVertLevels nCells Time" units="m^2 s^{-1}"
 			 description="GM stream function reconstructed to the cell centers"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="GMStreamFuncX" type="real" dimensions="nVertLevelsP1 nCells Time" units="m^2 s^{-1}"
 			 description="GM stream function"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="GMStreamFuncY" type="real" dimensions="nVertLevelsP1 nCells Time" units="m^2 s^{-1}"
 			 description="GM stream function"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="GMStreamFuncZ" type="real" dimensions="nVertLevelsP1 nCells Time" units="m^2 s^{-1}"
 			 description="GM stream function"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="GMStreamFuncZonal" type="real" dimensions="nVertLevelsP1 nCells Time" units="m^2 s^{-1}"
 			 description="GM stream function"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="GMStreamFuncMeridional" type="real" dimensions="nVertLevelsP1 nCells Time" units="m^2 s^{-1}"
 			 description="GM stream function"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="gmBolusKappa" type="real" dimensions="nEdges Time" units="m^2 s^{-1}"
 			 description="GM Bolus Kappa value.  This is constant in time, and set at init based on the constant or ramp fuction."
 			 packages="gm"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="RediKappa" type="real" dimensions="nEdges Time" units="m^2 s^{-1}"
 			 description="Redi Kappa value.  This is constant in time, and set at init based on the constant or ramp fuction."
 			 packages="gm"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="gmResolutionTaper" type="real" dimensions="nEdges Time" units="m^2 s^{-1}"
 			 description="resolution tapering for GM and Redi"
 			 packages="gm"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="surfaceFluxAttenuationCoefficient" type="real" dimensions="nCells Time" units="m"
 			description="The spatially-dependent length scale of exponential decay of surface fluxes. Fluxes are multiplied by $e^{z/\gamma}$, where this coefficient is $\gamma$."
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="surfaceFluxAttenuationCoefficientRunoff" type="real" dimensions="nCells Time" units="m"
 			description="The spatially-dependent length scale of exponential decay of river runoff. Fluxes are multiplied by $e^{z/\gamma}$, where this coefficient is $\gamma$."
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="topographic_wave_drag" type="real" dimensions="nEdges" units="unitless"
 			description="wave drag coefficient or 1/(rinv) where rinv is the e-folding time used in HyCOM"
 			packages="topographicWaveDragPKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<!-- diagnostic fields for land-ice fluxes -->
 		<var name="landIceFrictionVelocity" type="real" dimensions="nCells Time" units="m s^{-1}"
 			description="The friction velocity $u_*$ under land ice"
 			packages="landIceFluxesPKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="topDrag" type="real" dimensions="nEdges Time" units="N m^{-2}"
 			description="Top drag at the surface of the ocean defined at edge midpoints. Magnitude in direction of edge normal."
 			packages="landIceFluxesPKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="topDragMagnitude" type="real" dimensions="nCells Time" units="N m^{-2}"
 			description="Magnitude of top drag at the surface of the ocean, at cell centers."
 			packages="landIceFluxesPKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var_array name="landIceBoundaryLayerTracers" type="real" dimensions="nCells Time" packages="landIceFluxesPKG">
 			<var name="landIceBoundaryLayerTemperature" array_group="landIceBoundaryLayerValues" units="C"
 				description="The temperature averaged over the sub-ice-shelf boundary layer"
-				 missing_value="MPAS_REAL_FILLVAL"
-		/>
+			/>
 			<var name="landIceBoundaryLayerSalinity" array_group="landIceBoundaryLayerValues" units="PSU"
 				description="The salinity averaged over the sub-ice-shelf boundary layer"
-				 missing_value="MPAS_REAL_FILLVAL"
-		/>
+			/>
 		</var_array>
 		<var_array name="landIceTracerTransferVelocities" type="real" dimensions="nCells Time" packages="landIceFluxesPKG">
 			<var name="landIceHeatTransferVelocity" array_group="landIceTransferVelocityValues" units="m s^{-1}"
 				description="friction velocity times nondimensional heat transfer coefficient"
-				 missing_value="MPAS_REAL_FILLVAL"
-		/>
+			/>
 			<var name="landIceSaltTransferVelocity" array_group="landIceTransferVelocityValues" units="m s^{-1}"
 				description="friction velocity times nondimensional salt transfer coefficient"
-				 missing_value="MPAS_REAL_FILLVAL"
-		/>
+			/>
 		</var_array>
 		<!-- diagnostic fields for Haney number (rx1) -->
 		<var name="rx1Cell" type="real" dimensions="nVertLevels nCells Time" units="unitless"
 			 description="The Haney number (rx1), a measure of hydrostatic consistency, at cell centers."
 			 packages="initMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="rx1Edge" type="real" dimensions="nVertLevels nEdges Time" units="unitless"
 			 description="The Haney number (rx1), a measure of hydrostatic consistency, at edges."
 			 packages="initMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="rx1MaxCell" type="real" dimensions="nCells Time" units="unitless"
 			 description="The Haney number (rx1) is ratio of vertical displacement to cell thickness between two neighboring horizontal cells.  It is computed at each edge.  This cell-based value is the maximum over all edges and vertical levels of each cell."
 			 packages="initMode;debugDiagnosticsAMPKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="rx1MaxEdge" type="real" dimensions="nEdges Time" units="unitless"
 			 description="The maximum Haney number (rx1) in a vertical column, measured at edges."
 			 packages="initMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="globalRx1Max" type="real" dimensions="Time" units="unitless"
 			 description="The global maximum Haney number (rx1)."
 			 packages="initMode;debugDiagnosticsAMPKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="globalVerticalStretchMax" type="real" dimensions="Time" units="unitless"
 			 description="The global maximum stretching of the vertical grid compared with z-level."
 			 packages="initMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="globalVerticalStretchMin" type="real" dimensions="Time" units="unitless"
 			 description="The global minimum stretching of the vertical grid compared with z-level."
 			 packages="initMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="rx1InitSmoothingMask" type="integer" dimensions="nCells Time" units="unitless"
 			description="A mask indicating where layer interface and thickness smoothing is to be performed during Haney number constrained initializaiton."
 			packages="initMode"
-			 missing_value="MPAS_INT_FILLVAL"
 		/>
 		<var name="verticalStretch" type="real" dimensions="nVertLevels nCells" units="unitless"
 			description="the stretch factor of each layer compared with the default z-level coordinate"
 			packages="initMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="pressureAdjustedSSH" type="real" dimensions="nCells Time" units="m"
 			 description="sea surface height adjusted by sea surface pressure"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<!-- FIELD split_implicit time stepping -->
 		<var name="barotropicCoriolisTerm" type="real" dimensions="nEdges Time" units="m s^{-2}"
 			description="f * uPerp for the split-implicit time stepping"
 			packages="semiImplicitTimePKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="SIvec_r0" type="real" dimensions="nCells Time" units="unitless"
 			description="A vector used in the split-implicit barotropic mode solver"
 			packages="semiImplicitTimePKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="SIvec_r1" type="real" dimensions="nCells Time" units="unitless"
 			description="A vector used in the split-implicit barotropic mode solver"
 			packages="semiImplicitTimePKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="SIvec_rh0" type="real" dimensions="nCells Time" units="unitless"
 			description="A vector used in the split-implicit barotropic mode solver"
 			packages="semiImplicitTimePKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="SIvec_rh1" type="real" dimensions="nCells Time" units="unitless"
 			description="A vector used in the split-implicit barotropic mode solver"
 			packages="semiImplicitTimePKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="SIvec_r00" type="real" dimensions="nCells Time" units="unitless"
 			description="A vector used in the split-implicit barotropic mode solver"
 			packages="semiImplicitTimePKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="SIvec_ph0" type="real" dimensions="nCells Time" units="unitless"
 			description="A vector used in the split-implicit barotropic mode solver"
 			packages="semiImplicitTimePKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="SIvec_ph1" type="real" dimensions="nCells Time" units="unitless"
 			description="A vector used in the split-implicit barotropic mode solver"
 			packages="semiImplicitTimePKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="SIvec_v0" type="real" dimensions="nCells Time" units="unitless"
 			description="A vector used in the split-implicit barotropic mode solver"
 			packages="semiImplicitTimePKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="SIvec_s0" type="real" dimensions="nCells Time" units="unitless"
 			description="A vector used in the split-implicit barotropic mode solver"
 			packages="semiImplicitTimePKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="SIvec_s1" type="real" dimensions="nCells Time" units="unitless"
 			description="A vector used in the split-implicit barotropic mode solver"
 			packages="semiImplicitTimePKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="SIvec_sh0" type="real" dimensions="nCells Time" units="unitless"
 			description="A vector used in the split-implicit barotropic mode solver"
 			packages="semiImplicitTimePKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="SIvec_sh1" type="real" dimensions="nCells Time" units="unitless"
 			description="A vector used in the split-implicit barotropic mode solver"
 			packages="semiImplicitTimePKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="SIvec_w0" type="real" dimensions="nCells Time" units="unitless"
 			description="A vector used in the split-implicit barotropic mode solver"
 			packages="semiImplicitTimePKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="SIvec_w1" type="real" dimensions="nCells Time" units="unitless"
 			description="A vector used in the split-implicit barotropic mode solver"
 			packages="semiImplicitTimePKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="SIvec_wh0" type="real" dimensions="nCells Time" units="unitless"
 			description="A vector used in the split-implicit barotropic mode solver"
 			packages="semiImplicitTimePKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="SIvec_wh1" type="real" dimensions="nCells Time" units="unitless"
 			description="A vector used in the split-implicit barotropic mode solver"
 			packages="semiImplicitTimePKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="SIvec_q0" type="real" dimensions="nCells Time" units="unitless"
 			description="A vector used in the split-implicit barotropic mode solver"
 			packages="semiImplicitTimePKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="SIvec_q1" type="real" dimensions="nCells Time" units="unitless"
 			description="A vector used in the split-implicit barotropic mode solver"
 			packages="semiImplicitTimePKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="SIvec_qh0" type="real" dimensions="nCells Time" units="unitless"
 			description="A vector used in the split-implicit barotropic mode solver"
 			packages="semiImplicitTimePKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="SIvec_qh1" type="real" dimensions="nCells Time" units="unitless"
 			description="A vector used in the split-implicit barotropic mode solver"
 			packages="semiImplicitTimePKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="SIvec_z0" type="real" dimensions="nCells Time" units="unitless"
 			description="A vector used in the split-implicit barotropic mode solver"
 			packages="semiImplicitTimePKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="SIvec_z1" type="real" dimensions="nCells Time" units="unitless"
 			description="A vector used in the split-implicit barotropic mode solver"
 			packages="semiImplicitTimePKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="SIvec_zh0" type="real" dimensions="nCells Time" units="unitless"
 			description="A vector used in the split-implicit barotropic mode solver"
 			packages="semiImplicitTimePKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="SIvec_zh1" type="real" dimensions="nCells Time" units="unitless"
 			description="A vector used in the split-implicit barotropic mode solver"
 			packages="semiImplicitTimePKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="SIvec_t0" type="real" dimensions="nCells Time" units="unitless"
 			description="A vector used in the split-implicit barotropic mode solver"
 			packages="semiImplicitTimePKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="SIvec_t1" type="real" dimensions="nCells Time" units="unitless"
 			description="A vector used in the split-implicit barotropic mode solver"
 			packages="semiImplicitTimePKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="SIvec_y0" type="real" dimensions="nCells Time" units="unitless"
 			description="A vector used in the split-implicit barotropic mode solver"
 			packages="semiImplicitTimePKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="ssh_sal" type="real" dimensions="nCells Time" units="m"
 			description="sea surface height perturbation from self-attraction and loading"
 			packages="tidalPotentialForcingPKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="ssh_sal_grad" type="real" dimensions="nEdges Time" units=""
 			description="gradient of sea surface height perturbation from self-attraction and loading"
 			packages="tidalPotentialForcingPKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 	</var_struct>
 	<var_struct name="shortwave" time_levs="1">
@@ -3331,17 +3134,14 @@
 		<var name="chlorophyllData" type="real" dimensions="nCells Time" units="mg m^{-3}"
 			 description="concentration of chlorophyll data"
 			 packages="variableShortwave"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="zenithAngle" type="real" dimensions="nCells Time"  units="none"
 			description="the cos of the solar zenith angle"
 			packages="variableShortwave"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="clearSkyRadiation" type="real" dimensions="nCells Time" units="percent"
 			description="the fractional cloudiness (between 0 and 1)"
 			packages="variableShortwave"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 	</var_struct>
 	<var_struct name="forcing" time_levs="1">
@@ -3354,38 +3154,31 @@
 			 ********************************************************************* -->
 		<var name="surfaceStress" type="real" dimensions="nEdges Time" units="N m^{-2}"
 			 description="The component of the total surface stress on the ocean defined at edge midpoints and pointing in the direction of the edge normal.  This field the sum of constituent stresses (e.g. wind stress and top drag) and is used to compute a tendency in the normal velocity."
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="surfaceStressMagnitude" type="real" dimensions="nCells Time" units="N m^{-2}"
 			 description="Magnitude of surface stress, at cell centers."
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="surfaceThicknessFlux" type="real" dimensions="nCells Time" units="m s^{-1}"
 			 description="Flux of mass through the ocean surface. Positive into ocean."
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="surfaceThicknessFluxRunoff" type="real" dimensions="nCells Time" units="m s^{-1}"
 			 description="Flux of mass through the ocean surface due to river runoff. Positive into ocean."
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 
 		<var name="windStressZonal" type="real" dimensions="nCells Time" units="N m^{-2}"
 			 description="Zonal (eastward) component of wind stress at cell centers from coupler. Positive eastward."
 			 packages="windStressBulkPKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="windStressMeridional" type="real" dimensions="nCells Time" units="N m^{-2}"
 			 description="Meridional (northward) component of wind stress at cell centers from coupler. Positive northward."
 			 packages="windStressBulkPKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="bottomDrag" type="real" dimensions="nCells" units="unitless"
 			 description="Bottom drag Cd coefficient in cells."
 			 packages="variableBottomDragPKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="nForcingGroupCounter"		type="integer"	dimensions="Time"/>
 		<var name="forcingGroupNames"			type="text"	dimensions="nForcingGroupsMax Time"/>
@@ -3401,16 +3194,13 @@
 			 ********************************************************************* -->
 		<var name="seaIcePressure" type="real" dimensions="nCells Time" units="Pa"
 			 description="Pressure at the sea surface due to sea ice."
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="atmosphericPressure" type="real" dimensions="nCells Time" units="Pa"
 			 description="Pressure at the sea surface due to the atmosphere."
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="seaIceEnergy" type="real" dimensions="nCells Time" units="J m^{-2}"
 			 description="Energy per unit area trapped in frazil ice formation. Always $\ge$ 0.0."
 			 packages="frazilIce"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="penetrativeTemperatureFlux" type="real" dimensions="nCells Time" units="^\circ C m s^{-1}"
 			 description="Penetrative temperature flux at the surface due to solar radiation. Positive is into the ocean."
@@ -3419,12 +3209,10 @@
 		<var name="fractionAbsorbed" type="real" dimensions="nVertLevels nCells Time" units="fractional"
 			 description="Divergence of transmission through interfaces of surface fluxes below the surface layer at cell centers. These are not applied to short wave."
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="fractionAbsorbedRunoff" type="real" dimensions="nVertLevels nCells Time" units="fractional"
 			 description="Divergence of transmission through interfaces of surface fluxes below the surface layer at cell centers. These are applied only to river runoff."
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 
 		<!-- Input fields for coupling -->
@@ -3432,127 +3220,101 @@
 		<var name="latentHeatFlux" type="real" dimensions="nCells Time" units="W m^{-2}"
 			 description="Latent heat flux at cell centers from coupler. Positive into the ocean."
 			 packages="activeTracersBulkRestoringPKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="sensibleHeatFlux" type="real" dimensions="nCells Time" units="W m^{-2}"
 			 description="Sensible heat flux at cell centers from coupler. Positive into the ocean."
 			 packages="activeTracersBulkRestoringPKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="longWaveHeatFluxUp" type="real" dimensions="nCells Time" units="W m^{-2}"
 			 description="Upward long wave heat flux at cell centers from coupler. Positive into the ocean."
 			 packages="activeTracersBulkRestoringPKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="longWaveHeatFluxDown" type="real" dimensions="nCells Time" units="W m^{-2}"
 			 description="Downward long wave heat flux at cell centers from coupler. Positive into the ocean."
 			 packages="activeTracersBulkRestoringPKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="seaIceHeatFlux" type="real" dimensions="nCells Time" units="W m^{-2}"
 			 description="Sea ice heat flux at cell centers from coupler. Positive into the ocean."
 			 packages="activeTracersBulkRestoringPKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="icebergHeatFlux" type="real" dimensions="nCells Time" units="W m^{-2}"
 			 description="Iceberg heat flux at cell centers from coupler. Positive into the ocean."
 			 packages="activeTracersBulkRestoringPKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="shortWaveHeatFlux" type="real" dimensions="nCells Time" units="W m^{-2}"
 			 description="Short wave flux at cell centers from coupler. Positive into the ocean."
 			 packages="activeTracersBulkRestoringPKG;ecosysTracersPKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="rainTemperatureFlux" type="real" dimensions="nCells Time" units="degC m s^{-1}"
 			 description="Heat flux associated with rain at cell centers sent to coupler. Positive into the ocean."
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="evapTemperatureFlux" type="real" dimensions="nCells Time" units="degC m s^{-1}"
 			 description="Heat flux associated with Evaporation at cell centers sent to coupler. Positive into the ocean."
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="seaIceTemperatureFlux" type="real" dimensions="nCells Time" units="degC m s^{-1}"
 			 description="Heat flux associated with sea ice melt water at cell centers sent to coupler. Positive into the ocean."
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="icebergTemperatureFlux" type="real" dimensions="nCells Time" units="degC m s^{-1}"
 			 description="Heat flux associated with iceberg melt at cell centers sent to coupler. Positive into the ocean."
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 
 		<var name="totalFreshWaterTemperatureFlux" type="real" dimensions="nCells Time" units="degC m s^{-1}"
 			 description="Sum of heat fluxes associated with water fluxes cell centers sent to coupler. Positive into the ocean."
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 
 
 		<!-- Coupling fields associated with mass or salinity fluxes -->
 		<var name="evaporationFlux" type="real" dimensions="nCells Time" units="kg m^{-2} s^{-1}"
 			 description="Evaporation flux at cell centers from coupler. Positive into the ocean."
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="seaIceSalinityFlux" type="real" dimensions="nCells Time" units="kg m^{-2} s^{-1}"
 			 description="Sea ice salinity flux at cell centers from coupler. Positive into the ocean."
 			 packages="activeTracersBulkRestoringPKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="seaIceFreshWaterFlux" type="real" dimensions="nCells Time" units="kg m^{-2} s^{-1}"
 			 description="Fresh water flux from sea ice at cell centers from coupler. Positive into the ocean."
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="icebergFreshWaterFlux" type="real" dimensions="nCells Time" units="kg m^{-2} s^{-1}"
 			 description="Fresh water flux from iceberg melt at cell centers from coupler. Positive into the ocean."
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="riverRunoffFlux" type="real" dimensions="nCells Time" units="kg m^{-2} s^{-1}"
 			 description="Fresh water flux from river runoff at cell centers from coupler. Positive into the ocean."
 			 packages="thicknessBulkPKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="removedRiverRunoffFlux" type="real" dimensions="nCells Time" units="kg m^{-2} s^{-1}"
 			 description="Fresh water flux from river runoff from the coupler that was removed due to config_remove_AIS_coupler_runoff option. Positive into the ocean."
 			 packages="thicknessBulkPKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="totalRemovedRiverRunoffFlux" type="real" dimensions="Time" units="kg s^{-1}"
 			 description="Global sum of fresh water flux from river runoff from the coupler that was removed due to config_remove_AIS_coupler_runoff option. Positive into the ocean."
 			 packages="thicknessBulkPKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="iceRunoffFlux" type="real" dimensions="nCells Time" units="kg m^{-2} s^{-1}"
 			 description="Fresh water flux from ice runoff at cell centers from coupler. Positive into the ocean."
 			 packages="thicknessBulkPKG;activeTracersBulkRestoringPKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="removedIceRunoffFlux" type="real" dimensions="nCells Time" units="kg m^{-2} s^{-1}"
 			 description="Fresh water flux from ice runoff from the coupler that was removed due to config_remove_AIS_coupler_runoff option. Positive into the ocean."
 			 packages="thicknessBulkPKG;activeTracersBulkRestoringPKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="totalRemovedIceRunoffFlux" type="real" dimensions="Time" units="kg s^{-1}"
 			 description="Global sum of fresh water flux from ice runoff from the coupler that was removed due to config_remove_AIS_coupler_runoff option. Positive into the ocean."
 			 packages="thicknessBulkPKG;activeTracersBulkRestoringPKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="rainFlux" type="real" dimensions="nCells Time" units="kg m^{-2} s^{-1}"
 			 description="Fresh water flux from rain at cell centers from coupler. Positive into the ocean."
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="snowFlux" type="real" dimensions="nCells Time" units="kg m^{-2} s^{-1}"
 			 description="Fresh water flux from snow at cell centers from coupler. Positive into the ocean."
 			 packages="activeTracersBulkRestoringPKG;thicknessBulkPKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 
 		<!-- Misc. coupling fields -->
 		<var name="iceFraction" type="real" dimensions="nCells Time" units="fractional"
 			 description="Fraction of sea ice coverage at cell centers from coupler. Positive into the ocean."
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="windSpeed10m" type="real" dimensions="nCells Time" units="m s^{-1}"
 			 description="Wind speed at 10 meter."
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 
 		<!-- Output fields for coupling -->
@@ -3563,172 +3325,140 @@
 		<var_array name="avgTracersSurfaceValue" type="real" dimensions="nCells Time" packages="forwardMode;analysisMode">
 			<var name="avgTemperatureSurfaceValue" array_group="surfaceValues" units="degrees Celsius"
 				 description="Time averaged potential temperature extrapolated to ocean surface"
-				 missing_value="MPAS_REAL_FILLVAL"
-		/>
+			/>
 			<var name="avgSalinitySurfaceValue" array_group="surfaceValues" units="PSU"
 				 description="Time averaged salinity extrapolated to ocean surface"
-				 missing_value="MPAS_REAL_FILLVAL"
-		/>
+			/>
 		</var_array>
 		<var_array name="avgSurfaceVelocity" type="real" dimensions="nCells Time" packages="forwardMode;analysisMode">
 			<var name="avgSurfaceVelocityZonal" array_group="vel_zonal" units="m s^{-1}"
 				 description="Time averaged zonal surface velocity"
-				 missing_value="MPAS_REAL_FILLVAL"
-		/>
+			/>
 			<var name="avgSurfaceVelocityMeridional" array_group="vel_meridional" units="m s^{-1}"
 				 description="Time averaged meridional surface velocity"
-				 missing_value="MPAS_REAL_FILLVAL"
-		/>
+			/>
 		</var_array>
 		<var_array name="avgSSHGradient" type="real" dimensions="nCells Time" packages="forwardMode;analysisMode">
 			<var name="avgSSHGradientZonal" array_group="ssh_zonal" units="m m^{-1}"
 				 description="Time averaged zonal gradient of SSH"
-				 missing_value="MPAS_REAL_FILLVAL"
-		/>
+			/>
 			<var name="avgSSHGradientMeridional" array_group="ssh_meridional" units="m m^{-1}"
 				 description="Time averaged meridional gradient of SSH"
-				 missing_value="MPAS_REAL_FILLVAL"
-		/>
+			/>
 		</var_array>
 		<var name="filteredSSHGradientZonal" type="real" dimensions="nCells Time" units="m m^{-1}"
 			description="Time filtered zonal gradient of SSH"
 			packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="filteredSSHGradientMeridional" type="real" dimensions="nCells Time" units="m m^{-1}"
 			description="Time filtered meridional gradient of SSH"
 			packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="avgTotalFreshWaterTemperatureFlux" type="real" dimensions="nCells Time" units="degC m s^{-1}"
 			 description="Sum of heat fluxes associated with water fluxes cell centers sent to coupler. Positive into the ocean."
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 
 		<!-- Input fields from coupler or initial condition for forcing under land ice -->
 		<var name="landIceFraction" type="real" dimensions="nCells Time" units="unitless"
 			description="The fraction of each cell covered by land ice"
 			packages="landIcePressurePKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="landIceMask" type="integer" dimensions="nCells Time" units="unitless"
 			description="Mask indicating where land-ice is present (1) or absent (0)"
 			packages="landIcePressurePKG"
-			 missing_value="MPAS_INT_FILLVAL"
 		/>
 		<var name="landIcePressure" type="real" dimensions="nCells Time" units="Pa"
 			description="Pressure defined at the sea surface due to land ice."
 			packages="landIcePressurePKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="landIceDraft" type="real" dimensions="nCells Time" units="m"
 			description="The elevation of the interface between land ice and the ocean."
 			packages="landIcePressurePKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<!-- Input fields from initial condition for standalone land-ice fluxes -->
 		<var name="landIceSurfaceTemperature" type="real" dimensions="nCells Time" units="C"
 			description="temperature at the surface of land ice"
 			packages="landIceFluxesPKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<!-- Input fields from land-ice coupling or output fields from standalone land-ice flux computaiton -->
 		<var_array name="landIceInterfaceTracers" type="real" dimensions="nCells Time" packages="landIceFluxesPKG">
 			<var name="landIceInterfaceTemperature" array_group="landIceInterfaceValues" units="C"
 				description="The temperature at the land ice-ocean interface (the local freezing temperature)"
-				 missing_value="MPAS_REAL_FILLVAL"
-		/>
+			/>
 			<var name="landIceInterfaceSalinity" array_group="landIceInterfaceValues" units="PSU"
 				description="The salinity at the land ice-ocean interface"
-				 missing_value="MPAS_REAL_FILLVAL"
-		/>
+			/>
 		</var_array>
 		<var name="landIceFreshwaterFlux" type="real" dimensions="nCells Time" units="kg m^{-2} s^{-1}"
 			description="Flux of mass through the ocean surface. Positive into ocean."
 			packages="landIceFluxesPKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="landIceHeatFlux"  type="real" dimensions="nCells Time" units="W m^{-2}"
 			description="Flux of heat into the ocean at land ice-ocean interface. Positive into ocean."
 			packages="landIceFluxesPKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<!-- Output fields from standalone land-ice flux computaiton -->
 		<var name="heatFluxToLandIce"  type="real" dimensions="nCells Time" units="W m^{-2}"
 			description="Flux of heat out of ice at land ice-ocean interface. Positive into ocean."
 			packages="landIceFluxesPKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<!-- Output fields for land-ice coupling -->
 		<var_array name="avgLandIceBoundaryLayerTracers" type="real" dimensions="nCells Time" packages="landIceCouplingPKG">
 			<var name="avgLandIceBoundaryLayerTemperature" array_group="landIceBoundaryLayerValues" units="C"
 				description="The time-averaged temperature averaged over the sub-ice-shelf boundary layer"
-				 missing_value="MPAS_REAL_FILLVAL"
-		/>
+			/>
 			<var name="avgLandIceBoundaryLayerSalinity" array_group="landIceBoundaryLayerValues" units="PSU"
 				description="The time-averaged salinity averaged over the sub-ice-shelf boundary layer"
-				 missing_value="MPAS_REAL_FILLVAL"
-		/>
+			/>
 		</var_array>
 		<var_array name="avgLandIceTracerTransferVelocities" type="real" dimensions="nCells Time" packages="landIceCouplingPKG">
 			<var name="avgLandIceHeatTransferVelocity" array_group="landIceTransferVelocityValues" units="m s^{-1}"
 				description="time-averaged friction velocity times nondimensional heat transfer coefficient"
-				 missing_value="MPAS_REAL_FILLVAL"
-		/>
+			/>
 			<var name="avgLandIceSaltTransferVelocity" array_group="landIceTransferVelocityValues" units="m s^{-1}"
 				description="time-averaged friction velocity times nondimensional salt transfer coefficient"
-				 missing_value="MPAS_REAL_FILLVAL"
-		/>
+			/>
 		</var_array>
 		<var name="avgEffectiveDensityInLandIce" type="real" dimensions="nCells Time" units="kg m^{-3}"
 			description="The time-averaged effective ocean density within ice shelves based on Archimedes' principle."
 			packages="landIceCouplingPKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 
 		<!-- Input fields for forcing due to tides -->
 		<var name="tidalInputMask" type="real" dimensions="nCells" units="unitless"
 			 description="Input mask for application of tidal forcing where 1 is applied tidal forcing"
 			 packages="tidalForcing"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="tidalBCValue" type="real" dimensions="nCells Time" units="m"
 			 description="Value of ssh height in cell for tidal boundary condition"
 			 packages="tidalForcing"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 
 		<!-- Input fields for vegetation properties -->
 		<var name="vegetationHeight" type="real" dimensions="nCells" units="m"
 			 description="Stem height of the vegetation"
 			 packages="vegetationDragPKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="vegetationDiameter" type="real" dimensions="nCells" units="m"
 			 description="Stem diameter of the vegetation"
 			 packages="vegetationDragPKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="vegetationDensity" type="real" dimensions="nCells" units="m^{-2}"
 			 description="Stem density of the vegetation per unit area"
 			 packages="vegetationDragPKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="vegetationMask" type="integer" dimensions="nCells" units="unitless"
 			 description="Mask value 1 as vegetated cell, and 0 as non-vegetated cell"
 			 packages="vegetationDragPKG"
-			 missing_value="MPAS_INT_FILLVAL"
 		/>
 		<var name="vegetationManning" type="real" dimensions="nCells" units="unitless"
 			 description="Manning roughness coefficient induced by vegetation"
 			 packages="vegetationDragPKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<!-- Output fields for forcing due to tides -->
 		<var name="tidalLayerThicknessTendency" type="real" dimensions="nVertLevels nCells Time" units="m s^{-1}"
 			 description="layer thickness tendency due to tidal forcing"
 			 packages="tidalForcing"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 
 		<!-- Input fields for forcing due to frazil ice -->
@@ -3737,64 +3467,52 @@
 		<var name="frazilLayerThicknessTendency" type="real" dimensions="nVertLevels nCells Time" units="m s^{-1}"
 			 description="layer thickness tendency due to frazil processes"
 			 packages="frazilIce"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="frazilTemperatureTendency" type="real" dimensions="nVertLevels nCells Time" units="m C s^{-1}"
 			 description="temperature tendency due to frazil processes"
 			 packages="frazilIce"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="frazilSalinityTendency" type="real" dimensions="nVertLevels nCells Time" units="m PSU s^{-1}"
 			 description="salinity tendency due to frazil processes"
 			 packages="frazilIce"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="frazilSurfacePressure" type="real" dimensions="nCells Time" units="Pa"
 			 description="surface pressure forcing due to weight of frazil ice"
 			 packages="frazilIce"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 
 		<!-- Fields for tidal potential forcing -->
 		<var name="tidalPotentialEta" type="real" dimensions="nCells Time" units="m"
 			description="Equilibrium tidal potential"
 			packages="forwardMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="nTidalPotentialConstituents" type="integer" dimensions="Time" units="unitless"
 			description="Number of tidal constituents"
 			packages="tidalPotentialForcingPKG"
-			 missing_value="MPAS_INT_FILLVAL"
 		/>
 		<var name="tidalPotentialConstituentFrequency" type="real" dimensions="maxTidalConstituents Time" units="s^{-1}"
 			description="Frequency of tidal constituents"
 			packages="tidalPotentialForcingPKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="tidalPotentialConstituentAmplitude" type="real" dimensions="maxTidalConstituents Time" units="m"
 			description="Amplitude of tidal constituents"
 			packages="tidalPotentialForcingPKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="tidalPotentialConstituentLoveNumbers" type="real" dimensions="maxTidalConstituents Time" units="unitless"
 			description="Love number combinations for tidal constituents"
 			packages="tidalPotentialForcingPKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="tidalPotentialConstituentNodalAmplitude" type="real" dimensions="maxTidalConstituents Time" units="m"
 			description="Amplitude nodal factor for tidal constituents"
 			packages="tidalPotentialForcingPKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="tidalPotentialConstituentNodalPhase" type="real" dimensions="maxTidalConstituents Time" units="s^{-1}"
 			description="Phase nodal factor for tidal constituents"
 			packages="tidalPotentialForcingPKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="tidalPotentialConstituentAstronomical" type="real" dimensions="maxTidalConstituents Time" units="s^{-1}"
 			description="Astronomical argument for tidal constituents"
 			packages="tidalPotentialForcingPKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="tidalPotentialConstituentType" type="integer" dimensions="maxTidalConstituents Time" units="unitless"
 			description="Spieces code for tidal constituents: long-period = 0, diurnal = 1, semi-diurnal = 2"
@@ -3803,69 +3521,56 @@
 		<var name="tidalPotentialLatitudeFunction" type="real" dimensions="nCells R3 Time" units="unitless"
 			description="Latitude function for tidal constituents: long-period = 3\sin^2(\phi)-1, diurnal = \sin(2\phi), semi-diurnal = \cos^2(\phi)"
 			packages="tidalPotentialForcingPKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="tidalPotentialZMid" type="real" dimensions="nVertLevels nCells Time" units="m"
 			description="zMid - Equilibrium tidal potential in RK4"
 			packages="tidalPotentialForcingPKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="sshSubcycleCurWithTides" type="real" dimensions="nCells Time" units="m"
 			description="SSH - tidal potential in split explicit "
 			packages="tidalPotentialForcingPKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="sshSubcycleNewWithTides" type="real" dimensions="nCells Time" units="m"
 			description="SSH - tidal potential in split explicit "
 			packages="tidalPotentialForcingPKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="coastalSmoothingFactor" type="real" dimensions="nCells" units="unitless"
 			 description="Multiplication factors to smooth ssh at coastlines for SAL caculation"
 			 packages="tidalPotentialForcingPKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="RediKappaData" type="real" dimensions="nCells" units="m^2 s^{-1}"
 			 description="Redi isopycnal mixing Kappa value. This is the data field specified at init."
 			 packages="gm"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 	</var_struct>
 	<var_struct name="timeVaryingForcing" time_levs="1">
 		<var name="windSpeedU" type="real" dimensions="nCells Time" units="m/s"
 			description="Zonal (eastward) component of wind speed at cell centers from coupler. Positive easthward."
 			packages="timeVaryingAtmosphericForcingPKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="windSpeedV" type="real" dimensions="nCells Time" units="m/s"
 			description="Meridional (northward) component of wind speed at cell centers from coupler. Positive northward."
 			packages="timeVaryingAtmosphericForcingPKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="windSpeedMagnitude" type="real" dimensions="nCells Time" units="m/s"
 			description="Magnitude of wind speed at cell centers from coupler."
 			packages="timeVaryingAtmosphericForcingPKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="atmosPressure" type="real" dimensions="nCells Time" units="Pa"
 			description="Pressure at the sea surface due to the atmosphere."
 			packages="timeVaryingAtmosphericForcingPKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="landIceFractionForcing" type="real" dimensions="nCells Time" units="unitless"
 			description="The fraction of each cell covered by land ice"
 			packages="timeVaryingLandIceForcingPKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="landIcePressureForcing" type="real" dimensions="nCells Time" units="Pa"
 			description="Pressure defined at the sea surface due to land ice."
 			packages="timeVaryingLandIceForcingPKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="landIceDraftForcing" type="real" dimensions="nCells Time" units="m"
 			description="The elevation of the interface between land ice and the ocean."
 			packages="timeVaryingLandIceForcingPKG"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 	</var_struct>
 	<var_struct name="scratch" time_levs="1">
@@ -3875,123 +3580,103 @@
 			 persistence="scratch"
 			 type="real" dimensions="nVertLevels nEdges" units="m s^{-1}"
 			 description="horizontal velocity, normal component to an edge, for testing"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="tangentialVelocityTest"
 			 persistence="scratch"
 			 type="real" dimensions="nVertLevels nEdges" units="m s^{-1}"
 			 description="horizontal velocity, tangential component to an edge, for testing"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="strainRateR3Cell"
 			 persistence="scratch"
 			 type="real" dimensions="SIX nVertLevels nCells" units="s^{-1}"
 			 description="strain rate tensor at cell center, R3, in symmetric 6-index form"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="strainRateR3CellSolution"
 			 persistence="scratch"
 			 type="real" dimensions="SIX nVertLevels nCells" units="s^{-1}"
 			 description="strain rate solution tensor at cell center, R3, in symmetric 6-index form"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="strainRateR3Edge"
 			 persistence="scratch"
 			 type="real" dimensions="SIX nVertLevels nEdges" units="s^{-1}"
 			 description="strain rate tensor at edge, R3, in symmetric 6-index form"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="strainRateLonLatRCell"
 			 persistence="scratch"
 			 type="real" dimensions="SIX nVertLevels nCells" units="s^{-1}"
 			 description="strain rate tensor at cell center, 3D, lon-lat-r in symmetric 6-index form, {\color{red}Temporary only}"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="strainRateLonLatRCellSolution"
 			 persistence="scratch"
 			 type="real" dimensions="SIX nVertLevels nCells" units="s^{-1}"
 			 description="strain rate tensor at cell center, 3D, lon-lat-r in symmetric 6-index form, {\color{red}Temporary only}"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="strainRateLonLatREdge"
 			 persistence="scratch"
 			 type="real" dimensions="SIX nVertLevels nEdges" units="s^{-1}"
 			 description="strain rate tensor at edge, 3D, lon-lat-r in symmetric 6-index form, {\color{red}Temporary only}"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="divTensorR3Cell"
 			 persistence="scratch"
 			 type="real" dimensions="R3 nVertLevels nCells" units="s^{-2}"
 			 description="divergence of the tensor at cell center, as an R3 vector"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="divTensorR3CellSolution"
 			 persistence="scratch"
 			 type="real" dimensions="R3 nVertLevels nCells" units="s^{-2}"
 			 description="divergence of the tensor solution at cell center, as an R3 vector"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="divTensorLonLatRCell"
 			 persistence="scratch"
 			 type="real" dimensions="R3 nVertLevels nCells" units="s^{-2}"
 			 description="divergence of the tensor at cell center, as a lon-lat-r vector"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="divTensorLonLatRCellSolution"
 			 persistence="scratch"
 			 type="real" dimensions="R3 nVertLevels nCells" units="s^{-2}"
 			 description="divergence of the tensor at cell center, as a lon-lat-r vector, solution"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="outerProductEdge"
 			 persistence="scratch"
 			 type="real" dimensions="SIX nVertLevels nEdges" units="m^2 s^{-1}"
 			 description="Outer product, $u_e \otimes n_e$, at each edge."
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<!-- FIELDS FOR HORIZONTAL SMOOTHING DURING INITIALIZATION -->
 		<var name="smoothedField"
 			persistence="scratch"
 			type="real" dimensions="nCells" units="various"
 			description="the smoothed version of a field on cells during iterative smoothing"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<!-- FIELDS FOR RX1 INITIALIZATION -->
 		<var name="zInterfaceScratch"
 			persistence="scratch"
 			type="real" dimensions="nVertLevelsP1 nCells" units="m"
 			description="location of layer interfaces at cell centers, used for thickening layers constrained by the Haney number (rx1)"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="goalStretchScratch"
 			persistence="scratch"
 			type="real" dimensions="nVertLevels nCells" units="unitless"
 			description="the goal stretch field for the vertical coordinate"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="goalWeightScratch"
 			persistence="scratch"
 			type="real" dimensions="nVertLevels nCells" units="unitless"
 			description="the sum of weights used to determine the goal stretch field"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="zTopScratch"
 			persistence="scratch"
 			type="real" dimensions="nCells" units="m"
 			description="location of the upper layer used to compute the Haney number (rx1), equal to ssh for top layer and zMid of the layer for subsequent layers"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="zBotScratch"
 			persistence="scratch"
 			type="real" dimensions="nCells" units="m"
 			description="location of the lower layer used to compute the Haney number (rx1), equal zMid of the layer lower layer (but a 1D filed is needed for halo exchanges)"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="zBotNewScratch"
 			persistence="scratch"
 			type="real" dimensions="nCells" units="m"
 			description="updated location of the lower layer used to compute the Haney number (rx1), needed so update is agnostic to the order in which cells are accessed"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="smoothingMaskNewScratch"
 			persistence="scratch"
