@@ -2066,11 +2066,10 @@
 		/>
 		<var name="layerThickness" type="real" dimensions="nVertLevels nCells Time" units="m"
 			 description="layer thickness"
-			 missing_value="-1e34"
+			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="ssh" type="real" dimensions="nCells Time" units="m"
 			 description="sea surface height"
-			 missing_value="FILLVAL"
 		/>
 
 		<!-- FIELDS FOR FREQUENCY FILTERED THICKNESS -->
