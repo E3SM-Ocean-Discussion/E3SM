@@ -2062,25 +2062,25 @@
 		<var name="normalVelocity" type="real" dimensions="nVertLevels nEdges Time" units="m s^{-1}"
 			 description="horizontal velocity, normal component to an edge"
 			 missing_value="MPAS_REAL_FILLVAL"
+
 		/>
 		<var name="layerThickness" type="real" dimensions="nVertLevels nCells Time" units="m"
 			 description="layer thickness"
-			 missing_value="MPAS_REAL_FILLVAL"
+			 missing_value="-1e34"
 		/>
 		<var name="ssh" type="real" dimensions="nCells Time" units="m"
 			 description="sea surface height"
+			 missing_value="FILLVAL"
 		/>
 
 		<!-- FIELDS FOR FREQUENCY FILTERED THICKNESS -->
 		<var name="highFreqThickness" type="real" dimensions="nVertLevels nCells Time" units="m"
 			 description="high frequency-filtered layer thickness"
 			 packages="thicknessFilter"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="lowFreqDivergence" type="real" dimensions="nVertLevels nCells Time" units="s^{-1}"
 			 description="low frequency-filtered divergence"
 			 packages="thicknessFilter"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 
 		<!-- FIELDS FOR FRAZIL ICE -->
@@ -2127,7 +2127,6 @@
 		<var name="normalBaroclinicVelocity" type="real" dimensions="nVertLevels nEdges Time" units="m s^{-1}"
 			 description="baroclinic velocity, used in split-explicit time-stepping"
 			 packages="splitTimeIntegrator"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 
 		<!-- FIELD FOR LAND-ICE COUPLING -->
@@ -2556,51 +2555,41 @@
 		</var_array>
 		<var name="zMid" type="real" dimensions="nVertLevels nCells Time" units="m"
 			 description="z-coordinate of the mid-depth of the layer"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="zTop" type="real" dimensions="nVertLevels nCells Time" units="m"
 			 description="z-coordinate of the top of the layer"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 
 		<var name="density" type="real" dimensions="nVertLevels nCells Time" units="kg m^{-3}"
 			 description="density"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="displacedDensity" type="real" dimensions="nVertLevels nCells Time" units="kg m^{-3}"
 			 description="Density displaced adiabatically to the mid-depth one layer deeper.  That is, layer k has been displaced to the depth of layer k+1."
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="potentialDensity" type="real" dimensions="nVertLevels nCells Time" units="kg m^{-3}"
 			 description="potential density: density displaced adiabatically to the mid-depth of top layer"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="inSituThermalExpansionCoeff"
 			 type="real" dimensions="nVertLevels nCells Time" units="C^{-1}"
 			 description="Thermal expansion coefficient (alpha), defined as $-1/\rho d\rho/dT$ (note negative sign).  This is in situ, i.e. not displaced to another depth."
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="inSituSalineContractionCoeff"
 			 type="real" dimensions="nVertLevels nCells Time" units="PSU^{-1}"
 			 description="Saline contraction coefficient (beta), defined as $1/\rho d\rho/dS$.  This is also called the haline contraction coefficient.  This is in situ, i.e. not displaced to another depth."
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 
 		<var name="BruntVaisalaFreqTop" type="real" dimensions="nVertLevels nCells Time" units="s^{-2}"
 			 description="Brunt Vaisala frequency defined at the center (horizontally) and top (vertically) of cell"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="montgomeryPotential" type="real" dimensions="nVertLevels nCells Time" units="m^2 s^{-2}"
 			 description="Montgomery potential, may be used as the pressure for isopycnal coordinates."
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="pressure" type="real" dimensions="nVertLevels nCells Time" units="N m^{-2}"
 			 description="pressure used in the momentum equation"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="modifyLandIcePressureMask" type="integer" dimensions="nCells Time" units="unitless"
 			description="A mask indicating where landIcePressure can be modified during iterative init.  The mask is 1 under (and perhaps near) ice shelves and 0 elsewhere."
@@ -2609,161 +2598,130 @@
 		<var name="normalTransportVelocity" type="real" dimensions="nVertLevels nEdges Time" units="m s^{-1}"
 			 description="horizontal velocity used to transport mass and tracers"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="wettingVelocity" type="real" dimensions="nVertLevels nEdges Time" units="m s^{-1}"
 			 description="Velocity to prevent drying of cell."
 			 packages="forwardMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="vertAleTransportTop" type="real" dimensions="nVertLevelsP1 nCells Time" units="m s^{-1}"
 			 description="vertical transport through the layer interface at the top of the cell"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="vertVelocityTop" type="real" dimensions="nVertLevelsP1 nCells Time" units="m s^{-1}"
 			 description="vertical velocity defined at center (horizontally) and top (vertically) of cell"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="vertTransportVelocityTop" type="real" dimensions="nVertLevelsP1 nCells Time" units="m s^{-1}"
 			 description="vertical tracer-transport velocity defined at center (horizontally) and top (vertically) of cell.  This is not the vertical ALE transport, but is Eulerian (fixed-frame) in the vertical, and computed from the continuity equation from the horizontal total tracer-transport velocity."
 			 packages="forwardMode;analysisMode"
 
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="vertGMBolusVelocityTop" type="real" dimensions="nVertLevelsP1 nCells Time" units="m s^{-1}"
 			 description="vertical tracer-transport velocity defined at center (horizontally) and top (vertically) of cell.  This is not the vertical ALE transport, but is Eulerian (fixed-frame) in the vertical, and computed from the continuity equation from the horizontal GM Bolus velocity."
 			 packages="forwardMode;analysisMode"
 
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="tangentialVelocity" type="real" dimensions="nVertLevels nEdges Time" units="m s^{-1}"
 			 description="horizontal velocity, tangential to an edge"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="layerThicknessEdgeMean" type="real" dimensions="nVertLevels nEdges Time" units="m"
 			 description="layer thickness averaged from cell center to edges"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="layerThicknessEdgeFlux" type="real" dimensions="nVertLevels nEdges Time" units="m"
 			 description="layer thickness used for fluxes through edges. May be centered, upwinded, or a combination of the two."
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="layerThicknessVertex" type="real" dimensions="nVertLevels nVertices Time" units="m"
 			 description="layer thickness averaged from cell center to vertices"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 
 		<var name="kineticEnergyCell" type="real" dimensions="nVertLevels nCells Time" units="m^2 s^{-2}"
 			 description="kinetic energy of horizontal velocity on cells"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="viscosity" type="real" dimensions="nVertLevels nEdges Time" units="m^2 s^{-1}"
 			 description="horizontal viscosity"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="divergence" type="real" dimensions="nVertLevels nCells Time" units="s^{-1}"
 			 description="divergence of horizontal velocity"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="circulation" type="real" dimensions="nVertLevels nVertices Time" units="m^2 s^{-1}"
 			 description="area-integrated vorticity"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="relativeVorticity" type="real" dimensions="nVertLevels nVertices Time" units="s^{-1}"
 			 description="curl of horizontal velocity, defined at vertices"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="relativeVorticityCell" type="real" dimensions="nVertLevels nCells Time" units="s^{-1}"
 			 description="curl of horizontal velocity, averaged from vertices to cell centers"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="normalizedRelativeVorticityEdge" type="real" dimensions="nVertLevels nEdges Time" units="s^{-1}"
 			 description="curl of horizontal velocity divided by layer thickness, averaged from vertices to edges"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="normalizedPlanetaryVorticityEdge" type="real" dimensions="nVertLevels nEdges Time" units="s^{-1}"
 			 description="earth's rotational rate (Coriolis parameter, f) divided by layer thickness, averaged from vertices to edges"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="normalizedRelativeVorticityCell" type="real" dimensions="nVertLevels nCells Time" units="s^{-1}"
 			 description="curl of horizontal velocity divided by layer thickness, averaged from vertices to cell centers"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="barotropicForcing" type="real" dimensions="nEdges Time" units="m s^{-2}"
 			 description="Barotropic tendency computed from the baroclinic equations in stage 1 of the split-explicit algorithm."
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="barotropicThicknessFlux" type="real" dimensions="nEdges Time" units="m^2 s^{-1}"
 			 description="Barotropic thickness flux at each edge, used to advance sea surface height in each subcycle of stage 2 of the split-explicit algorithm."
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 
 		<var name="velocityX" type="real" dimensions="nVertLevels nCells Time" units="m s^{-1}"
 			 description="component of horizontal velocity in the x-direction (cartesian)"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="velocityY" type="real" dimensions="nVertLevels nCells Time" units="m s^{-1}"
 			 description="component of horizontal velocity in the y-direction (cartesian)"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="velocityZ" type="real" dimensions="nVertLevels nCells Time" units="m s^{-1}"
 			 description="component of horizontal velocity in the z-direction (cartesian)"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="velocityZonal" type="real" dimensions="nVertLevels nCells Time" units="m s^{-1}"
 			 description="component of horizontal velocity in the eastward direction"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="velocityMeridional" type="real" dimensions="nVertLevels nCells Time" units="m s^{-1}"
 			 description="component of horizontal velocity in the northward direction"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="transportVelocityX" type="real" dimensions="nVertLevels nCells Time" units="m s^{-1}"
 			 description="component of horizontal velocity used to transport mass and tracers in the x-direction (cartesian)"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="transportVelocityY" type="real" dimensions="nVertLevels nCells Time" units="m s^{-1}"
 			 description="component of horizontal velocity used to transport mass and tracers in the y-direction (cartesian)"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="transportVelocityZ" type="real" dimensions="nVertLevels nCells Time" units="m s^{-1}"
 			 description="component of horizontal velocity used to transport mass and tracers in the z-direction (cartesian)"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="transportVelocityZonal" type="real" dimensions="nVertLevels nCells Time" units="m s^{-1}"
 			 description="component of horizontal velocity used to transport mass and tracers in the eastward direction"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="transportVelocityMeridional" type="real" dimensions="nVertLevels nCells Time" units="m s^{-1}"
 			 description="component of horizontal velocity used to transport mass and tracers in the northward direction"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="gradSSH" type="real" dimensions="nEdges Time" units=""
 			 description="Gradient of sea surface height at edges."
@@ -2792,7 +2750,6 @@
 		<var name="normalGMBolusVelocity" type="real" dimensions="nVertLevels nEdges Time" units="m s^{-1}"
 			 description="Bolus velocity in Gent-McWilliams eddy parameterization"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="cGMphaseSpeed" type="real" dimensions="nEdges Time" units="m s^{-1}"
 			description="phase speed for the bolus velocity calculation"
@@ -2804,72 +2761,58 @@
 		<var name="gmKappaScaling" type="real" dimensions="nVertLevelsP1 nEdges Time" units="NA" default_value="1.0"
 			description="spatially and depth varying GM kappa.  The scaling is based on the Brunt Vaisala Frequency relative to a maximum value below the mixed layer, follows from Danabasoglu and Marshall 2007.  If config_GM_closure is not set to N2_dependent the scaling value is set to 1 everywhere."
 			packages="gm"
-			missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="RediKappaScaling" type="real" dimensions="nVertLevelsP1 nCells Time" units="NA"
 			description="Scaling coefficient for GM kappa. Varies from 0 to 1.  The scaling is based on the Brunt Vaisala Frequency relative to a maximum value below the mixed layer, follows from Danabasoglu and Marshall 2007.  If config_Redi_N2_based_taper_enable = .false. the scaling is set to 1 everywhere."
 			packages="gm"
-			missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="RediKappaSfcTaper" type="real" dimensions="nVertLevelsP1 nCells Time" units="NA"
 			description="Scaling coefficient for Redi kappa. Varies from 0 to 1."
 			packages="gm"
-			missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="rediLimiterCount" type="integer" dimensions="nVertLevels nCells Time" units="NA"
 			description="count of times redi limiter is invoked on a timestep"
 			packages="gm"
-			missing_value="MPAS_INT_FILLVAL"
 		/>
 		<var name="GMBolusVelocityX" type="real" dimensions="nVertLevels nCells Time" units="m s^{-1}"
 			 description="Bolus velocity in Gent-McWilliams eddy parameterization, x-direction"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="GMBolusVelocityY" type="real" dimensions="nVertLevels nCells Time" units="m s^{-1}"
 			 description="Bolus velocity in Gent-McWilliams eddy parameterization, y-direction"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="GMBolusVelocityZ" type="real" dimensions="nVertLevels nCells Time" units="m s^{-1}"
 			 description="Bolus velocity in Gent-McWilliams eddy parameterization, z-direction"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="GMBolusVelocityZonal" type="real" dimensions="nVertLevels nCells Time" units="m s^{-1}"
 			 description="Bolus velocity in Gent-McWilliams eddy parameterization, zonal-direction"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="GMBolusVelocityMeridional" type="real" dimensions="nVertLevels nCells Time" units="m s^{-1}"
 			 description="Bolus velocity in Gent-McWilliams eddy parameterization, meridional-direction"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="RiTopOfCell" type="real" dimensions="nVertLevelsP1 nCells Time" units="nondimensional"
 			 description="gradient Richardson number defined at the center (horizontally) and top (vertically)"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="RiTopOfEdge" type="real" dimensions="nVertLevelsP1 nEdges Time" units="nondimensional"
 			 description="gradient Richardson number defined at the edge (horizontally) and top (vertically)"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="vertViscTopOfEdge" type="real" dimensions="nVertLevelsP1 nEdges Time" units="m^2 s^{-1}"
 			 description="vertical viscosity defined at the edge (horizontally) and top (vertically)"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="vertViscTopOfCell" type="real" dimensions="nVertLevelsP1 nCells Time" units="m^2 s^{-1}"
 			 description="vertical viscosity defined at the cell center (horizontally) and top (vertically)"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="vertDiffTopOfCell" type="real" dimensions="nVertLevelsP1 nCells Time" units="m^2 s^{-1}"
 			 description="vertical diffusion defined at the cell center (horizontally) and top (vertically)"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="bulkRichardsonNumber" type="real" dimensions="nVertLevels nCells Time" units="nondimensional"
 			 description="CVMix/KPP: bulk Richardson number"
@@ -2878,16 +2821,13 @@
 		<var name="bulkRichardsonNumberBuoy" type="real" dimensions="nVertLevels nCells Time" units="nondimensional"
 			 description="CVMix/KPP: contribution of buoyancy to bulk Richardson number"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="bulkRichardsonNumberShear" type="real" dimensions="nVertLevels nCells Time" units="nondimensional"
 			 description="CVMix/KPP: contribution of shear to bulk Richardson number"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="unresolvedShear" type="real" dimensions="nVertLevels nCells Time" units="m s^{-1}"
 			 description="CVMix/KPP: contribution of unresolved velocity to vertical shear"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="boundaryLayerDepth" type="real" dimensions="nCells Time" units="m"
 			 description="CVMix/KPP: diagnosed depth of the ocean surface boundary layer"
@@ -2902,7 +2842,6 @@
 		<var_array name="vertNonLocalFlux" type="real" dimensions="nVertLevelsP1 nCells Time" packages="forwardMode;analysisMode">
 			<var name="vertNonLocalFluxTemp" array_group="vertNonLocalFlux" units="nondimensional" name_in_code="vertNonLocalFluxTemp"
 				 description="CVMix/KPP: nonlocal boundary layer mixing term for temperature"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		</var_array>
 		<var name="indexBoundaryLayerDepth" type="real" dimensions="nCells Time"  units="none"
@@ -2935,52 +2874,42 @@
 		<var name="slopeTriadUp" type="real" dimensions="nVertLevels TWO nEdges Time" units="non-dimensional" default_value="0.0"
 			 description="Magnitude of slope of isopycnal surface, using triad through this cell and edge, angled up. Uses expansion of equation of state."
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="slopeTriadDown" type="real" dimensions="nVertLevels TWO nEdges Time" units="non-dimensional" default_value="0.0"
 			 description="Magnitude of slope of isopycnal surface, using triad through this cell and edge, angled up. Uses expansion of equation of state."
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="k33" type="real" dimensions="nVertLevelsP1 nCells Time" units="m^2 s^{-1}"
 			 description="The (3,3) entry of the Redi diffusion tensor. Added to the model vertical diffusion. Defined at the top of cell k"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="gmStreamFuncTopOfEdge" type="real" dimensions="nVertLevelsP1 nEdges Time" units="m^2 s^{-1}"
 			 description="GM stream function"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="gmStreamFuncTopOfCell" type="real" dimensions="nVertLevels nCells Time" units="m^2 s^{-1}"
 			 description="GM stream function reconstructed to the cell centers"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="GMStreamFuncX" type="real" dimensions="nVertLevelsP1 nCells Time" units="m^2 s^{-1}"
 			 description="GM stream function"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="GMStreamFuncY" type="real" dimensions="nVertLevelsP1 nCells Time" units="m^2 s^{-1}"
 			 description="GM stream function"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="GMStreamFuncZ" type="real" dimensions="nVertLevelsP1 nCells Time" units="m^2 s^{-1}"
 			 description="GM stream function"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="GMStreamFuncZonal" type="real" dimensions="nVertLevelsP1 nCells Time" units="m^2 s^{-1}"
 			 description="GM stream function"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="GMStreamFuncMeridional" type="real" dimensions="nVertLevelsP1 nCells Time" units="m^2 s^{-1}"
 			 description="GM stream function"
 			 packages="forwardMode;analysisMode"
-			 missing_value="MPAS_REAL_FILLVAL"
 		/>
 		<var name="gmBolusKappa" type="real" dimensions="nEdges Time" units="m^2 s^{-1}"
 			 description="GM Bolus Kappa value.  This is constant in time, and set at init based on the constant or ramp fuction."
