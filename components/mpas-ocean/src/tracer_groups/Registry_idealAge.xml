@@ -41,7 +41,7 @@
 
 	<var_struct name="state" time_levs="2">
 		<var_struct name="tracers" time_levs="2">
-			<var_array name="idealAgeTracers" dimensions="nVertLevels nCells Time" type="real" packages="idealAgeTracersPKG"  default_value="0.0">
+			<var_array name="idealAgeTracers" dimensions="nVertLevels nCells Time" type="real"  missing_value="FILLVAL" packages="idealAgeTracersPKG"  default_value="0.0">
 				<var name="iAge" array_group="iAgeGRP" units="seconds" description="tracer for ideal age"
 				/>
 			</var_array>
@@ -50,7 +50,7 @@
 
 	<var_struct name="tend" time_levs="1">
 		<var_struct name="tracersTend" time_levs="1">
-			<var_array name="idealAgeTracersTend" type="real" dimensions="nVertLevels nCells Time" packages="idealAgeTracersPKG">
+			<var_array name="idealAgeTracersTend" type="real" dimensions="nVertLevels nCells Time"  missing_value="FILLVAL" packages="idealAgeTracersPKG">
 				<var name="iAgeTend" array_group="iAgeGRP" units="seconds/second" description="Tendency for iAge"
 				/>
 			</var_array>
@@ -59,62 +59,62 @@
 
 	<var_struct name="forcing" time_levs="1">
 		<var_struct name="tracersSurfaceFlux" time_levs="1">
-			<var_array name="idealAgeTracersSurfaceFlux" type="real" dimensions="nCells Time" packages="idealAgeTracersPKG">
+			<var_array name="idealAgeTracersSurfaceFlux" type="real" dimensions="nCells Time"  missing_value="FILLVAL" packages="idealAgeTracersPKG">
 				<var name="iAgeSurfaceFlux" array_group="idealAgeluxGRP" units="none"
 				description="Flux of iAge through the ocean surface. Positive into ocean."
 				/>
 			</var_array>
-			<var_array name="idealAgeTracersSurfaceFluxRunoff" type="real" dimensions="nCells Time" packages="idealAgeTracersPKG">
+			<var_array name="idealAgeTracersSurfaceFluxRunoff" type="real" dimensions="nCells Time"  missing_value="FILLVAL" packages="idealAgeTracersPKG">
 				<var name="iAgeSurfaceFluxRunoff" array_group="iAgeRunoffFluxGRP" units="none"
 				description="Flux of iAge through the ocean surface due to river runoff. Positive into ocean."
 				/>
 			</var_array>
-			<var_array name="idealAgeTracersSurfaceFluxRemoved" type="real" dimensions="nCells Time" packages="idealAgeTracersPKG">
+			<var_array name="idealAgeTracersSurfaceFluxRemoved" type="real" dimensions="nCells Time"  missing_value="FILLVAL" packages="idealAgeTracersPKG">
 				<var name="iAgeSurfaceFluxRemoved" array_group="iAgeRemovedFluxGRP" units="none"
 				description="Flux of iAge that is ignored coming into the ocean. Positive into ocean."
 				/>
 			</var_array>
 		</var_struct>
 		<var_struct name="tracersSurfaceRestoringFields" time_levs="1">
-			<var_array name="idealAgeTracersPistonVelocity" type="real" dimensions="nCells Time" packages="idealAgeTracersSurfaceRestoringPKG">
+			<var_array name="idealAgeTracersPistonVelocity" type="real" dimensions="nCells Time"  missing_value="FILLVAL" packages="idealAgeTracersSurfaceRestoringPKG">
 				<var name="iAgePistonVelocity" array_group="iAgeRestoringGRP" units="none"
 				description="A non-negative field controlling the rate at which iAge is restored to iAgeSurfaceRestoringValue"
 				/>
 			</var_array>
-			<var_array name="idealAgeTracersSurfaceRestoringValue" type="real" dimensions="nCells Time" packages="idealAgeTracersSurfaceRestoringPKG">
+			<var_array name="idealAgeTracersSurfaceRestoringValue" type="real" dimensions="nCells Time"  missing_value="FILLVAL" packages="idealAgeTracersSurfaceRestoringPKG">
 				<var name="iAgeSurfaceRestoringValue" array_group="iAgeRestoringGRP" units="none"
 				description="iAge is restored toward this field at a rate controlled by iAgePistonVelocity."
 				/>
 			</var_array>
 		</var_struct>
 		<var_struct name="tracersInteriorRestoringFields" time_levs="1">
-			<var_array name="idealAgeTracersInteriorRestoringRate" type="real" dimensions="nVertLevels nCells Time" packages="idealAgeTracersInteriorRestoringPKG">
+			<var_array name="idealAgeTracersInteriorRestoringRate" type="real" dimensions="nVertLevels nCells Time"  missing_value="FILLVAL" packages="idealAgeTracersInteriorRestoringPKG">
 				<var name="iAgeInteriorRestoringRate" array_group="iAgeRestoringGRP" units="none"
 					description="A non-negative field controlling the rate at which iAge is restored to iAgeInteriorRestoringValue"
 				/>
 			</var_array>
-			<var_array name="idealAgeTracersInteriorRestoringValue" type="real" dimensions="nVertLevels nCells Time" packages="idealAgeTracersInteriorRestoringPKG">
+			<var_array name="idealAgeTracersInteriorRestoringValue" type="real" dimensions="nVertLevels nCells Time"  missing_value="FILLVAL" packages="idealAgeTracersInteriorRestoringPKG">
 				<var name="iAgeInteriorRestoringValue" array_group="iAgeRestoringGRP" units="none"
 					description="iAge is restored toward this field at a rate controlled by iAgeInteriorRestoringRate."
 				/>
 			</var_array>
 		</var_struct>
 		<var_struct name="tracersExponentialDecayFields" time_levs="1">
-			<var_array name="idealAgeTracersExponentialDecayRate" type="real" dimensions="Time" packages="idealAgeTracersExponentialDecayPKG">
+			<var_array name="idealAgeTracersExponentialDecayRate" type="real" dimensions="Time"  missing_value="FILLVAL" packages="idealAgeTracersExponentialDecayPKG">
 				<var name="iAgeExponentialDecayRate" array_group="iAgeRestoringGRP" units="none"
 				description="A non-negative field controlling the exponential decay of iAge"
 				/>
 			</var_array>
 		</var_struct>
 		<var_struct name="tracersIdealAgeFields" time_levs="1">
-			<var_array name="idealAgeTracersIdealAgeMask" type="real" dimensions="nCells Time" packages="idealAgeTracersIdealAgePKG">
+			<var_array name="idealAgeTracersIdealAgeMask" type="real" dimensions="nCells Time"  missing_value="FILLVAL" packages="idealAgeTracersIdealAgePKG">
 				<var name="iAgeIdealAgeMask" array_group="iAgeRestoringGRP" units="none"
 				description="In top layer, iAge is reset to iAge * iAgeIdealAgeMask, valid values of iAgeIdealAgeMask or 0 and 1"
 				/>
 			</var_array>
 		</var_struct>
 		<var_struct name="tracersTTDFields" time_levs="1">
-			<var_array name="idealAgeTracersTTDMask" type="real" dimensions="nCells Time" packages="idealAgeTracersTTDPKG">
+			<var_array name="idealAgeTracersTTDMask" type="real" dimensions="nCells Time"  missing_value="FILLVAL" packages="idealAgeTracersTTDPKG">
 				<var name="iAgeTTDMask" array_group="iAgeRestoringGRP" units="none"
 				description="In top layer, iAge is reset to TTDMask, valid values of iAgeTTDMask or 0 and 1"
 				/>

@@ -49,7 +49,7 @@
 
 	<var_struct name="state" time_levs="2">
 		<var_struct name="tracers" time_levs="2">
-			<var_array name="debugTracers" dimensions="nVertLevels nCells Time" type="real" packages="debugTracersPKG" default_value="1.0">
+			<var_array name="debugTracers" dimensions="nVertLevels nCells Time" type="real"  missing_value="FILLVAL" packages="debugTracersPKG" default_value="1.0">
 				<var name="tracer1" array_group="debugGRP" units="tracer1"
 			 description="tracer for debugging purposes"
 				/>
@@ -65,7 +65,7 @@
 
 	<var_struct name="tend" time_levs="1">
 		<var_struct name="tracersTend" time_levs="1">
-			<var_array name="debugTracersTend" type="real" dimensions="nVertLevels nCells Time" packages="debugTracersPKG">
+			<var_array name="debugTracersTend" type="real" dimensions="nVertLevels nCells Time"  missing_value="FILLVAL" packages="debugTracersPKG">
 				<var name="tracer1Tend" array_group="debugGRP" units="tracer1"
 			 description="Tendency for tracer1"
 				/>
@@ -81,7 +81,7 @@
 
    	<var_struct name="forcing" time_levs="1">
 		<var_struct name="tracersSurfaceFlux" time_levs="1">
-			<var_array name="debugTracersSurfaceFlux" type="real" dimensions="nCells Time" packages="debugTracersPKG">
+			<var_array name="debugTracersSurfaceFlux" type="real" dimensions="nCells Time"  missing_value="FILLVAL" packages="debugTracersPKG">
 				<var name="tracer1SurfaceFlux" array_group="debugTracerFluxGRP" units="tracer1 m s^{-1}"
 			 description="Flux of tracer1 through the ocean surface. Positive into ocean."
 				/>
@@ -92,7 +92,7 @@
 			 description="Flux of tracer3 through the ocean surface. Positive into ocean."
 				/>
 			</var_array>
-			<var_array name="debugTracersSurfaceFluxRunoff" type="real" dimensions="nCells Time" packages="debugTracersPKG">
+			<var_array name="debugTracersSurfaceFluxRunoff" type="real" dimensions="nCells Time"  missing_value="FILLVAL" packages="debugTracersPKG">
 				<var name="tracer1SurfaceFluxRunoff" array_group="debugRunoffFluxGRP" units="tracer1 m s^{-1}"
 			 description="Flux of tracer1 through the ocean surface due to river runoff. Positive into ocean."
 				/>
@@ -103,7 +103,7 @@
 			 description="Flux of tracer3 through the ocean surface due to river runoff. Positive into ocean."
 				/>
 			</var_array>
-			<var_array name="debugTracersSurfaceFluxRemoved" type="real" dimensions="nCells Time" packages="debugTracersPKG">
+			<var_array name="debugTracersSurfaceFluxRemoved" type="real" dimensions="nCells Time"  missing_value="FILLVAL" packages="debugTracersPKG">
 				<var name="tracer1SurfaceFluxRemoved" array_group="debugRemovedFluxGRP" units="tracer1 m s^{-1}"
 			 description="Flux of tracer1 that is ignored coming into the ocean. Positive into ocean."
 				/>
@@ -116,7 +116,7 @@
 			</var_array>
 		</var_struct>
 		<var_struct name="tracersSurfaceRestoringFields" time_levs="1">
-			<var_array name="debugTracersPistonVelocity" type="real" dimensions="nCells Time" packages="debugTracersSurfaceRestoringPKG">
+			<var_array name="debugTracersPistonVelocity" type="real" dimensions="nCells Time"  missing_value="FILLVAL" packages="debugTracersSurfaceRestoringPKG">
 				<var name="tracer1PistonVelocity" array_group="debugGRP" units="m s^{-1}"
 			 description="A non-negative field controlling the rate at which tracer1 is restored to tracer1SurfaceRestoringValue"
 				/>
@@ -127,7 +127,7 @@
 			 description="A non-negative field controlling the rate at which tracer3 is restored to tracer3SurfaceRestoringValue"
 				/>
 			</var_array>
-			<var_array name="debugTracersSurfaceRestoringValue" type="real" dimensions="nCells Time" packages="debugTracersSurfaceRestoringPKG">
+			<var_array name="debugTracersSurfaceRestoringValue" type="real" dimensions="nCells Time"  missing_value="FILLVAL" packages="debugTracersSurfaceRestoringPKG">
 				<var name="tracer1SurfaceRestoringValue" array_group="debugGRP" units="^\circ C"
 			 description="tracer1 is restored toward this field at a rate controlled by tracer1PistonVelocity."
 				/>
@@ -140,7 +140,7 @@
 			</var_array>
 		</var_struct>
 		<var_struct name="tracersInteriorRestoringFields" time_levs="1">
-			<var_array name="debugTracersInteriorRestoringRate" type="real" dimensions="nVertLevels nCells Time" packages="debugTracersInteriorRestoringPKG">
+			<var_array name="debugTracersInteriorRestoringRate" type="real" dimensions="nVertLevels nCells Time"  missing_value="FILLVAL" packages="debugTracersInteriorRestoringPKG">
 				<var name="tracer1InteriorRestoringRate" array_group="debugGRP" units="{s}^-1"
 				 description="A non-negative field controlling the rate at which tracer1 is restored to tracer1InteriorRestoringValue"
 				/>
@@ -151,7 +151,7 @@
 				 description="A non-negative field controlling the rate at which tracer3 is restored to tracer3InteriorRestoringValue"
 				/>
 			</var_array>
-			<var_array name="debugTracersInteriorRestoringValue" type="real" dimensions="nVertLevels nCells Time" packages="debugTracersInteriorRestoringPKG">
+			<var_array name="debugTracersInteriorRestoringValue" type="real" dimensions="nVertLevels nCells Time"  missing_value="FILLVAL" packages="debugTracersInteriorRestoringPKG">
 				<var name="tracer1InteriorRestoringValue" array_group="debugGRP" units="^\circ C"
 				 description="tracer1 is restored toward this field at a rate controlled by tracer1InteriorRestoringRate."
 				/>
@@ -164,7 +164,7 @@
 			</var_array>
 		</var_struct>
 		<var_struct name="tracersExponentialDecayFields" time_levs="1">
-			<var_array name="debugTracersExponentialDecayRate" type="real" dimensions="Time" packages="debugTracersExponentialDecayPKG">
+			<var_array name="debugTracersExponentialDecayRate" type="real" dimensions="Time"  missing_value="FILLVAL" packages="debugTracersExponentialDecayPKG">
 				<var name="tracer1ExponentialDecayRate" array_group="debugGRP" units="s^{-1}"
 			 description="A non-negative field controlling the exponential decay of tracer1"
 				/>
@@ -177,7 +177,7 @@
 			</var_array>
 		</var_struct>
 		<var_struct name="tracersIdealAgeFields" time_levs="1">
-			<var_array name="debugTracersIdealAgeMask" type="real" dimensions="nCells Time" packages="debugTracersIdealAgePKG">
+			<var_array name="debugTracersIdealAgeMask" type="real" dimensions="nCells Time"  missing_value="FILLVAL" packages="debugTracersIdealAgePKG">
 				<var name="tracer1IdealAgeMask" array_group="debugGRP" units="unitless"
 			 description="In top layer, tracer1 is reset to tracer1 * tracer1IdealAgeMask, valid values of tracer1IdealAgeMask or 0 and 1"
 				/>
@@ -190,7 +190,7 @@
 			</var_array>
 		</var_struct>
 		<var_struct name="tracersTTDFields" time_levs="1">
-			<var_array name="debugTracersTTDMask" type="real" dimensions="nCells Time" packages="debugTracersTTDPKG">
+			<var_array name="debugTracersTTDMask" type="real" dimensions="nCells Time"  missing_value="FILLVAL" packages="debugTracersTTDPKG">
 				<var name="tracer1TTDMask" array_group="debugGRP" units="unitless"
 			 description="In top layer, tracer1 is reset to TTDMask, valid values of tracer1TTDMask or 0 and 1"
 				/>
