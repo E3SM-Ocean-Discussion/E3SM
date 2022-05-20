@@ -26,6 +26,7 @@ module ocn_init_routines
    use mpas_pool_routines
    use mpas_timer
    use mpas_dmpar
+   use mpas_io
    use mpas_constants
 
    use mpas_rbf_interpolation
