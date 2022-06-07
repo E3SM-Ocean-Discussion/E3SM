@@ -59,6 +59,8 @@ module ocn_diagnostics_variables
    real (kind=RKIND), dimension(:,:), pointer :: layerThickEdgeFlux
    real (kind=RKIND), dimension(:,:), pointer :: layerThickEdgeMean
    real (kind=RKIND), dimension(:,:), pointer :: kineticEnergyCell
+   real (kind=RKIND), dimension(:,:), pointer :: kineticEnergyEdge
+   real (kind=RKIND), dimension(:,:), pointer :: u_perp
    real (kind=RKIND), dimension(:,:), pointer :: vertVelocityTop
    real (kind=RKIND), dimension(:,:), pointer :: vertTransportVelocityTop
    real (kind=RKIND), dimension(:,:), pointer :: vertGMBolusVelocityTop
@@ -460,6 +462,10 @@ contains
                    barotropicForcing)
          call mpas_pool_get_array(diagnosticsPool, 'kineticEnergyCell', &
                    kineticEnergyCell)
+         call mpas_pool_get_array(diagnosticsPool, 'kineticEnergyEdge', &
+                   kineticEnergyEdge)
+         call mpas_pool_get_array(diagnosticsPool, 'u_perp', &
+                   u_perp)
 
          call mpas_pool_get_array(diagnosticsPool, 'transportVelocityX', &
                    transportVelocityX)
@@ -700,6 +706,8 @@ contains
          !$acc                   GMStreamFuncZonal,               &
          !$acc                   relativeVorticity,               &
          !$acc                   kineticEnergyCell,               &
+         !$acc                   kineticEnergyEdge,               &
+         !$acc                   u_perp,                          &
          !$acc                   normPlanetVortEdge,              &
          !$acc                   velocityMeridional,              &
          !$acc                   transportVelocityX,              &
@@ -940,6 +948,8 @@ contains
          !$acc                   GMStreamFuncZonal,               &
          !$acc                   relativeVorticity,               &
          !$acc                   kineticEnergyCell,               &
+         !$acc                   kineticEnergyEdge,               &
+         !$acc                   u_perp,                          &
          !$acc                   normPlanetVortEdge,              &
          !$acc                   velocityMeridional,              &
          !$acc                   transportVelocityX,              &
@@ -1138,6 +1148,8 @@ contains
                  GMStreamFuncZonal,               &
                  relativeVorticity,               &
                  kineticEnergyCell,               &
+                 kineticEnergyEdge,               &
+                 u_perp,                          &
                  normPlanetVortEdge,              &
                  velocityMeridional,              &
                  transportVelocityX,              &

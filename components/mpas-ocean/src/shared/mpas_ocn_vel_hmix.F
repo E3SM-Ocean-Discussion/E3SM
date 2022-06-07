@@ -125,13 +125,16 @@ contains
       ! note that the user can choose multiple options and the
       !   tendencies will be added together
 
+      call ocn_vel_hmix_aust_del2_tend(div, tend, err1)
       call ocn_vel_hmix_del2_tend(div, relVort, tend, err1)
       err = ior(err1, err)
 
       call ocn_vel_hmix_leith_tend(div, relVort, tend, err1)
       err = ior(err1, err)
 
+      call ocn_vel_hmix_aust_del4_tend(div, tend, err1)
       call ocn_vel_hmix_del4_tend(div, relVort, tend, err1)
+      !call ocn_vel_hmix_div_del4_tend(div, tend, err1)
       err = ior(err1, err)
 
       call mpas_timer_stop("vel hmix")

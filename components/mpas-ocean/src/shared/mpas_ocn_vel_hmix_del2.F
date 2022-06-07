@@ -42,6 +42,7 @@ module ocn_vel_hmix_del2
    !--------------------------------------------------------------------
 
    public :: ocn_vel_hmix_del2_tend, &
+             ocn_vel_hmix_aust_del2_tend, &
              ocn_vel_hmix_del2_init
 
    !-------------------------------------------------------------------
@@ -51,10 +52,12 @@ module ocn_vel_hmix_del2
    !--------------------------------------------------------------------
 
    logical ::  &
-      hmixDel2Off  !< on/off flag to determine whether del2 chosen
+      hmixDel2Off,      &  !< on/off flag to determine whether del2 chosen
+      hmixDel2AustOff      !< on/off flag for AUST closure
          
    real (kind=RKIND) :: &
-      viscDel2     !< viscosity coefficient for del2 horz mixing
+      viscDel2,         &  !< viscosity coefficient for del2 horz mixing
+      viscDel2Aust         !< viscosity coefficient for aust
 
 !***********************************************************************
 
@@ -181,6 +184,111 @@ contains
 
 !***********************************************************************
 !
+!  routine ocn_vel_hmix_aust_del2_tend
+!
+!> \brief   Computes tendency for Laplacian horizontal momentum mixing
+!> \author  Sara Calandrini
+!> \date    March 2022
+!> \details
+!>  This routine computes the horizontal mixing tendency for momentum
+!>  based on a Laplacian form for the mixing, \f$\nu_2 \nabla^2 u\f$
+!>  This tendency takes the form
+!>  \f$\nu( \nabla divergence)\f$, where \f$\nu\f$ is a viscosity, so
+!>  the vorticity part has been eliminated compared to the above
+!>  subroutine. This form is strictly only valid for constant \f$\nu\f$ .
+!
+!-----------------------------------------------------------------------
+
+   subroutine ocn_vel_hmix_aust_del2_tend(div, tend, err)!{{{
+
+      !-----------------------------------------------------------------
+      ! input variables
+      !-----------------------------------------------------------------
+
+      real (kind=RKIND), dimension(:,:), intent(in) :: &
+         div             !< [in] velocity divergence
+
+      !-----------------------------------------------------------------
+      ! input /output variables
+      !-----------------------------------------------------------------
+
+      real (kind=RKIND), dimension(:,:), intent(inout) :: &
+         tend            !< [inout] accumulated velocity tendency
+
+      !-----------------------------------------------------------------
+      ! output variables
+      !-----------------------------------------------------------------
+
+      integer, intent(out) :: err !< [out] error flag
+
+      !-----------------------------------------------------------------
+      ! local variables
+      !-----------------------------------------------------------------
+
+      integer ::           &
+         iEdge, k,         &! loop indices for edge, vertical loops
+         cell1, cell2       ! neighbor cell addresses across edge
+
+      real (kind=RKIND) :: &
+         uDiff,            &! velocity diffusion
+         dcEdgeInv,        &! 1/dcEdge
+         visc2              ! scaled viscosity coefficient
+
+      !-----------------------------------------------------------------
+      !
+      ! exit if this mixing is not selected
+      !
+      !-----------------------------------------------------------------
+
+      err = 0
+
+      if (hmixDel2AustOff) return
+
+      call mpas_timer_start("vel div2")
+
+#ifdef MPAS_OPENACC
+      !$acc parallel loop &
+      !$acc    present(cellsOnEdge, maxLevelEdgeTop, minLevelEdgeBot, &
+      !$acc            edgeMask, dcEdge, div, &
+      !$acc            meshScalingDel2, tend) &
+      !$acc    private(k, cell1, cell2, uDiff, &
+      !$acc            dcEdgeInv, visc2)
+#else
+      !$omp parallel
+      !$omp do schedule(runtime) &
+      !$omp    private(k, cell1, cell2, uDiff, &
+      !$omp            dcEdgeInv, visc2)
+#endif
+      do iEdge = 1, nEdgesOwned
+         cell1 = cellsOnEdge(1,iEdge)
+         cell2 = cellsOnEdge(2,iEdge)
+
+         dcEdgeInv = 1.0_RKIND / dcEdge(iEdge)
+
+         visc2 =  viscDel2Aust*meshScalingDel2(iEdge)
+
+         do k = minLevelEdgeBot(iEdge), maxLevelEdgeTop(iEdge)
+
+            uDiff = (div(k,cell2) - div(k,cell1))*dcEdgeInv
+
+            tend(k,iEdge) = tend(k,iEdge) + &
+                            edgeMask(k,iEdge)*visc2*uDiff
+
+         end do
+      end do
+#ifndef MPAS_OPENACC
+      !$omp end do
+      !$omp end parallel
+#endif
+
+      call mpas_timer_stop("vel div2")
+
+   !--------------------------------------------------------------------
+
+    end subroutine ocn_vel_hmix_aust_del2_tend!}}}
+
+!***********************************************************************
+!
 !  routine ocn_vel_hmix_del2_init
 !
 !> \brief   Initializes ocean momentum Laplacian horizontal mixing
@@ -206,8 +314,10 @@ contains
 
       !*** Initialize return code and default variables
       err = 0
-      hmixDel2Off = .true.
-      viscDel2    = 0.0_RKIND
+      hmixDel2Off     = .true.
+      hmixDel2AustOff = .true.
+      viscDel2        = 0.0_RKIND
+      viscDel2Aust    = 0.0_RKIND
 
       !*** reset values based on input configuration
 
@@ -221,7 +331,21 @@ contains
                  MPAS_LOG_ERR)
             err = -1
          endif
+
       endif
+
+      if (config_use_mom_div2) then
+         hmixDel2AustOff = .false.
+         viscDel2Aust    = config_mom_div2
+
+         if (viscDel2Aust <= 0.0_RKIND) then
+            call mpas_log_write( &
+                'vel_hmix_del2_init: viscosity must be > 0', &
+                 MPAS_LOG_ERR)
+            err = -1
+         endif
+
+      end if
 
       !-----------------------------------------------------------------
 

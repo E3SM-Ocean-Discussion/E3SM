@@ -703,7 +703,7 @@ module ocn_time_integration_split
 
          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
          ! BEGIN baroclinic iterations on linear Coriolis term
-         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+         !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 
 
          do j=1,numClinicIterations(splitExplicitStep)
 
@@ -785,7 +785,7 @@ module ocn_time_integration_split
                               'normalBaroclinicVelocity', timeLevel=2)
             call mpas_timer_stop("se halo normalBaroclinicVelocity")
 
-            call mpas_timer_stop('bcl iters on linear Coriolis')
+            call mpas_timer_stop('bcl iters on linear Coriolis') 
 
          end do  ! do j=1,config_n_bcl_iter
 
@@ -793,7 +793,7 @@ module ocn_time_integration_split
          call mpas_dmpar_field_halo_exch(domain, 'barotropicForcing')
          call mpas_timer_stop('se halo barotropicForcing')
 
-         call mpas_timer_stop("se bcl vel")
+         call mpas_timer_stop("se bcl vel")       
 
          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
          ! END baroclinic iterations on linear Coriolis term
@@ -1890,7 +1890,7 @@ module ocn_time_integration_split
          ! time n+1
          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-         elseif (splitExplicitStep == numTSIterations) then
+         elseif (splitExplicitStep == numTSIterations) then 
 
             !$omp parallel
             !$omp do schedule(runtime) private(k)
@@ -2107,6 +2107,7 @@ module ocn_time_integration_split
 
             !$omp parallel
             !$omp do schedule(runtime) private(k)
+
             do iEdge = 1, nEdgesAll
             do k = minLevelEdgeBot(iEdge), maxLevelEdgeTop(iEdge)
                normalVelocityNew(k,iEdge) = &
@@ -2132,6 +2133,8 @@ module ocn_time_integration_split
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
       call mpas_timer_start("se implicit vert mix")
+
+      !call mpas_dmpar_field_halo_exch(domain, 'normalVelocity', timeLevel=2)
 
       ! Call ocean diagnostic solve in preparation for vertical mixing.
       ! Note it is called again after vertical mixing, because u and
@@ -2198,7 +2201,7 @@ module ocn_time_integration_split
       !$acc exit data delete(layerThicknessNew, normalVelocityNew)
 #endif
 
-      call mpas_dmpar_field_halo_exch(domain, 'surfaceFrictionVelocity')
+      call mpas_dmpar_field_halo_exch(domain, 'surfaceFrictionVelocity') 
 
       ! Compute normalGMBolusVelocity; it will be added to the
       ! baroclinic modes in Stage 2 above.
@@ -2319,7 +2322,7 @@ module ocn_time_integration_split
       end if
 
       call ocn_diagnostic_solve(dt, statePool, forcingPool, meshPool, &
-                                scratchPool, tracersPool, 2)
+                                scratchPool, tracersPool, 2) 
 
       ! Update the effective desnity in land ice if we're coupling to
       ! land ice

@@ -99,6 +99,7 @@ list(APPEND RAW_SOURCES
   core_ocean/shared/mpas_ocn_time_varying_forcing.F
   core_ocean/shared/mpas_ocn_wetting_drying.F
   core_ocean/shared/mpas_ocn_vel_tidal_potential.F
+  core_ocean/shared/mpas_ocn_ke_triskCV.F
 )
 
 set(OCEAN_DRIVER
