@@ -51,6 +51,7 @@ module ocn_tendency
    use ocn_tracer_surface_flux_to_tend
    use ocn_tracer_ecosys
    use ocn_tracer_DMS
+   use ocn_tracer_meke_tend
    use ocn_tracer_MacroMolecules
    use ocn_tracer_CFC
 
@@ -1454,10 +1455,14 @@ contains
       !     -div( layerThickness \phi u)
       ! Tracer budget is computed and stored within the tracer adv
       ! routine
+      call mpas_log_write('Advect MEKE')
       call ocn_tracer_advection_tend(meke3d, &
                          normalThicknessFlux, vertAleTransportTop, &
                          layerThickness, dt, mekeTend3d, .false.)
+      call mpas_log_write('... completed')
 
+      ! mekeTend3d has an additional dimension, which can hold 
+      ! multiple tracers but doesn't in the case of MEKE
       !$omp parallel
       !$omp do schedule(runtime) private(k)
       do iCell = 1, nCellsAll
@@ -1468,6 +1473,10 @@ contains
       !$omp end do
       !$omp end parallel
  
+      call mpas_log_write('MEKE source')
+      call ocn_tracer_meke_source_tend(dt, mekeTend, err)
+      call mpas_log_write('... completed')
+
       call mpas_timer_stop("ocn_tend_meke")
 
    !--------------------------------------------------------------------

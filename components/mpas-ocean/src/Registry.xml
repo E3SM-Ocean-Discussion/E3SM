@@ -2868,6 +2868,10 @@
 			 description="gradient Richardson number defined at the edge (horizontally) and top (vertically)"
 			 packages="forwardMode;analysisMode"
 		/>
+		<var name="mekeSourceTopOfEdge" type="real" dimensions="nVertLevelsP1 nEdges Time" units="XX s^{-1}" name_in_code="mekeSourceTopOfEdge"
+			 description="source term tendency of mesoscale eddy kinetic energy at top of edges"
+			 packages="MEKE"
+		/>
 		<var name="vertViscTopOfEdge" type="real" dimensions="nVertLevelsP1 nEdges Time" units="m^2 s^{-1}"
 			 description="vertical viscosity defined at the edge (horizontally) and top (vertically)"
 			 packages="forwardMode;analysisMode"

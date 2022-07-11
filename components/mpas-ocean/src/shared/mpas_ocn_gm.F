@@ -136,7 +136,8 @@ contains
       real(kind=RKIND) :: slopeTaperUp, slopeTaperDown, sfcTaperUp, sfcTaperDown, invAreaCell
       real(kind=RKIND) :: lt1, lt2, c_min
       real(kind=RKIND) :: sigma, Lr, Length, L_rhines, shearEdgeInv
-      real (kind=RKIND) :: eddyLength, eddyTime
+      real(kind=RKIND) :: eddyLength, eddyTime
+      real(kind=RKIND) :: gmBolusKappaDia
       real(kind=RKIND), dimension(:), allocatable :: dzTop, dTdzTop, dSdzTop, k33Norm
       real(kind=RKIND), dimension(:), allocatable :: RossbyRadiusTaper
       real(kind=RKIND) :: c_Visbeck   ! baroclinic wave speed from Visbeck parameterization
@@ -863,6 +864,35 @@ contains
          deallocate (tridiagA)
          deallocate (tridiagB)
          deallocate (tridiagC)
+
+         if (config_prognostic_meke) then
+            !$omp parallel
+            !$omp do schedule(runtime) private(k, cell1, cell2, BruntVaisalaFreqTopEdge)
+            do iEdge = 1, nEdges
+
+               mekeSourceTopOfEdge(:, iEdge) = 0.0_RKIND
+               cell1 = cellsOnEdge(1, iEdge)
+               cell2 = cellsOnEdge(2, iEdge)
+
+               do k = minLevelEdgeBot(iEdge), maxLevelEdgeTop(iEdge)
+                  BruntVaisalaFreqTopEdge = 0.5_RKIND*(BruntVaisalaFreqTop(k, cell1) + BruntVaisalaFreqTop(k, cell2))
+                  BruntVaisalaFreqTopEdge = max(BruntVaisalaFreqTopEdge, 0.0_RKIND)
+                  if (BruntVaisalaFreqTopEdge < 1.0E-10_RKIND) then
+                     gmBolusKappaDia = gmBolusKappa(iEdge)*gmKappaScaling(k,iEdge)
+                  else
+                     gmBolusKappaDia = 0.0_RKIND
+                  endif
+                  mekeSourceTopOfEdge(k, iEdge) = ( gmBolusKappa(iEdge)*gmKappaScaling(k,iEdge) - &
+                                                    gmBolusKappaDia ) * &
+                                                  (gradDensityConstZTopOfEdge(k,iEdge))**2 / &
+                                                  (BruntVaisalaFreqTopEdge + 1.0E-10_RKIND)! &
+                                                  !- gmBolusKappaDia*BruntVaisalaFreqTopEdge
+                                                  !> I can't figure out why this term would be negative 
+               end do
+            end do
+            !$omp end do
+            !$omp end parallel
+         end if
 
       end if !end config_use_GM
       deallocate(gradDensityEdge, &
