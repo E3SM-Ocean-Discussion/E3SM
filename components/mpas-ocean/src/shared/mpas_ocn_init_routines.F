@@ -238,10 +238,9 @@ contains
       end do
 
       ! Temporarily set equal to temperature
-      ! TODO after source/sink terms added, initialize to 0
       if (config_prognostic_meke) then
          do iCell=1,nCells
-            meke(:, iCell) = activeTracers(1, :, iCell) 
+            meke(:, iCell) = 0.0_RKIND
          end do
       end if
 

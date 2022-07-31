@@ -352,6 +352,10 @@
 					description="If true, a prognostic meke is solved for at each time step"
 					possible_values=".true. or .false."
 		/>
+		<nml_option name="config_use_prognostic_meke" type="logical" default_value=".false." units="unitless"
+					description="If true, the prognostic meke is used to compute gmBolusKappa"
+					possible_values=".true. or .false."
+		/>
 		<nml_option name="config_GM_closure" type="character" default_value="EdenGreatbatch" units="unitless"
 					description="Control what method used to compute GM $\kappa$. Both 'constant' and 'N2_dependent' use the method in Ferrari et al. 2010 (https://doi.org/10.1016/j.ocemod.2010.01.004). 'constant' uses a constant kappa in eqn 16a, while 'N2_dependent' varies kappa in the vertical according to Danabasoglu and Marshall 2007 (https://doi.org/10.1016/j.ocemod.2007.03.006). 'Visbeck' implements a horizontally varying diffusivity of Visbeck et al 1997. EdenGreatbatch implements a simplified form of the EKE scheme in Eden and Greatbatch (2008) Ocean modeling"
 					possible_values="'constant', 'N2_dependent', 'Visbeck', 'EdenGreatbatch'"
