@@ -55,6 +55,7 @@ module ocn_diagnostics_variables
    real (kind=RKIND), dimension(:,:), pointer :: thermExpCoeff
    real (kind=RKIND), dimension(:,:), pointer :: salineContractCoeff
    real (kind=RKIND), dimension(:,:), pointer :: mekeSourceTopOfEdge
+   real (kind=RKIND), dimension(:,:), pointer :: mekeSink
    real (kind=RKIND), dimension(:,:), pointer :: BruntVaisalaFreqTop
    real (kind=RKIND), dimension(:,:), pointer :: tangentialVelocity
    real (kind=RKIND), dimension(:,:), pointer :: layerThickEdgeFlux
@@ -268,6 +269,7 @@ contains
 
       if ( config_prognostic_meke ) then
          call mpas_pool_get_array(diagnosticsPool, 'mekeSourceTopOfEdge', mekeSourceTopOfEdge)
+         call mpas_pool_get_array(diagnosticsPool, 'mekeSink', mekeSink)
       endif
 
       if ( config_compute_active_tracer_budgets ) then
