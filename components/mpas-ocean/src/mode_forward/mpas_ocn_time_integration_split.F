@@ -1937,8 +1937,8 @@ module ocn_time_integration_split
                           mekeTend(k,iCell))/temp_h
 
                   ! This is Phi at n+1/2
-                  mekeNew(k,iCell) = 0.5_RKIND* &
-                                     (mekeCur(k,iCell) + temp)
+                  mekeNew(k,iCell) = max(0.0_RKIND, 0.5_RKIND* &
+                                     (mekeCur(k,iCell) + temp))
                end do ! vertical
                end do ! iCell
                !$omp end do
@@ -2288,11 +2288,11 @@ module ocn_time_integration_split
                !$omp do schedule(runtime) private(k)
                do iCell = 1, nCellsAll
                do k = minLevelCell(iCell), maxLevelCell(iCell)
-                  mekeNew(k,iCell) = &
+                  mekeNew(k,iCell) = max(0.0_RKIND, &
                  (mekeCur(k,iCell) * &
                   layerThicknessCur(k,iCell) + dt* &
                  mekeTend(k,iCell))/ &
-                  layerThicknessNew(k,iCell)
+                  layerThicknessNew(k,iCell))
                end do
                end do
                !$omp end do
