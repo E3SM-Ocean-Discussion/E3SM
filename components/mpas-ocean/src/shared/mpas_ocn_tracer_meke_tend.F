@@ -252,7 +252,11 @@ contains
                iEdge = edgesOnCell(j,iCell)
                Lr = Lr + LrEdge(iEdge)*edgeAreaFractionOfCell(j, iCell)
             enddo
-            betaCell = 2.0_RKIND*omega*cos(latCell(iCell)) / sphereRadius
+            if (sphereRadius == 0.0_RKIND) then
+               betaCell = 1e-20_RKIND
+            else
+               betaCell = 2.0_RKIND*omega*cos(latCell(iCell)) / sphereRadius
+            endif
             Velocity = meke(k,iCell)**0.5_RKIND
             Length = max(1e-10_RKIND, min((Velocity/betaCell)**0.5_RKIND, Lr))
             mekeSink(k,iCell) = c_diss * &
