@@ -5,7 +5,8 @@ import matplotlib.pyplot as plt
 comparison=True
 if comparison:
     master_path = '/compyfs/bege567/mpaso_scratch/compass-v1.2.0-E3SM-master/ocean/global_ocean/QU240/PHC/performance_test'
-meke_path = '/compyfs/bege567/mpaso_scratch/compass-v1.2.0-E3SM-meke/ocean/global_ocean/QU240/PHC/performance_test'
+meke_path = '/compyfs/bege567/mpaso_scratch/compass-v1.2.0-E3SM-meke-off/ocean/global_ocean/QU240/PHC/performance_test'
+#meke_path = '/compyfs/bege567/mpaso_scratch/compass-v1.2.0-E3SM-meke/ocean/global_ocean/QU240/PHC/performance_test'
 subdir='forward'
 if comparison:
     master_data = xarray.open_dataset(f'{master_path}/{subdir}/output.nc')
