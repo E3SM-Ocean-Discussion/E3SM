@@ -73,7 +73,7 @@ contains
 !
 !-----------------------------------------------------------------------
 
-   subroutine ocn_tracer_meke_source_tend(dt, tend, err)!{{{
+   subroutine ocn_tracer_meke_source_tend(layerThickness, dt, tend, err)!{{{
       !-----------------------------------------------------------------
       !
       ! input variables
@@ -81,6 +81,7 @@ contains
       !-----------------------------------------------------------------
 
       real (kind=RKIND), intent(in) :: dt ! time step
+      real (kind=RKIND), dimension(:,:), intent(in) :: layerThickness
 
       !-----------------------------------------------------------------
       !
@@ -163,7 +164,8 @@ contains
       do iCell = 1, nCells
         do k = minLevelCell(iCell), maxLevelCell(iCell)
 
-          tend(k, iCell) = tend(k, iCell) + dt * mekeSource(k, iCell)
+          tend(k, iCell) = tend(k, iCell) &
+                         + dt * mekeSource(k, iCell) * layerThickness(k, iCell)
         end do
       end do
       !$omp end do
@@ -188,7 +190,7 @@ contains
 !
 !-----------------------------------------------------------------------
 
-   subroutine ocn_tracer_meke_sink_tend(meke, dt, tend, err)!{{{
+   subroutine ocn_tracer_meke_sink_tend(meke, layerThickness, dt, tend, err)!{{{
       !-----------------------------------------------------------------
       !
       ! input variables
@@ -196,6 +198,7 @@ contains
       !-----------------------------------------------------------------
 
       real (kind=RKIND), dimension(:,:), intent(in) :: meke ! MEKE
+      real (kind=RKIND), dimension(:,:), intent(in) :: layerThickness
       real (kind=RKIND), intent(in) :: dt ! time step
 
       !-----------------------------------------------------------------
@@ -252,7 +255,9 @@ contains
             betaCell = 2.0_RKIND*omega*cos(latCell(iCell)) / sphereRadius
             Velocity = meke(k,iCell)**0.5_RKIND
             Length = max(1e-10_RKIND, min((Velocity/betaCell)**0.5_RKIND, Lr))
-            mekeSink(k,iCell) = c_diss * meke(k,iCell)**1.5_RKIND / Length
+            mekeSink(k,iCell) = c_diss * &
+                                (meke(k,iCell)/layerThickness(k,iCell))**1.5_RKIND / &
+                                Length
             if (mekeSink(k,iCell) > 1.0_RKIND) then
                write(log_string,*) 'Lr', Lr
                call mpas_log_write(log_string)
@@ -265,7 +270,8 @@ contains
                write(log_string,*) 'mekeSink', mekeSink(k,iCell)
                call mpas_log_write(log_string)
             endif
-            tend(k, iCell) = tend(k, iCell) - dt * mekeSink(k, iCell)
+            tend(k, iCell) = tend(k, iCell) &
+                           - dt * mekeSink(k, iCell) * layerThickness(k, iCell)
          enddo
       enddo
       !$omp end do

@@ -1474,10 +1474,10 @@ contains
       !$omp end parallel
  
       call mpas_log_write('MEKE source')
-      call ocn_tracer_meke_source_tend(dt, mekeTend, err)
+      call ocn_tracer_meke_source_tend(layerThickness, dt, mekeTend, err)
       call mpas_log_write('... completed')
       call mpas_log_write('MEKE sink')
-      call ocn_tracer_meke_sink_tend(meke, dt, mekeTend, err)
+      call ocn_tracer_meke_sink_tend(meke, layerThickness, dt, mekeTend, err)
       call mpas_log_write('... completed')
 
       call mpas_timer_stop("ocn_tend_meke")
