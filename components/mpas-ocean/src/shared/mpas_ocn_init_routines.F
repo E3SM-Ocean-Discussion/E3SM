@@ -105,6 +105,7 @@ contains
       integer, dimension(:,:), pointer :: boundaryCellTmp
       real (kind=RKIND), dimension(:,:), pointer :: layerThickness
       real (kind=RKIND), dimension(:,:), pointer :: normalVelocity
+      real (kind=RKIND), dimension(:,:), pointer :: meke
 
       real (kind=RKIND), dimension(:,:,:), pointer :: tracersGroup
 
@@ -121,6 +122,7 @@ contains
       real (kind=RKIND), dimension(:,:,:), pointer :: activeTracers
 
       type (mpas_pool_iterator_type) :: groupItr
+      character (len=100) :: log_string
 
       call mpas_pool_get_dimension(block % dimensions, 'nCells', nCells)
       call mpas_pool_get_dimension(block % dimensions, 'nEdges', nEdges)
@@ -145,6 +147,7 @@ contains
       call mpas_pool_get_array(forcingPool, 'frazilSurfacePressure', frazilSurfacePressure)
 
       call mpas_pool_get_array(tracersPool, 'activeTracers', activeTracers, 1)
+      call mpas_pool_get_array(statePool, 'meke', meke, 1)
 
       if (.not. config_do_restart) then
          do iCell=1,nCells
@@ -233,6 +236,13 @@ contains
             end if
          end if
       end do
+
+      ! Temporarily set equal to temperature
+      if (config_prognostic_meke) then
+         do iCell=1,nCells
+            meke(:, iCell) = 0.0_RKIND
+         end do
+      end if
 
       ! ------------------------------------------------------------------
       ! Accumulating various parametrizations of the transport velocity

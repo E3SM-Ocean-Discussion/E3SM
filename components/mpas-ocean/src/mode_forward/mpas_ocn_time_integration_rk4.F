@@ -131,6 +131,7 @@ module ocn_time_integration_rk4
       logical, pointer :: config_disable_thick_all_tend
       logical, pointer :: config_disable_vel_all_tend
       logical, pointer :: config_disable_tr_all_tend
+      logical, pointer :: MEKEActive
       real (kind=RKIND), pointer :: config_mom_del4
       real (kind=RKIND), pointer :: config_drying_min_cell_height
       logical, pointer :: config_use_wetting_drying
@@ -168,6 +169,7 @@ module ocn_time_integration_rk4
       real (kind=RKIND), dimension(:), pointer :: sshCur, sshNew
 
       real (kind=RKIND), dimension(:,:,:), pointer :: tracerGroup, tracersCur, tracersNew
+      real (kind=RKIND), dimension(:,:), pointer :: mekeCur, mekeNew
 
       ! Diagnostics Field Pointers
       type (field1DReal), pointer :: boundaryLayerDepthField, effectiveDensityField
@@ -242,6 +244,11 @@ module ocn_time_integration_rk4
          call mpas_pool_get_array(statePool, 'normalVelocity', normalVelocityNew, 2)
          call mpas_pool_get_array(statePool, 'layerThickness', layerThicknessCur, 1)
          call mpas_pool_get_array(statePool, 'layerThickness', layerThicknessNew, 2)
+         call mpas_pool_get_package(ocnPackages, 'MEKEActive', MEKEActive)
+         if (MEKEActive) then
+            call mpas_pool_get_array(statePool, 'meke', mekeCur, 1)
+            call mpas_pool_get_array(statePool, 'meke', mekeNew, 2)
+         endif
 
          call mpas_pool_get_array(statePool, 'highFreqThickness', highFreqThicknessCur, 1)
          call mpas_pool_get_array(statePool, 'highFreqThickness', highFreqThicknessNew, 2)
@@ -293,6 +300,17 @@ module ocn_time_integration_rk4
                end if
             end if
          end do
+         if ( associated(mekeCur) .and. associated(mekeNew) ) then
+            !$omp parallel
+            !$omp do schedule(runtime) private(k)
+            do iCell = 1, nCells  ! couple tracers to thickness
+               do k = 1, maxLevelCell(iCell)
+                  mekeNew(k, iCell) = mekeCur(k, iCell) * layerThicknessCur(k, iCell)
+               end do
+            end do
+            !$omp end do
+            !$omp end parallel
+         end if
 
          if (associated(highFreqThicknessCur)) then
               !$omp parallel
@@ -629,6 +647,10 @@ module ocn_time_integration_rk4
          end if
       end do
 
+      if (associated(mekeNew)) then
+         call mpas_dmpar_field_halo_exch(domain, 'meke', timeLevel=2)
+      endif
+
       call mpas_timer_stop("RK4-implicit vert mix halos")
 
       call mpas_timer_stop("RK4-implicit vert mix")
@@ -652,6 +674,7 @@ module ocn_time_integration_rk4
          call mpas_pool_get_array(statePool, 'normalVelocity', normalVelocityNew, 2)
          call mpas_pool_get_array(statePool, 'layerThickness', layerThicknessCur, 1)
          call mpas_pool_get_array(statePool, 'layerThickness', layerThicknessNew, 2)
+         !call mpas_pool_get_array(statePool, 'meke', mekeNew, 2)
 
          call mpas_pool_get_array(verticalMeshPool, 'restingThickness', restingThickness)
          call mpas_pool_get_array(forcingPool, 'tidalInputMask', tidalInputMask)
@@ -1045,6 +1068,7 @@ module ocn_time_integration_rk4
 
       call ocn_tend_tracer(tendPool, provisStatePool, forcingPool, meshPool, swForcingPool, &
                            dt, activeTracersOnlyIn=.false., timeLevelIn=1)
+      call ocn_tend_meke(tendPool, provisStatePool, meshPool, dt, 1)
 
    end subroutine ocn_time_integrator_rk4_compute_tracer_tends!}}}
 
@@ -1394,12 +1418,13 @@ module ocn_time_integration_rk4
       real (kind=RKIND), dimension(:, :), pointer :: layerThicknessNew, layerThicknessTend
       real (kind=RKIND), dimension(:, :), pointer :: highFreqThicknessNew, highFreqThicknessTend
       real (kind=RKIND), dimension(:, :), pointer :: lowFreqDivergenceNew, lowFreqDivergenceTend
+      real (kind=RKIND), dimension(:, :), pointer :: mekeNew, mekeTend
 
       real (kind=RKIND), dimension(:, :, :), pointer :: tracersGroupNew, tracersGroupTend
 
       integer, dimension(:), pointer :: minLevelCell, maxLevelCell
 
-      logical, pointer :: config_use_tracerGroup
+      logical, pointer :: config_use_tracerGroup, MEKEActive
       type (mpas_pool_iterator_type) :: groupItr
       character (len=StrKIND) :: modifiedGroupName
       character (len=StrKIND) :: configName
@@ -1434,6 +1459,16 @@ module ocn_time_integration_rk4
 
       call mpas_pool_get_array(meshPool, 'minLevelCell', minLevelCell)
       call mpas_pool_get_array(meshPool, 'maxLevelCell', maxLevelCell)
+
+      call mpas_log_write('Get meke variables in RK4')
+      call mpas_pool_get_package(ocnPackages, 'MEKEActive', MEKEActive)
+      if (MEKEActive) then
+         call mpas_pool_get_array(tendPool, 'meke', mekeTend)
+         call mpas_pool_get_array(statePool, 'meke', mekeNew, 2)
+      else
+         call mpas_log_write('MEKE not active')
+      endif
+      call mpas_log_write('Completed')
 
       !$omp parallel
       !$omp do schedule(runtime) private(k)
@@ -1478,6 +1513,19 @@ module ocn_time_integration_rk4
             end if
          end if
       end do
+
+      if (associated(mekeNew)) then
+         !$omp parallel
+         !$omp do schedule(runtime) private(k)
+         do iCell = 1, nCells
+            do k = minLevelCell(iCell), maxLevelCell(iCell)
+               mekeNew(k, iCell) = mekeNew(k, iCell) + rkWeight &
+                                    * mekeTend(k, iCell)
+            end do
+         end do
+         !$omp end do
+         !$omp end parallel
+      end if
 
       if (associated(highFreqThicknessNew)) then
          !$omp parallel
@@ -1524,6 +1572,8 @@ module ocn_time_integration_rk4
       character (len=StrKIND) :: configName
 
       logical, pointer :: config_use_GM
+      logical, pointer :: MEKEActive
+      real (kind=RKIND), dimension(:, :), pointer :: mekeNew
 
       real (kind=RKIND), dimension(:), pointer :: &
         seaIcePressure, atmosphericPressure
@@ -1567,6 +1617,12 @@ module ocn_time_integration_rk4
           call mpas_pool_get_array(forcingPool, 'landIcePressure', landIcePressure)
           call mpas_pool_get_array(forcingPool, 'landIceDraft', landIceDraft)
       endif
+      call mpas_pool_get_package(ocnPackages, 'MEKEActive', MEKEActive)
+      if (MEKEActive) then
+         call mpas_pool_get_array(statePool, 'meke', mekeNew, 2)
+      else
+         call mpas_log_write('MEKE not active')
+      endif
 
       call mpas_pool_begin_iteration(tracersPool)
       do while ( mpas_pool_get_next_member(tracersPool, groupItr) )
@@ -1586,6 +1642,17 @@ module ocn_time_integration_rk4
          end if
       end do
 
+      if ( associated(mekeNew) ) then
+         !$omp parallel
+         !$omp do schedule(runtime) private(k)
+         do iCell = 1, nCells
+           do k = minLevelCell(iCell), maxLevelCell(iCell)
+             mekeNew(k, iCell) = mekeNew(k, iCell) / layerThicknessNew(k, iCell)
+           end do
+         end do
+         !$omp end do
+         !$omp end parallel
+      end if
 #ifdef MPAS_OPENACC
       !$acc enter data copyin(layerThicknessNew, normalVelocityNew)
       !$acc update device (normalTransportVelocity, &

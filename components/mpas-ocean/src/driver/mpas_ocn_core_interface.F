@@ -134,6 +134,7 @@ module ocn_core_interface
       logical, pointer :: timeVaryingLandIceForcingPKGActive
       logical, pointer :: gotmPKGActive
       logical, pointer :: verticalRemapPKGActive
+      logical, pointer :: MEKEActive
 
       type (mpas_pool_iterator_type) :: pkgItr
       logical, pointer :: packageActive
@@ -166,6 +167,7 @@ module ocn_core_interface
       logical, pointer :: config_use_time_varying_atmospheric_forcing
       logical, pointer :: config_use_time_varying_land_ice_forcing
       logical, pointer :: config_use_gotm
+      logical, pointer :: config_prognostic_meke
 
       character (len=StrKIND), pointer :: config_time_integrator
       character (len=StrKIND), pointer :: config_ocean_run_mode
@@ -388,6 +390,16 @@ module ocn_core_interface
       if (config_vert_advection_method == 'remap') then
          verticalRemapPKGActive = .true.
       end if
+
+      ! test for use of MEKE
+      !
+      call mpas_pool_get_package(packagePool, 'MEKEActive', MEKEActive)
+      call mpas_pool_get_config(configPool, 'config_prognostic_meke', config_prognostic_meke)
+      if ( forwardModeActive ) then
+         if (config_prognostic_meke) then
+            MEKEActive = .true.
+         end if
+      endif
 
       !
       ! call into analysis member driver to set analysis member packages

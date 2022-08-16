@@ -32,6 +32,7 @@ module ocn_time_integration_split
    use mpas_log
 
    use ocn_config
+   use ocn_constants
    use ocn_mesh
    use ocn_tendency
    use ocn_diagnostics_variables
@@ -154,6 +155,7 @@ module ocn_time_integration_split
          activeTracersOnly   ! only compute tendencies for active tracers
 
       logical, pointer :: &
+         MEKEActive,        &! 
          config_use_tracerGroup  ! flag for using each tracer group
 
       integer :: &
@@ -216,6 +218,8 @@ module ocn_time_integration_split
          highFreqThicknessNew,        &! high frq thick at new     time
          lowFreqDivergenceCur,        &! low frq div    at current time
          lowFreqDivergenceNew,        &! low frq div    at new     time
+         mekeCur,                     &! mesoscale EKE at current time
+         mekeNew,                     &! mesoscale EKE at new     time
          tracerGroupIdealAgeMask       ! mask for resetting surface ideal age
 
       type (field1DReal), pointer :: &
@@ -248,6 +252,7 @@ module ocn_time_integration_split
          normalVelocityTend,    &! normal velocity tendency
          highFreqThicknessTend, &! thickness tendency for high-freq iter
          lowFreqDivergenceTend, &! thickness tendency for low freq
+         mekeTend,              &! meke tendency
          layerThicknessTend      ! main thickness tendency
 
       real (kind=RKIND), dimension(:,:,:), pointer :: &
@@ -359,6 +364,17 @@ module ocn_time_integration_split
       call mpas_pool_get_array(statePool, 'lowFreqDivergence', &
                                            lowFreqDivergenceNew, 2)
 
+      call mpas_log_write('Get meke variables in split-explicit')
+      call mpas_pool_get_package(ocnPackages, 'MEKEActive', MEKEActive)
+      if (MEKEActive) then
+         call mpas_pool_get_array(statePool, 'meke', &
+                                              mekeCur, 1)
+         call mpas_pool_get_array(statePool, 'meke', &
+                                              mekeNew, 2)
+      else
+         call mpas_log_write('MEKE not active')
+      endif
+      call mpas_log_write('Completed')
       call mpas_pool_get_dimension_scalar(tracersPool, 'index_salinity', &
                                                         indexSalinity)
 
@@ -378,6 +394,10 @@ module ocn_time_integration_split
                                           highFreqThicknessTend)
       call mpas_pool_get_array(tendPool, 'lowFreqDivergence', &
                                           lowFreqDivergenceTend)
+
+      if (MEKEActive) &
+         call mpas_pool_get_array(tendPool, 'meke', &
+                                             mekeTend)
 
       call mpas_pool_get_array(tracersPool, 'activeTracers', activeTracersNew, 2)
 
@@ -554,6 +574,20 @@ module ocn_time_integration_split
          !$omp end parallel
 #endif
       endif
+
+      if (associated(mekeNew)) then
+         if (mekeCur(1,1)>0) call mpas_log_write('mekeCur is nonzero')
+         !$omp parallel
+         !$omp do schedule(runtime) private(k)
+         do iCell = 1, nCellsAll
+         do k = 1,nVertLevels
+            mekeNew(k,iCell) = &
+            mekeCur(k,iCell)
+         end do
+         end do
+         !$omp end do
+         !$omp end parallel
+      end if
 
       call mpas_timer_stop("se prep")
 
@@ -1754,7 +1788,37 @@ module ocn_time_integration_split
          end do
          call mpas_timer_stop("se halo tracers")
 
+         if (MEKEActive) then
+         !if (config_prognostic_meke) then
+            call mpas_timer_start('se meke tend')
+            call ocn_tend_meke(tendPool, statePool, &
+                               meshPool, dt, 2)
+            call mpas_timer_stop('se meke tend')
+
+            ! update halo for tracer tendencies
+            call mpas_timer_start("se halo tracers")
+            call mpas_dmpar_field_halo_exch(domain, groupItr%memberName)
+            call mpas_timer_stop("se halo tracers")
+         end if
+
          call mpas_timer_start('se loop fini')
+
+         call mpas_pool_get_array(tracersPool, 'activeTracers', &
+                                                tracersGroupCur, 1)
+         call mpas_pool_get_array(tracersPool, 'activeTracers', &
+                                                tracersGroupNew, 2)
+         call mpas_pool_get_array(statePool,   'normalVelocity', &
+                                                normalVelocityCur, 1)
+         if (MEKEActive) then
+            call mpas_pool_get_array(statePool,   'meke', &
+                                                   mekeCur, 1)
+            call mpas_pool_get_array(statePool,   'meke', &
+                                                   mekeNew, 2)
+            call mpas_pool_get_array(tendPool,    'meke', &
+                                                   mekeTend)
+         endif
+         call mpas_pool_get_array(tracersTendPool,'activeTracersTend', &
+                                                   activeTracersTend)
 
          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
          !  If iterating, reset variables for next iteration
@@ -1849,6 +1913,36 @@ module ocn_time_integration_split
                !$omp end do
                !$omp end parallel
 #endif
+            end if
+
+            if (MEKEActive) then
+            !if (config_prognostic_meke) then
+
+               !$omp parallel
+               !$omp do schedule(runtime) private(i, k, temp_h, temp)
+               do iCell = 1, nCellsAll
+               do k = minLevelCell(iCell), maxLevelCell(iCell)
+
+                  ! this is h_{n+1}
+                  temp_h = layerThicknessCur(k,iCell) + dt* &
+                  layerThicknessTend(k,iCell)
+
+                  ! this is h_{n+1/2}
+                  layerThicknessNew(k,iCell) = 0.5* &
+                  (layerThicknessCur(k,iCell) + temp_h)
+
+                  ! This is Phi at n+1
+                  temp = (mekeCur(k,iCell)* &
+                          layerThicknessCur(k,iCell) + dt* &
+                          mekeTend(k,iCell))/temp_h
+
+                  ! This is Phi at n+1/2
+                  mekeNew(k,iCell) = max(0.0_RKIND, 0.5_RKIND* &
+                                     (mekeCur(k,iCell) + temp))
+               end do ! vertical
+               end do ! iCell
+               !$omp end do
+               !$omp end parallel
             end if
 
 #ifdef MPAS_OPENACC
@@ -2187,6 +2281,22 @@ module ocn_time_integration_split
                !$acc end parallel
 #endif
 
+            end if
+            if (MEKEActive) then
+            !if (config_prognostic_meke) then
+               !$omp parallel
+               !$omp do schedule(runtime) private(k)
+               do iCell = 1, nCellsAll
+               do k = minLevelCell(iCell), maxLevelCell(iCell)
+                  mekeNew(k,iCell) = max(0.0_RKIND, &
+                 (mekeCur(k,iCell) * &
+                  layerThicknessCur(k,iCell) + dt* &
+                 mekeTend(k,iCell))/ &
+                  layerThicknessNew(k,iCell))
+               end do
+               end do
+               !$omp end do
+               !$omp end parallel
             end if
 
             ! Recompute final u to go on to next step.

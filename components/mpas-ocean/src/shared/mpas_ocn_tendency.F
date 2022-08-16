@@ -51,6 +51,7 @@ module ocn_tendency
    use ocn_tracer_surface_flux_to_tend
    use ocn_tracer_ecosys
    use ocn_tracer_DMS
+   use ocn_tracer_meke_tend
    use ocn_tracer_MacroMolecules
    use ocn_tracer_CFC
 
@@ -88,6 +89,7 @@ module ocn_tendency
              ocn_tend_vel, &
              ocn_tend_tracer, &
              ocn_tend_freq_filtered_thickness, &
+             ocn_tend_meke, &
              ocn_tendency_init
 
    !--------------------------------------------------------------------
@@ -1305,6 +1307,184 @@ contains
    !--------------------------------------------------------------------
 
    end subroutine ocn_tend_tracer!}}}
+
+!***********************************************************************
+!
+!  routine ocn_tend_meke
+!
+!> \brief   Computes mesoscale eddy kinetic energy tendency
+!> \author  Carolyn Begeman, Luke Van Roekel
+!> \date    June 2022
+!> \details
+!>  This routine computes meke tendency for the ocean
+!
+!-----------------------------------------------------------------------
+
+   subroutine ocn_tend_meke(tendPool, statePool,  &
+                            meshPool, dt, timeLevelIn )!{{{
+
+      !-----------------------------------------------------------------
+      ! input variables
+      !-----------------------------------------------------------------
+
+      type (mpas_pool_type), intent(in) :: &
+         statePool,          &!< [in] ocean state variables
+         meshPool             !< [in] mesh information
+
+      real (kind=RKIND), intent(in) :: &
+         dt                   !< [in] time step (seconds)
+
+      integer, intent(in), optional :: &
+         timeLevelIn          !< [in] time index to use for state vars
+
+      ! these variables input from shared diagnostics module:
+      !    normalTransportVelocity - transport velocity across edge
+      !    layerThickEdgeFlux      - flux-related layer thickness on edge
+
+      !-----------------------------------------------------------------
+      ! input/output variables
+      !-----------------------------------------------------------------
+
+      type (mpas_pool_type), intent(inout) :: &
+         tendPool        !< [inout] Tendency terms for all variables
+
+      !-----------------------------------------------------------------
+      ! local variables
+      !-----------------------------------------------------------------
+      real (kind=RKIND), dimension(:,:), pointer, contiguous :: &
+         meke,               &! mesoscale EKE
+         mekeTend             ! mesoscale EKE tendency
+
+      real (kind=RKIND), dimension(:,:,:), allocatable :: &
+         meke3d,               &! mesoscale EKE
+         mekeTend3d             ! mesoscale EKE tendency
+
+      integer :: &
+         iCell, iEdge, k,    &! loop counters for cell,edge,vert,tracer
+         err,                &! internal error flag 
+         timeLevel            ! time level to use for state variables
+
+      real (kind=RKIND), dimension(:,:), pointer, contiguous :: &
+         layerThickness       ! layer thickness
+
+      ! Scratch Arrays
+      real (kind=RKIND), dimension(:,:), allocatable :: &
+         normalThicknessFlux  ! Flux of thickness through edge (m^2/s)
+
+      ! these variables input from shared diagnostics module:
+      !    normalTransportVelocity - transport velocity across edge
+      !    layerThickEdgeFlux      - flux-related layer thickness on edge
+
+      ! End preamble
+      !-----------------------------------------------------------------
+      ! Begin code
+
+      call mpas_timer_start("ocn_tend_meke")
+ 
+      ! set time level to default 1 or override with input arg
+      if (present(timeLevelIn)) then
+         timeLevel = timeLevelIn
+      else
+         timeLevel = 1
+      end if
+
+      ! retrieve data from pools 
+      call mpas_pool_get_array(statePool, 'meke', &
+                               meke, timeLevel)
+      call mpas_pool_get_array(tendPool, 'meke', &
+                               mekeTend)
+      call mpas_pool_get_array(statePool, 'layerThickness', &
+                                           layerThickness, timeLevel)
+ 
+      allocate(meke3d    (1, nVertLevels, nCellsAll+1), &
+               mekeTend3d(1, nVertLevels, nCellsAll+1))
+
+      ! initialize meke tendencies to zero.
+      !$omp parallel
+      !$omp do schedule(runtime) private(k)
+      do iCell = 1, nCellsAll
+      do k=1, nVertLevels
+         mekeTend3d(1, k, iCell) = 0.0_RKIND
+      end do
+      end do
+      !$omp end do
+      !$omp end parallel
+
+      !$omp parallel
+      !$omp do schedule(runtime) private(k)
+      do iCell = 1, nCellsAll
+      do k=1, nVertLevels
+         meke3d(1, k, iCell) = meke(k, iCell)
+      end do
+      end do
+      !$omp end do
+      !$omp end parallel
+
+      ! allocate and transfer data not specific to tracer groups
+      allocate(normalThicknessFlux(nVertLevels, nEdgesAll+1))
+
+      !$acc enter data create(normalThicknessFlux) &
+      !$acc            copyin(layerThickness)
+      !TEMPORARY - once diagnotics module ported, these should already
+      !            be on the device
+      !$acc update device (normalTransportVelocity, layerThickEdgeFlux, &
+      !$acc                vertAleTransportTop)
+
+      ! compute transport velocity to use for all tracers
+#ifdef MPAS_OPENACC
+      !$acc parallel loop collapse(2) &
+      !$acc    present(normalThicknessFlux, normalTransportVelocity, &
+      !$acc            layerThickEdgeFlux)
+#else
+      !$omp parallel
+      !$omp do schedule(runtime) private(k)
+#endif
+      do iEdge = 1,nEdgesAll
+      do k = 1,nVertLevels
+         normalThicknessFlux(k,iEdge) = &
+                 normalTransportVelocity(k,iEdge)* &
+                 layerThickEdgeFlux(k, iEdge)
+      end do
+      end do
+#ifndef MPAS_OPENACC
+      !$omp end do
+      !$omp end parallel
+#endif
+      ! Accumulate tendencies for all tracers
+      ! First is the horizontal advection term
+      !     -div( layerThickness \phi u)
+      ! Tracer budget is computed and stored within the tracer adv
+      ! routine
+      call mpas_log_write('Advect MEKE')
+      call ocn_tracer_advection_tend(meke3d, &
+                         normalThicknessFlux, vertAleTransportTop, &
+                         layerThickness, dt, mekeTend3d, .false.)
+      call mpas_log_write('... completed')
+
+      ! mekeTend3d has an additional dimension, which can hold 
+      ! multiple tracers but doesn't in the case of MEKE
+      !$omp parallel
+      !$omp do schedule(runtime) private(k)
+      do iCell = 1, nCellsAll
+      do k=1, nVertLevels
+         mekeTend(k, iCell) = mekeTend3d(1, k, iCell)
+      end do
+      end do
+      !$omp end do
+      !$omp end parallel
+ 
+      call mpas_log_write('MEKE source')
+      call ocn_tracer_meke_source_tend(layerThickness, dt, mekeTend, err)
+      call mpas_log_write('... completed')
+      call mpas_log_write('MEKE sink')
+      call ocn_tracer_meke_sink_tend(meke, layerThickness, dt, mekeTend, err)
+      call mpas_log_write('... completed')
+
+      call mpas_timer_stop("ocn_tend_meke")
+
+   !--------------------------------------------------------------------
+
+   end subroutine ocn_tend_meke!}}}
 
 !***********************************************************************
 !

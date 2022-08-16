@@ -121,6 +121,7 @@ contains
 
       real(kind=RKIND), dimension(:, :), pointer :: &
                                                     normalVelocity, &
+                                                    meke, &
                                                     layerThickness
 
       real(kind=RKIND), dimension(:), pointer   :: &
@@ -135,8 +136,9 @@ contains
       real(kind=RKIND) :: dcEdgeInv, drhoDx, drhoDT, drhoDS, dTdx, dSdx
       real(kind=RKIND) :: slopeTaperUp, slopeTaperDown, sfcTaperUp, sfcTaperDown, invAreaCell
       real(kind=RKIND) :: lt1, lt2, c_min
-      real(kind=RKIND) :: sigma, Lr, Length, L_rhines, shearEdgeInv
-      real (kind=RKIND) :: eddyLength, eddyTime
+      real(kind=RKIND) :: sigma, Lr, Length, L_rhines, mekeEdge, shearEdgeInv, Velocity
+      real(kind=RKIND) :: eddyLength, eddyTime
+      real(kind=RKIND) :: gmBolusKappaDia
       real(kind=RKIND), dimension(:), allocatable :: dzTop, dTdzTop, dSdzTop, k33Norm
       real(kind=RKIND), dimension(:), allocatable :: RossbyRadiusTaper
       real(kind=RKIND) :: c_Visbeck   ! baroclinic wave speed from Visbeck parameterization
@@ -169,6 +171,7 @@ contains
       call mpas_pool_get_array(statePool, 'layerThickness', layerThickness, timeLevel)
       call mpas_pool_get_subpool(statePool, 'tracers', tracersPool)
       call mpas_pool_get_array(statePool, 'ssh', ssh, timeLevel)
+      call mpas_pool_get_array(statePool, 'meke', meke, timeLevel)
       call mpas_pool_get_array(tracersPool, 'activeTracers', activeTracers, timeLevel)
       call mpas_pool_get_dimension(tracersPool, 'index_temperature', indexTemperature)
       call mpas_pool_get_dimension(tracersPool, 'index_salinity', indexSalinity)
@@ -652,35 +655,58 @@ contains
          if (local_config_GM_compute_EdenGreatbatch) then
            call mpas_pool_get_array(meshPool, 'fEdge', fEdge)
 
-           !$omp parallel
-           !$omp do schedule(runtime) private(cell1, cell2, sigma, RiTopOfEdge, &
-           !$omp             L_rhines, Lr, Length, BruntVaisalaFreqTopEdge, shearEdgeInv)
-           do iEdge=1,nEdges
-              cell1 = cellsOnEdge(1, iEdge)
-              cell2 = cellsOnEdge(2, iEdge)
-              Lr = min(cGMphaseSpeed(iEdge) / (1.0E-15_RKIND + abs(fEdge(iEdge))), &
-                       sqrt(cGMphaseSpeed(iEdge) / (2.0_RKIND*betaEdge(iEdge))))
-
-              do k=minLevelEdgeBot(iEdge)+1,maxLevelEdgeTop(iEdge)
-                 BruntVaisalaFreqTopEdge = 0.5_RKIND*(max(BruntVaisalaFreqTop(k,cell1),0.0_RKIND) + &
-                                          max(BruntVaisalaFreqTop(k,cell2),0.0_RKIND))
-                 shearEdgeInv = (0.5_RKIND*(layerThickEdgeMean(k-1,iEdge) + layerThickEdgeMean(k,iEdge)))**2.0 &
-                    / (  (normalVelocity(k-1,iEdge) - normalVelocity(k,iEdge))**2.0 &
-                       + (tangentialVelocity(k-1,iEdge) - tangentialVelocity(k,iEdge))**2.0 &
-                       + 1.0e-18_RKIND )
-                 RiTopOfEdge = BruntVaisalaFreqTopEdge * shearEdgeInv
-                 sigma = max(abs(fEdge(iEdge)),sqrt(2.0_RKIND*betaEdge(iEdge)* &
-                             cGMphaseSpeed(iEdge))) / sqrt(RiTopOfEdge + config_GM_EG_riMin)
-                 L_rhines = sigma / (1.0E-18_RKIND + betaEdge(iEdge))
-                 Length = min(config_GM_EG_Rossby_factor*Lr,config_GM_EG_Rhines_factor*L_rhines)
-                 !For compatibility with other schemes, we normalize by the 2-D kappa field, which will
-                 !be removed below in the computation of the stream function
-                 gmKappaScaling(k,iEdge) = max(config_GM_spatially_variable_min_kappa, min(config_GM_EG_kappa_factor* &
-                         Length**2.0*sigma, config_GM_spatially_variable_max_kappa)) / gmBolusKappa(iEdge)
+           if (config_prognostic_meke .and. config_use_prognostic_meke) then
+              call mpas_log_write('Assigning gmKappaScaling based on meke')
+              !$omp parallel
+              !$omp do schedule(runtime) private(cell1, cell2, &
+              !$omp             Lr, Length, mekeEdge, Velocity)
+              do iEdge = 1,nEdges
+                 cell1 = cellsOnEdge(1, iEdge)
+                 cell2 = cellsOnEdge(2, iEdge)
+                 Lr = min(cGMphaseSpeed(iEdge) / (1.0E-15_RKIND + abs(fEdge(iEdge))), &
+                          sqrt(cGMphaseSpeed(iEdge) / (2.0_RKIND*betaEdge(iEdge))))
+                 do k = minLevelEdgeBot(iEdge)+1,maxLevelEdgeTop(iEdge)
+                    mekeEdge = 0.5_RKIND*(meke(k,cell1) + meke(k,cell2))
+                    Velocity = mekeEdge**0.5_RKIND
+                    Length = min((Velocity/betaEdge(iEdge))**0.5_RKIND, Lr)
+                    gmKappaScaling(k,iEdge) = max(config_GM_spatially_variable_min_kappa, &
+                                                  min(config_GM_spatially_variable_max_kappa, &
+                                                      Length*Velocity) &
+                                                 ) / gmBolusKappa(iEdge)
+                 enddo
               enddo
-           enddo
-           !$omp end do
-           !$omp end parallel
+              !$omp end do
+              !$omp end parallel
+           else
+              !$omp parallel
+              !$omp do schedule(runtime) private(cell1, cell2, sigma, RiTopOfEdge, &
+              !$omp             L_rhines, Lr, Length, BruntVaisalaFreqTopEdge, shearEdgeInv)
+              do iEdge=1,nEdges
+                 cell1 = cellsOnEdge(1, iEdge)
+                 cell2 = cellsOnEdge(2, iEdge)
+                 Lr = min(cGMphaseSpeed(iEdge) / (1.0E-15_RKIND + abs(fEdge(iEdge))), &
+                          sqrt(cGMphaseSpeed(iEdge) / (2.0_RKIND*betaEdge(iEdge))))
+                 do k=minLevelEdgeBot(iEdge)+1,maxLevelEdgeTop(iEdge)
+                    BruntVaisalaFreqTopEdge = 0.5_RKIND*(max(BruntVaisalaFreqTop(k,cell1),0.0_RKIND) + &
+                                             max(BruntVaisalaFreqTop(k,cell2),0.0_RKIND))
+                    shearEdgeInv = (0.5_RKIND*(layerThickEdgeMean(k-1,iEdge) + layerThickEdgeMean(k,iEdge)))**2.0 &
+                       / (  (normalVelocity(k-1,iEdge) - normalVelocity(k,iEdge))**2.0 &
+                          + (tangentialVelocity(k-1,iEdge) - tangentialVelocity(k,iEdge))**2.0 &
+                          + 1.0e-18_RKIND )
+                    RiTopOfEdge = BruntVaisalaFreqTopEdge * shearEdgeInv
+                    sigma = max(abs(fEdge(iEdge)),sqrt(2.0_RKIND*betaEdge(iEdge)* &
+                                cGMphaseSpeed(iEdge))) / sqrt(RiTopOfEdge + config_GM_EG_riMin)
+                    L_rhines = sigma / (1.0E-18_RKIND + betaEdge(iEdge))
+                    Length = min(config_GM_EG_Rossby_factor*Lr,config_GM_EG_Rhines_factor*L_rhines)
+                    !For compatibility with other schemes, we normalize by the 2-D kappa field, which will
+                    !be removed below in the computation of the stream function
+                    gmKappaScaling(k,iEdge) = max(config_GM_spatially_variable_min_kappa, min(config_GM_EG_kappa_factor* &
+                            Length**2.0*sigma, config_GM_spatially_variable_max_kappa)) / gmBolusKappa(iEdge)
+                 enddo
+              enddo
+              !$omp end do
+              !$omp end parallel
+           endif
          endif
 
          nEdges = nEdgesArray(3)
@@ -863,6 +889,35 @@ contains
          deallocate (tridiagA)
          deallocate (tridiagB)
          deallocate (tridiagC)
+
+         if (config_prognostic_meke) then
+            !$omp parallel
+            !$omp do schedule(runtime) private(k, cell1, cell2, BruntVaisalaFreqTopEdge)
+            do iEdge = 1, nEdges
+
+               mekeSourceTopOfEdge(:, iEdge) = 0.0_RKIND
+               cell1 = cellsOnEdge(1, iEdge)
+               cell2 = cellsOnEdge(2, iEdge)
+
+               do k = minLevelEdgeBot(iEdge), maxLevelEdgeTop(iEdge)
+                  BruntVaisalaFreqTopEdge = 0.5_RKIND*(BruntVaisalaFreqTop(k, cell1) + BruntVaisalaFreqTop(k, cell2))
+                  BruntVaisalaFreqTopEdge = max(BruntVaisalaFreqTopEdge, 0.0_RKIND)
+                  if (BruntVaisalaFreqTopEdge < 1.0E-10_RKIND) then
+                     gmBolusKappaDia = gmBolusKappa(iEdge)*gmKappaScaling(k,iEdge)
+                  else
+                     gmBolusKappaDia = 0.0_RKIND
+                  endif
+                  mekeSourceTopOfEdge(k, iEdge) = ( gmBolusKappa(iEdge)*gmKappaScaling(k,iEdge) - &
+                                                    gmBolusKappaDia ) * &
+                                                  (gradDensityConstZTopOfEdge(k,iEdge))**2 / &
+                                                  (BruntVaisalaFreqTopEdge + 1.0E-10_RKIND)! &
+                                                  !- gmBolusKappaDia*BruntVaisalaFreqTopEdge
+                                                  !> I can't figure out why this term would be negative 
+               end do
+            end do
+            !$omp end do
+            !$omp end parallel
+         end if
 
       end if !end config_use_GM
       deallocate(gradDensityEdge, &

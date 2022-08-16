@@ -348,6 +348,14 @@
 					description="If true, the standard GM for the tracer advection and mixing is turned on."
 					possible_values=".true. or .false."
 		/>
+		<nml_option name="config_prognostic_meke" type="logical" default_value=".false." units="unitless"
+					description="If true, a prognostic meke is solved for at each time step"
+					possible_values=".true. or .false."
+		/>
+		<nml_option name="config_use_prognostic_meke" type="logical" default_value=".false." units="unitless"
+					description="If true, the prognostic meke is used to compute gmBolusKappa"
+					possible_values=".true. or .false."
+		/>
 		<nml_option name="config_GM_closure" type="character" default_value="EdenGreatbatch" units="unitless"
 					description="Control what method used to compute GM $\kappa$. Both 'constant' and 'N2_dependent' use the method in Ferrari et al. 2010 (https://doi.org/10.1016/j.ocemod.2010.01.004). 'constant' uses a constant kappa in eqn 16a, while 'N2_dependent' varies kappa in the vertical according to Danabasoglu and Marshall 2007 (https://doi.org/10.1016/j.ocemod.2007.03.006). 'Visbeck' implements a horizontally varying diffusivity of Visbeck et al 1997. EdenGreatbatch implements a simplified form of the EKE scheme in Eden and Greatbatch (2008) Ocean modeling"
 					possible_values="'constant', 'N2_dependent', 'Visbeck', 'EdenGreatbatch'"
@@ -1472,6 +1480,7 @@
 		<package name="splitTimeIntegrator" description="This package includes variables required for either the split or unsplit explicit time integrators."/>
 		<package name="semiImplicitTimePKG" description="This package includes variables required for split-implicit time integrators."/>
 		<package name="thicknessFilter" description="This package includes variables required for frequency filtered thickness."/>
+		<package name="MEKE" description="This package includes variables required for prognostic mesoscale eddy kinetic energy."/>
 		<package name="windStressBulkPKG" description="This package includes varibles required for bulk wind stress forcing."/>
 		<package name="variableBottomDragPKG" description="This package includes varibles required for variable bottom drag."/>
 		<package name="thicknessBulkPKG" description="This package includes varibles required for bulk thickness forcing."/>
@@ -2129,6 +2138,12 @@
 			 packages="thicknessFilter"
 		/>
 
+		<!-- FIELDS FOR MEKE -->
+		<var name="meke" type="real" dimensions="nVertLevels nCells Time" units="m"
+			 description="Mesoscale eddy kinetic energy"
+			 packages="MEKE"
+		/>
+
 		<!-- FIELDS FOR FRAZIL ICE -->
 		<var name="accumulatedFrazilIceMass" type="real" dimensions="nCells Time" units="kg m^{-2}"
 			 description="Mass per unit area of frazil ice produced. Reset to zero at each coupling interval"
@@ -2481,6 +2496,10 @@
 		<var name="tendLowFreqDivergence" type="real" dimensions="nVertLevels nCells Time" units="m s^{-1}" name_in_code="lowFreqDivergence"
 			 description="time tendency of low frequency-filtered divergence"
 			 packages="thicknessFilter"
+		/>
+		<var name="tendMeke" type="real" dimensions="nVertLevels nCells Time" units="XX s^{-1}" name_in_code="meke"
+			 description="time tendency of mesoscale eddy kinetic energy"
+			 packages="MEKE"
 		/>
 	</var_struct>
 	<var_struct name="diagnostics" time_levs="1">
@@ -2852,6 +2871,14 @@
 		<var name="RiTopOfEdge" type="real" dimensions="nVertLevelsP1 nEdges Time" units="nondimensional"
 			 description="gradient Richardson number defined at the edge (horizontally) and top (vertically)"
 			 packages="forwardMode;analysisMode"
+		/>
+		<var name="mekeSourceTopOfEdge" type="real" dimensions="nVertLevelsP1 nEdges Time" units="XX s^{-1}" name_in_code="mekeSourceTopOfEdge"
+			 description="source term tendency of mesoscale eddy kinetic energy at top of edges"
+			 packages="MEKE"
+		/>
+		<var name="mekeSink" type="real" dimensions="nVertLevels nCells Time" units="XX s^{-1}" name_in_code="mekeSink"
+			 description="source term tendency of mesoscale eddy kinetic energy at top of edges"
+			 packages="MEKE"
 		/>
 		<var name="vertViscTopOfEdge" type="real" dimensions="nVertLevelsP1 nEdges Time" units="m^2 s^{-1}"
 			 description="vertical viscosity defined at the edge (horizontally) and top (vertically)"
