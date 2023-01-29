@@ -11,7 +11,7 @@
 !
 !> \brief MPAS ocean surface land-ice fluxes
 !> \author Xylar Asay-Davis
-!> \date   10/02/2014
+!> \date   29 Jan 2023
 !> \details
 !>  This module contains routines for computing surface flux related
 !>  melting under land-ice.
@@ -67,7 +67,9 @@ module ocn_surface_land_ice_fluxes
    !--------------------------------------------------------------------
 
    logical :: &
-      landIceStandaloneOn,    &! flag to determine coupled or standalone
+      landIceDataOn ,         &! flag to determine if using data (prescribed) fluxes
+      landIceStandaloneOn,    &! flag to determine if using standalone fluxes
+      landIceCoupledOn,       &! flag to determine if using fluxes from the coupler
       useHollandJenkinsAdvDiff ! use Holland-Jenkins advection-diffusion
 
    real (kind=RKIND) :: &
@@ -238,7 +240,7 @@ contains
 !
 !> \brief   Add land-ice fluxes to surfaceThicknessFlux.
 !> \author  Xylar Asay-Davis
-!> \date    11 September 2015
+!> \date    29 Jan 2023
 !> \details
 !>  This routine adds land-ice freshwater fluxes to the surface thickness flux
 !>  to be converted into a thickness tendency later.
@@ -271,7 +273,8 @@ contains
 
       integer :: iCell
 
-      real (kind=RKIND), dimension(:), pointer :: landIceFreshwaterFlux
+      real (kind=RKIND), dimension(:), pointer :: landIceFreshwaterFlux, &
+                                                  dataLandIceFreshwaterFlux
 
       err = 0
 
@@ -281,6 +284,24 @@ contains
 
       call mpas_pool_get_array(forcingPool, 'landIceFreshwaterFlux', landIceFreshwaterFlux)
 
+      if ( landIceDataOn ) then
+         call mpas_pool_get_array(forcingPool, 'dataLandIceFreshwaterFlux', dataLandIceFreshwaterFlux)
+#ifdef MPAS_OPENACC
+         !$acc enter data copyin(landIceFreshwaterFlux)
+
+         !$acc parallel loop present(dataLandIceFreshwaterFlux)
+#else
+         !$omp parallel
+         !$omp do schedule(runtime)
+#endif
+         do iCell = 1, nCellsAll
+            landIceFreshwaterFlux(iCell) = dataLandIceFreshwaterFlux(iCell)
+         end do
+#ifndef MPAS_OPENACC
+         !$omp end do
+         !$omp end parallel
+#endif
+      end if
       ! Build surface fluxes at cell centers
 #ifdef MPAS_OPENACC
       !$acc enter data copyin(landIceFreshwaterFlux)
@@ -291,7 +312,7 @@ contains
       !$omp do schedule(runtime)
 #endif
       do iCell = 1, nCellsAll
-        surfaceThicknessFlux(iCell) = surfaceThicknessFlux(iCell) + landIceFreshwaterFlux(iCell) / rho_sw
+         surfaceThicknessFlux(iCell) = surfaceThicknessFlux(iCell) + landIceFreshwaterFlux(iCell) / rho_sw
       end do
 #ifndef MPAS_OPENACC
       !$omp end do
@@ -311,7 +332,7 @@ contains
 !
 !> \brief   Adds the active tracers fluxes from land-ice melting.
 !> \author  Xylar Asay-Davis
-!> \date    11 September 2015
+!> \date    29 Jan 2023
 !> \details
 !>  This routine adds the active tracers fluxes to surface fluxes
 !>  from which tracer tendencies are computed later.
@@ -352,7 +373,8 @@ contains
       integer :: iCell
       integer, pointer :: nCells
 
-      real (kind=RKIND), dimension(:), pointer :: landIceHeatFlux
+      real (kind=RKIND), dimension(:), pointer :: landIceHeatFlux, &
+                                                  dataLandIceHeatFlux
 
       err = 0
 
@@ -362,11 +384,22 @@ contains
 
       call mpas_pool_get_array(forcingPool, 'landIceHeatFlux', landIceHeatFlux)
 
+      if ( landIceDataOn ) then
+         call mpas_pool_get_array(forcingPool, 'dataLandIceHeatFlux', dataLandIceHeatFlux)
+         !$omp parallel
+         !$omp do schedule(runtime)
+         do iCell = 1, nCells
+            landIceHeatFlux(iCell) = dataLandIceHeatFlux(iCell)
+         end do
+         !$omp end do
+         !$omp end parallel
+      end if
+
       ! add to surface fluxes at cell centers
       !$omp parallel
       !$omp do schedule(runtime)
       do iCell = 1, nCells
-        tracersSurfaceFlux(1, iCell) = tracersSurfaceFlux(1, iCell) + landIceHeatFlux(iCell)/(rho_sw*cp_sw)
+         tracersSurfaceFlux(1, iCell) = tracersSurfaceFlux(1, iCell) + landIceHeatFlux(iCell)/(rho_sw*cp_sw)
       end do
       !$omp end do
       !$omp end parallel
@@ -643,7 +676,7 @@ contains
 !
 !> \brief Initializes land-ice forcing
 !> \author Xylar Asay-Davis
-!> \date   10/02/2014
+!> \date   29 Jan 2023
 !> \details
 !>  This routine initializes a variety of quantities related to
 !>  land-ice forcing.
@@ -676,22 +709,36 @@ contains
       !*** Determine whether land ice fluxes are on
 
       select case (trim(config_land_ice_flux_mode))
+      case ('data','Data','DATA')
+         landIcePressureOn = .true.
+         landIceFluxesOn = .true.
+         landIceDataOn = .true.
+         landIceStandaloneOn = .false.
+         landIceCoupledOn = .false.
       case ('standalone','Standalone','STANDALONE')
          landIcePressureOn = .true.
          landIceFluxesOn = .true.
+         landIceDataOn = .false.
          landIceStandaloneOn = .true.
+         landIceCoupledOn = .false.
       case ('coupled','Coupled','COUPLED')
          landIcePressureOn = .true.
          landIceFluxesOn = .true.
+         landIceDataOn = .false.
          landIceStandaloneOn = .false.
+         landIceCoupledOn = .true.
       case ('pressure_only','Pressure_Only','PRESSURE_ONLY')
          landIcePressureOn = .true.
          landIceFluxesOn = .false.
+         landIceDataOn = .false.
          landIceStandaloneOn = .false.
+         landIceCoupledOn = .false.
       case ('off','Off','OFF')
          landIcePressureOn = .false.
          landIceFluxesOn = .false.
+         landIceDataOn = .false.
          landIceStandaloneOn = .false.
+         landIceCoupledOn = .false.
       case default
          call mpas_log_write( ' Error: Incorrect choice of config_land_ice_flux_mode: '// config_land_ice_flux_mode)
          err = 1
@@ -1005,7 +1052,7 @@ contains
         - rho_sw*oceanHeatTransferVelocity(iCell)*(oceanTemperature(iCell)-outInterfaceTemperature(iCell)))
 
       ! Since we're considering only melting and ignoring diffusion,
-      ! the ice loses heat simply by the loss of ice mass at the prescribed
+      ! the ice loses heat simply by the loss of ice mass at the data
       ! (surface?) ice temperature
       outIceHeatFlux(iCell) = -cpLandIce*outFreshwaterFlux(iCell)*iceTemperature(iCell)
     end do
