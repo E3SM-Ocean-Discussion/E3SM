@@ -762,6 +762,16 @@
     <desc>TRUE implies linking to the MOAB library</desc>
   </entry>
 
+  <entry id="USE_SMARTSIM">
+    <type>logical</type>
+    <valid_values>TRUE,FALSE</valid_values>
+    <default_value>FALSE</default_value>
+    <group>build_def</group>
+    <file>env_build.xml</file>
+    <desc>TRUE implies linking to the SmartRedis library</desc>
+  </entry>
+
+
   <entry id="USE_TRILINOS">
     <type>logical</type>
     <valid_values>TRUE,FALSE</valid_values>
@@ -2243,6 +2253,14 @@
     <group>mach_pes</group>
     <file>env_mach_pes.xml</file>
     <desc>Force this exact number of spare nodes to be allocated</desc>
+  </entry>
+
+  <entry id="DB_NODES">
+    <type>integer</type>
+    <default_value>-999</default_value>
+    <group>mach_pes</group>
+    <file>env_mach_pes.xml</file>
+    <desc>Force this exact number of database nodes to be allocated</desc>
   </entry>
 
   <entry id="NTASKS">

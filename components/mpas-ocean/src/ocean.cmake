@@ -1,3 +1,4 @@
+message(STATUS "ocean.cmake")
 
 # build_options.mk stuff handled here
 list(APPEND CPPDEFS "-DCORE_OCEAN")
@@ -12,6 +13,20 @@ if(LAPACK_FOUND AND BLAS_FOUND)
   list(APPEND CPPDEFS "-DUSE_LAPACK")
   list(APPEND SLIBS "${LAPACK_LIBRARIES} ${BLAS_LIBRARIES}")
 endif()
+
+# SMARTREDIS handled here
+set(SMARTREDIS_PATH $ENV{SMARTREDIS_PATH})
+set(SMARTREDIS_INC $ENV{SMARTREDIS_PATH}/include)
+message(STATUS "Include ${SMARTREDIS_INC}")
+list(APPEND INCLUDES "${SMARTREDIS_INC}")
+include_directories(SYSTEM "${SMARTREDIS_INC}")
+#set(SMARTREDIS_FTN_SRC $ENV{SMARTREDIS_PATH}/../src/fortran)
+#set(SMARTREDIS_FILES
+#    ${SMARTREDIS_FTN_SRC}/fortran_c_interop.F90
+#    ${SMARTREDIS_FTN_SRC}/dataset.F90
+#    ${SMARTREDIS_FTN_SRC}/client.F90
+#)
+#list(APPEND SLIBS "-L${SMARTREDIS_PATH}/lib -lhiredis -lredis++ -lsmartredis -lsmartredis-fortran") #plain
 
 # driver (files live in E3SM)
 list(APPEND RAW_SOURCES

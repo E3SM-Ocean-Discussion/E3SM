@@ -409,6 +409,19 @@ if (NOT GLCROOT)
   set(GLCROOT "${CIMEROOT}/../components/cism")
 endif()
 
+#if (USE_SMARTSIM)
+#if (DEFINED $ENV{SMARTREDIS_PATH)
+set(SMARTREDIS_PATH $ENV{SMARTREDIS_PATH})
+message(STATUS "SMARTREDIS_PATH = $ENV{SMARTREDIS_PATH}")
+#else()
+#  message(STATUS "SMARTREDIS_PATH not defined")
+#endif()
+#set(SLIBS "${SLIBS} ${SMARTREDIS_PATH}/lib/libhiredis.a ${SMARTREDIS_PATH}/lib/libredis++.a ${SMARTREDIS_PATH}/lib/libsmartredis.a ${SMARTREDIS_PATH}/lib/libsmartredis-fortran.a") #plain
+find_library(SMARTREDIS_LIBRARY smartredis PATHS ${SMARTREDIS_PATH}/lib NO_DEFAULT_PATH REQUIRED)
+find_library(SMARTREDIS_FORTRAN_LIBRARY smartredis-fortran PATHS ${SMARTREDIS_PATH}/lib NO_DEFAULT_PATH REQUIRED)
+set(SLIBS "${SLIBS} ${SMARTREDIS_LIBRARY} ${SMARTREDIS_FORTRAN_LIBRARY}")
+#set(SLIBS "${SLIBS} -L${SMARTREDIS_PATH}/lib -lhiredis -lredis++ -lsmartredis -lsmartredis-fortran") #plain
+
 list(APPEND INCLDIR "${INSTALL_SHAREDPATH}/include")
 
 string(FIND "${CAM_CONFIG_OPTS}" "-cosp" HAS_COSP)
