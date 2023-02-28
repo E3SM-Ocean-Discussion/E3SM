@@ -1486,6 +1486,7 @@ contains
           ssh, err)
 
       end select
+
 #ifdef MPAS_OPENACC
       !$acc exit data copyout(normalVelocity)
 #endif
