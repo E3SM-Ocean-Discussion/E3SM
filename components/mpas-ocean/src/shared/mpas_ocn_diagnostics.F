@@ -81,9 +81,11 @@ module ocn_diagnostics
    ! Methods for computing thickness at edges for flux calculations
    integer :: thickEdgeFluxChoice  ! choice of thickness flux type
    integer, parameter :: &
-      thickEdgeFluxUnknown = 0, &! type unknown or unset
-      thickEdgeFluxCenter  = 1, &! use mean thickness of cell neighbors
-      thickEdgeFluxUpwind  = 2   ! use upwind cell thickness at edge
+      thickEdgeFluxUnknown  = 0, &! type unknown or unset
+      thickEdgeFluxCenter   = 1, &! use mean thickness of cell neighbors
+      thickEdgeFluxUpwind   = 2, &! use upwind cell thickness at edge
+      thickEdgeFluxConstant = 3   ! use constant thickness in time from
+                                  ! RestingThickness, for linear test problems
 
 !***********************************************************************
 
@@ -101,13 +103,14 @@ contains
 !
 !-----------------------------------------------------------------------
 
-   subroutine ocn_diagnostic_solve(dt, statePool, forcingPool, meshPool, scratchPool, tracersPool, &
+   subroutine ocn_diagnostic_solve(dt, statePool, forcingPool, meshPool, verticalMeshPool, scratchPool, tracersPool, &
                                    timeLevelIn, full)!{{{
 
       real (kind=RKIND), intent(in) :: dt !< Input: Time step
       type (mpas_pool_type), intent(in) :: statePool !< Input: State information
       type (mpas_pool_type), intent(in) :: forcingPool !< Input: Forcing information
       type (mpas_pool_type), intent(in) :: meshPool !< Input: mesh information
+      type (mpas_pool_type), intent(in) :: verticalMeshPool !< Input: vertical mesh information
       type (mpas_pool_type), intent(in) :: scratchPool !< Input: scratch variables
       type (mpas_pool_type), intent(in) :: tracersPool !< Input: tracer fields
       integer, intent(in), optional :: timeLevelIn !< Input: Time level in state
@@ -122,7 +125,7 @@ contains
       real (kind=RKIND), dimension(:), pointer :: &
         ssh,  seaIcePressure, atmosphericPressure
       real (kind=RKIND), dimension(:,:), pointer :: &
-        layerThickness, layerThicknessLag, normalVelocity
+        layerThickness, layerThicknessLag, normalVelocity, restingThickness
 
       real (kind=RKIND), dimension(:,:,:), pointer :: activeTracers
 
@@ -166,6 +169,7 @@ contains
       call mpas_pool_get_array(forcingPool, 'seaIcePressure', seaIcePressure)
       call mpas_pool_get_array(forcingPool, 'atmosphericPressure', atmosphericPressure)
       call mpas_pool_get_array(forcingPool, 'frazilSurfacePressure', frazilSurfacePressure)
+      call mpas_pool_get_array(verticalMeshPool, 'restingThickness', restingThickness)
 
       if (landIcePressureOn) then
          call mpas_pool_get_array(forcingPool, 'landIcePressure', landIcePressure)
@@ -233,7 +237,7 @@ contains
       ! inputs: layerThickness, normalVelocity
       ! output: layerThickEdgeMean, layerThickEdgeFlux
       call ocn_diagnostic_solve_layerThicknessEdge(normalVelocity, &
-                                                   layerThickness)
+                                                   layerThickness, restingThickness)
 
       ! inputs: normalVelocity
       ! outputs: relativeVorticity, circulation
@@ -672,7 +676,7 @@ contains
 !-----------------------------------------------------------------------
 
    subroutine ocn_diagnostic_solve_layerThicknessEdge(normalVelocity, &
-                                                      layerThickness)!{{{
+                                                      layerThickness, restingThickness)!{{{
 
       !-----------------------------------------------------------------
       ! input variables
@@ -680,7 +684,8 @@ contains
 
       real (kind=RKIND), dimension(:,:), intent(in) :: &
          normalVelocity,  &!< [in] transport
-         layerThickness    !< [in] layer thickness at cell center
+         layerThickness,  &!< [in] layer thickness at cell center
+         restingThickness  !< [in] initial layer thickness at cell center
 
       !-----------------------------------------------------------------
       ! output variables
@@ -793,6 +798,40 @@ contains
                                       max(layerThickness(k,cell1), &
                                           layerThickness(k,cell2))
                end if
+            end do
+         end do
+#ifndef MPAS_OPENACC
+         !$omp end do
+         !$omp end parallel
+#endif
+
+      case (thickEdgeFluxConstant)
+         ! Use linearized version H*u where H is constant in time
+
+#ifdef MPAS_OPENACC
+         !$acc parallel loop &
+         !$acc    present(restingThickness, &
+         !$acc            minLevelEdgeBot, maxLevelEdgeTop, &
+         !$acc            layerThickEdgeFlux, cellsOnEdge) &
+         !$acc    private(k, kmin, kmax, cell1, cell2)
+#else
+         !$omp parallel
+         !$omp do schedule(runtime) private(k, kmin, kmax, cell1, cell2)
+#endif
+         do iEdge = 1, nEdgesAll
+            kmin = minLevelEdgeBot(iEdge)
+            kmax = maxLevelEdgeTop(iEdge)
+            cell1 = cellsOnEdge(1,iEdge)
+            cell2 = cellsOnEdge(2,iEdge)
+            do k=1,nVertLevels
+               ! initialize layerThicknessEdgeFlux to avoid divide by
+               ! zero and NaN problems.
+               layerThickEdgeFlux(k,iEdge) = -1.0e34_RKIND
+            end do
+            do k = kmin,kmax
+               layerThickEdgeFlux(k,iEdge) = 0.5_RKIND * &
+                                         (restingThickness(k,cell1) + &
+                                          restingThickness(k,cell2))
             end do
          end do
 #ifndef MPAS_OPENACC
@@ -4220,6 +4259,8 @@ contains
       ! Initialize choice for computing thickness at edges for fluxes
       if (trim(config_thickness_flux_type) == 'centered') then
          thickEdgeFluxChoice = thickEdgeFluxCenter
+      elseif (trim(config_thickness_flux_type) == 'constant') then
+         thickEdgeFluxChoice = thickEdgeFluxConstant
       else
          if (config_use_wetting_drying .and. &
              (trim(config_thickness_flux_type) /= 'centered')) then
