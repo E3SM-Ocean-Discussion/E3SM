@@ -177,7 +177,6 @@ module ocn_time_integration_split
          normalThicknessFluxSum, &! sum of thickness flux in column
          thicknessSum,     &! sum of thicknesses in column
          flux,             &! temp for computing flux for barotropic
-         sshEdge,          &! sea surface height at edge
          CoriolisTerm,     &! temp for computing coriolis term (fuperp)
          normalVelocityCorrection, &! velocity correction
          temp,             &! temp for holding vars at new time
@@ -191,7 +190,9 @@ module ocn_time_integration_split
          uTemp
 
       real (kind=RKIND), dimension(:), allocatable :: &
-         btrvel_temp, &
+         btrvel_temp,      &
+         sshTemp,          &
+         sshEdge,          &! sea surface height at edge
          bottomDepthEdge
 
       ! State Array Pointers
@@ -942,11 +943,14 @@ module ocn_time_integration_split
             ! subcycle loop
             allocate(btrvel_temp(nEdgesAll+1))
             btrvel_temp(:) = 0.0_RKIND
+            allocate(sshEdge(nEdgesAll+1))
+            sshEdge(:) = 0.0_RKIND
 
             cellHaloComputeCounter = 0
             edgeHaloComputeCounter = 0
 
             call mpas_timer_start('btr se subcycle loop')
+            call mpas_log_write('start btr se subcycles')
             do j = 1, nBtrSubcycles * config_btr_subcycle_loop_factor
 
                ! Update halos if needed
@@ -1064,6 +1068,7 @@ module ocn_time_integration_split
                !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
                ! Barotropic subcycle: SSH PREDICTOR STEP
                !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+               call mpas_log_write('start ssh predictor')
 
                call mpas_pool_get_array(statePool, 'sshSubcycle', &
                                                     sshSubcycleCur, &
@@ -1102,30 +1107,32 @@ module ocn_time_integration_split
                !    flux = normalBarotropicVelocityOld*H
 
                !$omp parallel
+               !$omp do schedule(runtime)
+               do iEdge = 1, nEdges
+                  btrvel_temp(iEdge) = (1.0-config_btr_gam1_velWt1) * &
+                               normalBarotropicVelocitySubcycleCur(iEdge) &
+                             +       config_btr_gam1_velWt1 *             &
+                               normalBarotropicVelocitySubcycleNew(iEdge)
+               end do
+               !$omp end do
+               !$omp end parallel
+
+               call ocn_diagnostic_solve_sshEdge(btrvel_temp, sshSubcycleCur, sshEdge)
+
+               !$omp parallel
                !$omp do schedule(runtime) &
-               !$omp private(i, iEdge, cell1, cell2, sshEdge, &
-               !$omp         thicknessSum, flux)
+               !$omp private(i, iEdge, thicknessSum, flux)
                do iCell = 1, nCells
                   sshTend(iCell) = 0.0_RKIND
                   do i = 1, nEdgesOnCell(iCell)
                      iEdge = edgesOnCell(i, iCell)
                      if (maxLevelEdgeTop(iEdge).eq.0) cycle
 
-                     cell1 = cellsOnEdge(1, iEdge)
-                     cell2 = cellsOnEdge(2, iEdge)
-
-                     sshEdge = 0.5_RKIND*(sshSubcycleCur(cell1) + &
-                                          sshSubcycleCur(cell2))
-
                      ! Compute barotropic thickness at the edge. Note this
                      ! matches the sum of baroclinic thicknesses at this edge.
-                     thicknessSum = sshEdge + bottomDepthEdge(iEdge)
+                     thicknessSum = sshEdge(iEdge) + bottomDepthEdge(iEdge)
 
-                     flux = ((1.0-config_btr_gam1_velWt1)* &
-                            normalBarotropicVelocitySubcycleCur(iEdge) &
-                          +       config_btr_gam1_velWt1 * &
-                            normalBarotropicVelocitySubcycleNew(iEdge))&
-                           *thicknessSum
+                     flux = btrvel_temp(iEdge)*thicknessSum
 
                      sshTend(iCell) = sshTend(iCell) + &
                                       edgeSignOncell(i, iCell)*flux* &
@@ -1157,16 +1164,13 @@ module ocn_time_integration_split
 
                   !$omp parallel
                   !$omp do schedule(runtime) &
-                  !$omp private(cell1, cell2, sshEdge,thicknessSum,flux)
+                  !$omp private(thicknessSum, flux)
                   do iEdge = 1, nEdges
                      if (maxLevelEdgeTop(iEdge).eq.0) cycle
                      cell1 = cellsOnEdge(1,iEdge)
                      cell2 = cellsOnEdge(2,iEdge)
 
-                     sshEdge = 0.5_RKIND*(sshSubcycleCur(cell1) + &
-                                          sshSubcycleCur(cell2))
-
-                     thicknessSum = sshEdge + bottomDepthEdge(iEdge)
+                     thicknessSum = sshEdge(iEdge) + bottomDepthEdge(iEdge)
 
                      flux = ((1.0-config_btr_gam1_velWt1)* &
                             normalBarotropicVelocitySubcycleCur(iEdge) &
@@ -1188,6 +1192,7 @@ module ocn_time_integration_split
                !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
                ! Barotropic subcycle: VELOCITY CORRECTOR STEP
                !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+               call mpas_log_write('start velocity corrector')
 
                do BtrCorIter = 1, config_n_btr_cor_iter
                   uPerpTime = newBtrSubcycleTime
@@ -1331,7 +1336,10 @@ module ocn_time_integration_split
                ! Barotropic subcycle: SSH CORRECTOR STEP
                !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+               call mpas_log_write('start ssh corrector')
                if (config_btr_solve_SSH2) then
+
+                  allocate(sshTemp(nCellsAll))
 
                   call mpas_pool_get_array(statePool, 'sshSubcycle', &
                                                        sshSubcycleCur,&
@@ -1371,38 +1379,45 @@ module ocn_time_integration_split
                   !    flux = normalBarotropicVelocityOld*H
 
                   !$omp parallel
+                  !$omp do schedule(runtime)
+                  do iCell = 1, nCells
+                     ! SSH is linear combination of SSHold and SSHnew
+                     sshTemp(iCell) = (1-config_btr_gam2_SSHWt1)* &
+                                            sshSubcycleCur(iCell) &
+                                    +    config_btr_gam2_SSHWt1 * &
+                                            sshSubcycleNew(iCell)
+                  end do ! cell loop for ssh
+                  !$omp end do
+                  !$omp end parallel
+
+                  !$omp parallel
+                  !$omp do schedule(runtime)
+                  do iEdge = 1, nEdges
+                     btrvel_temp(iEdge) = (1.0-config_btr_gam3_velWt2) * &
+                                  normalBarotropicVelocitySubcycleCur(iEdge) &
+                                +       config_btr_gam3_velWt2 *             &
+                                  normalBarotropicVelocitySubcycleNew(iEdge)
+                  end do
+                  !$omp end do
+                  !$omp end parallel
+
+                  call ocn_diagnostic_solve_sshEdge( &
+                                  btrvel_temp, sshTemp, sshEdge)
+
+                  !$omp parallel
                   !$omp do schedule(runtime) &
-                  !$omp private(i, iEdge, cell1, cell2, thicknessSum, &
-                  !$omp         sshCell1, sshCell2, sshEdge, flux)
+                  !$omp private(i, iEdge, thicknessSum, flux)
                   do iCell = 1, nCells
                      sshTend(iCell) = 0.0_RKIND
                      do i = 1, nEdgesOnCell(iCell)
                         iEdge = edgesOnCell(i, iCell)
                         if (maxLevelEdgeTop(iEdge).eq.0) cycle
 
-                        cell1 = cellsOnEdge(1,iEdge)
-                        cell2 = cellsOnEdge(2,iEdge)
-
                         ! SSH is a linear combination of SSHold
                         ! and SSHnew.
-                        sshCell1 = (1-config_btr_gam2_SSHWt1)* &
-                                         sshSubcycleCur(cell1) &
-                                 +    config_btr_gam2_SSHWt1 * &
-                                         sshSubcycleNew(cell1)
-                        sshCell2 = (1-config_btr_gam2_SSHWt1)* &
-                                         sshSubcycleCur(cell2) &
-                                 +    config_btr_gam2_SSHWt1 * &
-                                         sshSubcycleNew(cell2)
+                        thicknessSum = sshEdge(iEdge) + bottomDepthEdge(iEdge)
 
-                        sshEdge = 0.5_RKIND*(sshCell1 + sshCell2)
-
-                        thicknessSum = sshEdge + bottomDepthEdge(iEdge)
-
-                        flux = ((1.0-config_btr_gam3_velWt2)* &
-                           normalBarotropicVelocitySubcycleCur(iEdge) &
-                             +       config_btr_gam3_velWt2 * &
-                           normalBarotropicVelocitySubcycleNew(iEdge))&
-                             *thicknessSum
+                        flux = btrvel_temp(iEdge) * thicknessSum
 
                         sshTend(iCell) = sshTend(iCell) + &
                                          edgeSignOnCell(i, iCell)* &
@@ -1416,27 +1431,30 @@ module ocn_time_integration_split
                                           sshTend(iCell)/areaCell(iCell)
                   end do ! cell loop for ssh
                   !$omp end do
+                  !$omp end parallel
+
+                  !$omp parallel
+                  !$omp do schedule(runtime)
+                  do iCell = 1, nCells
+                     ! SSH is linear combination of SSHold and SSHnew
+                     sshTemp(iCell) = (1-config_btr_gam2_SSHWt1)* &
+                                            sshSubcycleCur(iCell) &
+                                    +    config_btr_gam2_SSHWt1 * &
+                                            sshSubcycleNew(iCell)
+                  end do ! cell loop for ssh
+                  !$omp end do
+                  !$omp end parallel
+
+                  call ocn_diagnostic_solve_sshEdge( &
+                                  btrvel_temp, sshTemp, sshEdge)
 
                   ! compute barotropic thickness flux on edges
+                  !$omp parallel
                   !$omp do schedule(runtime) &
-                  !$omp private(cell1, cell2, thicknessSum, &
-                  !$omp         sshCell1, sshCell2, sshEdge, flux)
+                  !$omp private(thicknessSum, flux)
                   do iEdge = 1, nEdges
-                     cell1 = cellsOnEdge(1,iEdge)
-                     cell2 = cellsOnEdge(2,iEdge)
 
-                     ! SSH is linear combination of SSHold and SSHnew
-                     sshCell1 = (1-config_btr_gam2_SSHWt1)* &
-                                      sshSubcycleCur(cell1) &
-                              +    config_btr_gam2_SSHWt1 * &
-                                      sshSubcycleNew(cell1)
-                     sshCell2 = (1-config_btr_gam2_SSHWt1)* &
-                                      sshSubcycleCur(cell2) &
-                              +    config_btr_gam2_SSHWt1 * &
-                                      sshSubcycleNew(cell2)
-                     sshEdge = 0.5_RKIND * (sshCell1 + sshCell2)
-
-                     thicknessSum = sshEdge + bottomDepthEdge(iEdge)
+                     thicknessSum = sshEdge(iEdge) + bottomDepthEdge(iEdge)
 
                      flux = ((1.0-config_btr_gam3_velWt2) * &
                          normalBarotropicVelocitySubcycleCur(iEdge) &
@@ -1452,6 +1470,9 @@ module ocn_time_integration_split
                   !$omp end parallel
 
                   edgeHaloComputeCounter = config_num_halos + 1
+
+                  deallocate(sshTemp)
+
                endif ! config_btr_solve_SSH2
 
                !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1487,8 +1508,10 @@ module ocn_time_integration_split
 
             end do ! j=1,nBtrSubcycles
             call mpas_timer_stop('btr se subcycle loop')
+            call mpas_log_write('end btr se subcycles')
 
             deallocate(btrvel_temp)
+            deallocate(sshEdge)
 
             !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
             ! END Barotropic subcycle loop
@@ -1638,6 +1661,7 @@ module ocn_time_integration_split
          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
          ! Stage 3: Tracer, density, pressure, vert velocity prediction
          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+         call mpas_log_write('start stage 3')
 
          ! only compute tendencies for active tracers on last large iteration
          if (splitExplicitStep < numTSIterations) then
@@ -1914,6 +1938,7 @@ module ocn_time_integration_split
          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
          elseif (splitExplicitStep == numTSIterations) then
+            call mpas_log_write('end large iteration')
 
 #ifdef MPAS_OPENACC
             !$acc parallel present(minLevelCell, maxLevelCell) &
@@ -2341,6 +2366,7 @@ module ocn_time_integration_split
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
       call mpas_timer_start("se implicit vert mix")
+      call mpas_log_write('start vmix')
 
       ! Call ocean diagnostic solve in preparation for vertical mixing.
       ! Note it is called again after vertical mixing, because u and
@@ -2680,6 +2706,7 @@ module ocn_time_integration_split
 
       call mpas_timer_stop('se fini')
       call mpas_timer_stop("se timestep")
+      call mpas_log_write('end se')
 
    end subroutine ocn_time_integrator_split!}}}
 

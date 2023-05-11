@@ -57,6 +57,7 @@ module ocn_diagnostics
 
    public :: ocn_diagnostic_solve, &
              ocn_diagnostic_solve_layerThicknessEdge, &
+             ocn_diagnostic_solve_sshEdge, &
              ocn_relativeVorticity_circulation, &
              ocn_vert_transport_velocity_top, &
              ocn_fuperp, &
@@ -667,6 +668,114 @@ contains
 
    end subroutine ocn_relativeVorticity_circulation!}}}
 
+!***********************************************************************
+!
+!  routine ocn_diagnostic_solve_sshEdge
+!
+!> \brief   Computes layer thickness at edge
+!> \author  Matt Turner
+!> \date    October 2020
+!> \details
+!>  This routine computes the diagnostic variables layerThickEdgeFlux
+!>  and layerThickEdgeMean. The Mean is a simple mean across the edge
+!>  but the Flux value can either be the mean or an upwind value,
+!>  depending on user input.
+!
+!-----------------------------------------------------------------------
+
+   subroutine ocn_diagnostic_solve_sshEdge(btrVelocity, sshCell, sshEdge)!{{{
+
+      !-----------------------------------------------------------------
+      ! input variables
+      !-----------------------------------------------------------------
+
+      real (kind=RKIND), dimension(:), intent(in) :: &
+         btrVelocity,  &!< [in] barotropic velocity
+         sshCell           !< [in] ssh at cells
+
+      !-----------------------------------------------------------------
+      ! output variables
+      !-----------------------------------------------------------------
+
+      ! Outputs are the shared variables from diagnostic_variables:
+      real (kind=RKIND), dimension(:), intent(inout) :: &
+         sshEdge !< [out] ssh on edge
+
+      !-----------------------------------------------------------------
+      ! local variables
+      !-----------------------------------------------------------------
+
+      integer :: &
+         iEdge,       &! edge and vertical loop indices
+         cell1, cell2  ! neighbor cell indices across an edge
+
+      ! End preamble
+      !-----------------------------------------------------------------
+      ! Begin code
+
+      sshEdge(:) = 0.0_RKIND
+      call mpas_log_write('begin sshEdge routine')
+      ! Compute edge flux based on option set on init
+      select case (thickEdgeFluxChoice)
+
+      case (thickEdgeFluxCenter)
+         ! Use centered (mean) thickness as flux value
+
+         ! Compute mean layer thickness at edge
+#ifdef MPAS_OPENACC
+         !$acc parallel loop collapse(2) &
+#else
+         !$omp parallel
+         !$omp do schedule(runtime)
+#endif
+         do iEdge = 1, nEdgesAll
+            cell1 = cellsOnEdge(1,iEdge)
+            cell2 = cellsOnEdge(2,iEdge)
+            sshEdge(iEdge) = 0.5_RKIND*(sshCell(cell1) + sshCell(cell2))
+         end do
+#ifndef MPAS_OPENACC
+         !$omp end do
+         !$omp end parallel
+#endif
+
+      case (thickEdgeFluxUpwind)
+         ! Use upwind thickness as the edge flux value
+
+#ifdef MPAS_OPENACC
+         !$acc parallel loop &
+         !$acc    present(btrVelocity, sshCell, sshEdge, cellsOnEdge) &
+         !$acc    private(cell1, cell2)
+#else
+         !$omp parallel
+         !$omp do schedule(runtime) private(cell1, cell2)
+#endif
+         do iEdge = 1, nEdgesAll
+            cell1 = cellsOnEdge(1,iEdge)
+            cell2 = cellsOnEdge(2,iEdge)
+            if (btrVelocity(iEdge) > 0.0_RKIND) then
+               sshEdge(iEdge) = sshCell(cell1)
+            elseif (btrVelocity(iEdge) < 0.0_RKIND) then
+               sshEdge(iEdge) = sshCell(cell2)
+            else
+               sshEdge(iEdge) = max(sshCell(cell1), sshCell(cell2)) 
+            end if
+         end do
+#ifndef MPAS_OPENACC
+         !$omp end do
+         !$omp end parallel
+#endif
+
+      case default
+         ! Should have been caught on init
+         call mpas_log_write('Thickness flux option unknown', &
+                             MPAS_LOG_CRIT)
+
+      end select
+      call mpas_log_write('end sshEdge routine')
+
+   !--------------------------------------------------------------------
+
+   end subroutine ocn_diagnostic_solve_sshEdge!}}}
 !***********************************************************************
 !
 !  routine ocn_diagnostic_solve_layerThicknessEdge
