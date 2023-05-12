@@ -4471,17 +4471,14 @@ contains
                  & 'Set config_disable_vel_hadv to true for a linear test case. ', &
                  MPAS_LOG_CRIT)
          end if
+      elseif (trim(config_thickness_flux_type) == 'upwind') then
+         thickEdgeFluxChoice = thickEdgeFluxUpwind
+         call mpas_log_write('Thickness flux option set to ' //&
+              & trim(config_thickness_flux_type))
       else
-         if (config_use_wetting_drying .and. &
-             (trim(config_thickness_flux_type) /= 'centered')) then
-            if ( trim(config_thickness_flux_type) == 'upwind') then
-               thickEdgeFluxChoice = thickEdgeFluxUpwind
-            end if
-         else
-            call mpas_log_write('Thickness flux option of ' //&
-                 & trim(config_thickness_flux_type) // &
-                 & ' is not known', MPAS_LOG_CRIT)
-         end if
+         call mpas_log_write('Thickness flux option of ' //&
+              & trim(config_thickness_flux_type) // &
+              & 'is not known', MPAS_LOG_CRIT)
       end if
 
       ! Initialize coefficient choice for computing land ice drag
