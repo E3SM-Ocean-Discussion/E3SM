@@ -65,6 +65,8 @@ add_default($nl, 'config_use_mom_del2');
 add_default($nl, 'config_mom_del2');
 add_default($nl, 'config_use_tracer_del2');
 add_default($nl, 'config_tracer_del2');
+add_default($nl, 'config_use_vertMom_del2');
+add_default($nl, 'config_vertMom_del2');
 
 #############################
 # Namelist group: hmix_del4 #
@@ -355,6 +357,19 @@ add_default($nl, 'config_vegetation_drag_coefficient');
 
 add_default($nl, 'config_density0');
 
+###########################################
+# Namelist group: nonhydrostatic_pressure #
+###########################################
+
+add_default($nl, 'config_enable_nonhydrostatic_mode');
+add_default($nl, 'config_nonhydrostatic_solve_surface_boundary_condition');
+add_default($nl, 'config_nonhydrostatic_remove_rhs_mean');
+add_default($nl, 'config_nonhydrostatic_preconditioner');
+add_default($nl, 'config_nonhydrostatic_solver_type');
+add_default($nl, 'config_petsc_rtol');
+add_default($nl, 'config_petsc_atol');
+add_default($nl, 'config_petsc_maxit');
+
 #####################################
 # Namelist group: pressure_gradient #
 #####################################
@@ -475,6 +490,9 @@ add_default($nl, 'config_disable_vel_topographic_wave_drag');
 add_default($nl, 'config_disable_vel_explicit_bottom_drag');
 add_default($nl, 'config_disable_vel_vmix');
 add_default($nl, 'config_disable_vel_vadv');
+add_default($nl, 'config_disable_vvel_all_tend');
+add_default($nl, 'config_disable_vvel_coriolis');
+add_default($nl, 'config_disable_vvel_adv');
 add_default($nl, 'config_disable_tr_all_tend');
 add_default($nl, 'config_disable_tr_adv');
 add_default($nl, 'config_disable_tr_hmix');

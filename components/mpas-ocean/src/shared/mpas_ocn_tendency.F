@@ -28,7 +28,6 @@ module ocn_tendency
    use mpas_threading
    use mpas_dmpar
    use ocn_diagnostics
-   use ocn_diagnostics_variables
    use ocn_constants
    use ocn_config
    use ocn_mesh
@@ -37,6 +36,7 @@ module ocn_tendency
    use ocn_surface_land_ice_fluxes
    use ocn_frazil_forcing
    use ocn_tidal_forcing
+   use ocn_diagnostics_variables
 
    use ocn_tracer_hmix
    use ocn_high_freq_thickness_hmix_del2
@@ -68,6 +68,14 @@ module ocn_tendency
    use ocn_vel_tidal_potential
    use ocn_vel_self_attraction_loading
 
+   use ocn_vvel_pgrad
+   use ocn_vvel_coriolis
+   use ocn_vvel_advection
+   use ocn_vvel_hmix_del2
+   use ocn_vvel_hmix_del4
+
+   use mpas_vector_reconstruction
+
    implicit none
    private
    save
@@ -88,7 +96,8 @@ module ocn_tendency
              ocn_tend_vel, &
              ocn_tend_tracer, &
              ocn_tend_freq_filtered_thickness, &
-             ocn_tendency_init
+             ocn_tendency_init, &
+             ocn_tend_vvel
 
    !--------------------------------------------------------------------
    !
@@ -237,6 +246,138 @@ contains
 
 !***********************************************************************
 !
+!  routine ocn_tend_vvel
+!
+!> \brief   Computes vertical velocity tendency
+!> \author  Luke Van Roekel
+!> \date    January 2021
+!> \details
+!>  This routine computes the vertical velocity tendency for the ocean
+!
+!-----------------------------------------------------------------------
+
+subroutine ocn_tend_vvel(tendPool, statePool, forcingPool, meshPool, &
+                        timeLevelIn, dt)!{{{
+
+   implicit none
+
+   type (mpas_pool_type), intent(inout) :: tendPool !< Input/Output: Tendency structure
+   type (mpas_pool_type), intent(in) :: statePool !< Input: State information
+   type (mpas_pool_type), intent(inout) :: forcingPool !< Input: Forcing information
+   type (mpas_pool_type), intent(in) :: meshPool !< Input: Mesh information
+   real (kind=RKIND), intent(in) :: dt
+   integer, intent(in), optional :: timeLevelIn !< Input: Time level for state fields
+
+   type (mpas_pool_type), pointer :: tracersPool
+
+   real (kind=RKIND), dimension(:,:), pointer :: &
+     normalVelocity, tangentialVelocity, density, potentialDensity, zMid, pressure, &
+     layerThickness, nonhydrostaticPressure, &
+     tend_normalVelocity, circulation, relativeVorticity, viscosity, kineticEnergyCell, &
+     normalizedRelativeVorticityEdge, normalizedPlanetaryVorticityEdge, &
+     montgomeryPotential, divergence, vertViscTopOfEdge, &
+     inSituThermalExpansionCoeff, inSituSalineContractionCoeff, vertVelocityNonhydro, &
+     tend_vertVelocityNonhydro
+
+   ! Scratch Arrays
+   ! normalThicknessFlux: Flux of thickness through an edge
+   !               units: m^{2} s^{-1}
+   real (kind=RKIND), dimension(:,:), allocatable :: normalThicknessFlux
+
+   integer :: timeLevel
+
+   integer :: err, iEdge, iCell, k
+   integer, pointer :: nVertLevels, indexTemperature, indexSalinity, nEdges, nCells
+   integer, dimension(:), pointer :: maxLevelCell
+
+   if (present(timeLevelIn)) then
+      timeLevel = timeLevelIn
+   else
+      timeLevel = 1
+   end if
+
+   call mpas_pool_get_dimension(meshPool, 'nEdges', nEdges)
+   call mpas_pool_get_dimension(meshPool, 'nCells', nCells)
+
+   call mpas_pool_get_dimension(meshPool, 'nVertLevels', nVertLevels)
+
+   call mpas_pool_get_array(statePool, 'vertVelocityNonhydro', vertVelocityNonhydro, timeLevel)
+   call mpas_pool_get_array(statePool, 'normalVelocity', normalVelocity, timeLevel)
+   call mpas_pool_get_array(statePool, 'layerThickness', layerThickness, timeLevel)
+   call mpas_pool_get_array(statePool, 'nonhydrostaticPressure', nonhydrostaticPressure, timeLevel)
+
+   call mpas_pool_get_array(tendPool, 'vertVelocityNonhydroTend', tend_vertVelocityNonhydro)
+
+   allocate(normalThicknessFlux(nVertLevels, nEdges+1))
+
+   !
+   ! transport velocity for the tracer.
+   !
+   !$omp parallel
+   !$omp do schedule(runtime) & 
+   !$omp private(k)
+   do iEdge = 1, nEdges
+      do k = 1, nVertLevels
+         normalThicknessFlux(k, iEdge) = normalTransportVelocity(k, iEdge) * layerThickEdgeFlux(k, iEdge)
+      end do
+   end do
+   !$omp end do
+   !$omp end parallel
+
+   !
+   ! velocity tendency: start accumulating tendency terms
+   !
+   !$omp parallel
+   !$omp do schedule(runtime)
+   do iCell = 1, nCells
+      tend_vertVelocityNonhydro(:, iCell) = 0.0_RKIND
+   end do
+   !$omp end do
+   !$omp end parallel
+
+   if(config_disable_vvel_all_tend) return
+
+   call mpas_timer_start("ocn_tend_vvel")
+
+   call mpas_reconstruct(meshPool,  normalVelocity, &
+                         velocityX, velocityY, velocityZ,   &
+                         velocityZonal, velocityMeridional, .true.)
+   !
+   ! velocity tendency: nonlinear Coriolis term and grad of kinetic energy
+   !
+   call ocn_vvel_coriolis_tend(meshPool, velocityZonal, tend_vertVelocityNonhydro, err)
+
+   !
+   ! velocity tendency: horizontal and vertical advection
+   !
+   call ocn_vvel_advection_tend(meshPool, vertVelocityNonhydro, normalThicknessFlux, &
+                                        layerThickness, vertAleTransportTop, dt, &
+                                        tend_vertVelocityNonhydro)
+
+   !
+   ! velocity tendency: pressure gradient
+   !
+   call ocn_vvel_pgf_tend(meshPool, layerThickness, nonhydrostaticPressure, &
+        tend_vertVelocityNonhydro, err)
+
+   !
+   ! at present, only del2 mixing is implemented for horizontal mixing of
+   ! vertical velocity
+   !
+   call ocn_vvel_hmix_del2_tend(layerThickEdgeFlux, vertVelocityNonhydro, &
+        tend_vertVelocityNonhydro, err)
+
+   call ocn_vvel_hmix_del4_tend(layerThickEdgeFlux, vertVelocityNonhydro, &
+        tend_vertVelocityNonhydro, err)
+
+
+   call mpas_timer_stop("ocn_tend_vvel")
+   deallocate(normalThicknessFlux)
+
+end subroutine ocn_tend_vvel!}}}
+
+!***********************************************************************
+!
 !  routine ocn_tend_vel
 !
 !> \brief   Computes velocity tendency
@@ -303,7 +444,9 @@ contains
 
       real (kind=RKIND), dimension(:,:), pointer, contiguous :: &
          normalVelocity,     &! normal velocity
-         layerThickness
+         layerThickness, &
+         vertVelocityNonhydro, &
+         nonhydrostaticPressure
 
       real (kind=RKIND), dimension(:,:,:), pointer, contiguous :: &
          activeTracers
@@ -331,6 +474,10 @@ contains
       call mpas_pool_get_array(statePool,   'ssh', ssh, timeLevel)
       call mpas_pool_get_array(tracersPool, 'activeTracers', &
                                              activeTracers, timeLevel)
+      call mpas_pool_get_array(statePool, 'vertVelocityNonhydro', &
+                                             vertVelocityNonhydro, timeLevel)
+      call mpas_pool_get_array(statePool, 'nonhydrostaticPressure', &
+                                             nonhydrostaticPressure, timeLevel)
 
       call mpas_pool_get_dimension(tracersPool, 'index_temperature', &
                                                  indexTemperature)
@@ -351,7 +498,8 @@ contains
       !$acc               density, normRelVortEdge, montgomeryPotential, pressure, &
       !$acc               thermExpCoeff, salineContractCoeff, tangentialVelocity, &
       !$acc               layerThickEdgeFlux, kineticEnergyCell, sfcFlxAttCoeff, potentialDensity, &
-      !$acc               vertAleTransportTop, vertViscTopOfEdge, wettingVelocityFactor)
+      !$acc               vertAleTransportTop, vertViscTopOfEdge, wettingVelocityFactor, &
+      !$acc               nhPressureCorrection)
       !$acc enter data &
       !$acc    copyin(tendVel, sfcStress, sfcStressMag, &
       !$acc    ssh, normalVelocity, &
@@ -410,12 +558,19 @@ contains
                                       layerThickEdgeFlux, normalVelocity, &
                                       kineticEnergyCell, tendVel, err)
 
+      ! Add nonhydrostatic Coriolis term if nonhydro model is on
+      if (config_enable_nonhydrostatic_mode) then
+         call ocn_vel_coriolis_nonhydro_tend(vertVelocityNonhydro, &
+                                                  tendVel, err)
+      end if
+
       ! Add vertical advection term -w du/dz
       call ocn_vel_vadv_tend(normalVelocity, layerThickEdgeFlux, &
                              vertAleTransportTop, tendVel, err)
 
       ! Add pressure gradient
-      call ocn_vel_pressure_grad_tend(ssh, pressure, surfacePressure, &
+      call ocn_vel_pressure_grad_tend(ssh, nonhydrostaticPressure, &
+                               pressure, surfacePressure, &
                                montgomeryPotential, zMid, &
                                density, potentialDensity, &
                                indxTemp, indxSalt, activeTracers, &

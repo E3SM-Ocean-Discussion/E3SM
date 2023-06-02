@@ -286,6 +286,22 @@ Valid values: any positive real
 Default: Defined in namelist_defaults.xml
 </entry>
 
+<entry id="config_use_vertMom_del2" type="logical"
+        category="hmix_del2" group="hmix_del2">
+If true, Laplacian horizontal mixing is used on the vertical momentum equation.
+
+Valid values: .true. or .false.
+Default: Defined in namelist_defaults.xml
+</entry>
+
+<entry id="config_vertMom_del2" type="real"
+        category="hmix_del2" group="hmix_del2">
+Horizontal diffusion.
+
+Valid values: any positive real
+Default: Defined in namelist_defaults.xml
+</entry>
+
 
 <!-- hmix_del4 -->
 
@@ -1821,6 +1837,71 @@ Valid values: any positive real, but typically 1000-1035
 Default: Defined in namelist_defaults.xml
 </entry>
 
+<!-- nonhydrostatic_pressure -->
+
+<entry id="config_enable_nonhydrostatic_mode" type="logical"
+        category="nonhydrostatic_pressure" group="nonhydrostatic_pressure">
+Flag to enable the nonhydrostatic pressure calculation
+
+Valid values: .true. or .false.
+Default: Defined in namelist_defaults.xml
+</entry>
+
+<entry id="config_nonhydrostatic_solve_surface_boundary_condition" type="char*1024"
+        category="nonhydrostatic_pressure" group="nonhydrostatic_pressure">
+setting for surface boundary condition for the pressure correction solve
+
+Valid values: noGradient or no pressure
+Default: Defined in namelist_defaults.xml
+</entry>
+
+<entry id="config_nonhydrostatic_remove_rhs_mean" type="logical"
+        category="nonhydrostatic_pressure" group="nonhydrostatic_pressure">
+flag to enabling mean from the right hand side of the nonhydro solve
+
+Valid values: .true. or .false.
+Default: Defined in namelist_defaults.xml
+</entry>
+
+<entry id="config_nonhydrostatic_preconditioner" type="char*1024"
+        category="nonhydrostatic_pressure" group="nonhydrostatic_pressure">
+String describing preconditioner to use, recommended options -- jacobi, bjacobi, ilu
+
+Valid values: jacobi, bjacobi, ilu
+Default: Defined in namelist_defaults.xml
+</entry>
+
+<entry id="config_nonhydrostatic_solver_type" type="char*1024"
+        category="nonhydrostatic_pressure" group="nonhydrostatic_pressure">
+String describing the solver context, recommended types -- pipecgrr, pipecg, cg, bcgs, gmres
+
+Valid values: pipecgrr, pipecg, cg, bcgs, gmres
+Default: Defined in namelist_defaults.xml
+</entry>
+
+<entry id="config_petsc_rtol" type="real"
+        category="nonhydrostatic_pressure" group="nonhydrostatic_pressure">
+relative tolerance for the norm in petsc convergence
+
+Valid values: very small positive reals
+Default: Defined in namelist_defaults.xml
+</entry>
+
+<entry id="config_petsc_atol" type="real"
+        category="nonhydrostatic_pressure" group="nonhydrostatic_pressure">
+absolute tolerance for the norm in petsc convergence
+
+Valid values: very small positive reals
+Default: Defined in namelist_defaults.xml
+</entry>
+
+<entry id="config_petsc_maxit" type="integer"
+        category="nonhydrostatic_pressure" group="nonhydrostatic_pressure">
+maximum number of iterations in petsc solve
+
+Valid values: positive integers
+Default: Defined in namelist_defaults.xml
+</entry>
 
 <!-- pressure_gradient -->
 
@@ -2414,6 +2495,30 @@ Default: Defined in namelist_defaults.xml
 <entry id="config_disable_vel_vadv" type="logical"
 	category="debug" group="debug">
 Disables tendencies on the velocity field from vertical advection.
+
+Valid values: .true. or .false.
+Default: Defined in namelist_defaults.xml
+</entry>
+
+<entry id="config_disable_vvel_all_tend" type="logical"
+        category="debug" group="debug">
+Disables all tendencies on vertical momentum field.
+
+Valid values: .true. or .false.
+Default: Defined in namelist_defaults.xml
+</entry>
+
+<entry id="config_disable_vvel_coriolis" type="logical"
+        category="debug" group="debug">
+Disables tendencies on the vetical velocity field from the Coriolis force.
+
+Valid values: .true. or .false.
+Default: Defined in namelist_defaults.xml
+</entry>
+
+<entry id="config_disable_vvel_adv" type="logical"
+        category="debug" group="debug">
+Disables tendencies on the vertical velocity field from vertical and horizontal advection.
 
 Valid values: .true. or .false.
 Default: Defined in namelist_defaults.xml

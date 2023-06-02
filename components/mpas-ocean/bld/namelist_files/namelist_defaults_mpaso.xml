@@ -96,6 +96,8 @@
 <config_mom_del2 ocn_grid="ECwISC30to60E2r1">1000.0</config_mom_del2>
 <config_use_tracer_del2>.false.</config_use_tracer_del2>
 <config_tracer_del2>10.0</config_tracer_del2>
+<config_use_vertMom_del2>.false.</config_use_vertMom_del2>
+<config_vertMom_del2>10.0</config_vertMom_del2>
 
 <!-- hmix_del4 -->
 <config_use_mom_del4>.true.</config_use_mom_del4>
@@ -395,6 +397,16 @@
 <!-- ocean_constants -->
 <config_density0>1026.0</config_density0>
 
+<!-- nonhydrostatic_pressure -->
+<config_enable_nonhydrostatic_mode>.false.</config_enable_nonhydrostatic_mode>
+<config_nonhydrostatic_solve_surface_boundary_condition>'noGradient'</config_nonhydrostatic_solve_surface_boundary_condition>
+<config_nonhydrostatic_remove_rhs_mean>.true.</config_nonhydrostatic_remove_rhs_mean>
+<config_nonhydrostatic_preconditioner>'jacobi'</config_nonhydrostatic_preconditioner>
+<config_nonhydrostatic_solver_type>'pipecgrr'</config_nonhydrostatic_solver_type>
+<config_petsc_rtol>1.0e-10</config_petsc_rtol>
+<config_petsc_atol>1.0E-20</config_petsc_atol>
+<config_petsc_maxit>10000</config_petsc_maxit>
+
 <!-- pressure_gradient -->
 <config_pressure_gradient_type>'Jacobian_from_TS'</config_pressure_gradient_type>
 <config_common_level_weight>0.5</config_common_level_weight>
@@ -509,6 +521,9 @@
 <config_disable_vel_explicit_bottom_drag>.false.</config_disable_vel_explicit_bottom_drag>
 <config_disable_vel_vmix>.false.</config_disable_vel_vmix>
 <config_disable_vel_vadv>.false.</config_disable_vel_vadv>
+<config_disable_vvel_all_tend>.false.</config_disable_vvel_all_tend>
+<config_disable_vvel_coriolis>.false.</config_disable_vvel_coriolis>
+<config_disable_vvel_adv>.false.</config_disable_vvel_adv>
 <config_disable_tr_all_tend>.false.</config_disable_tr_all_tend>
 <config_disable_tr_adv>.false.</config_disable_tr_adv>
 <config_disable_tr_hmix>.false.</config_disable_tr_hmix>

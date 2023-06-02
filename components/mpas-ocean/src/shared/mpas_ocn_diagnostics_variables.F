@@ -202,6 +202,8 @@ module ocn_diagnostics_variables
    real (kind=RKIND), dimension(:), pointer :: SIvec_w0,SIvec_w1 ,SIvec_wh0,SIvec_wh1,SIvec_y0
    real (kind=RKIND), dimension(:), pointer :: SIvec_z0,SIvec_z1 ,SIvec_zh0,SIvec_zh1
 
+   real (kind=RKIND), dimension(:,:), pointer :: nhPressureCorrection
+
    !--------------------------------------------------------------------
    !
    ! Public member functions
@@ -639,6 +641,8 @@ contains
       call mpas_pool_get_array(diagnosticsPool, 'surfacePressure', &
                 surfacePressure)
 
+      call mpas_pool_get_array(diagnosticsPool, 'nhPressureCorrection', nhPressureCorrection)
+
       ! Semi-implicit Array Pointer retrievals
       if (trim(config_time_integrator) == 'split_implicit') then
          call mpas_pool_get_array(diagnosticsPool, 'SIvec_r0', SIvec_r0)
@@ -779,7 +783,8 @@ contains
          !$acc                   normalVelocitySurfaceLayer,      &
          !$acc                   transportVelocityMeridional,     &
          !$acc                   penetrativeTemperatureFluxOBL,   &
-         !$acc                   normalizedRelativeVorticityCell  &
+         !$acc                   normalizedRelativeVorticityCell, &
+         !$acc                   nhPressureCorrection             &
          !$acc                   )
       end if
       if ( trim(config_ocean_run_mode) == 'forward' ) then
@@ -1021,7 +1026,8 @@ contains
          !$acc                   normalVelocitySurfaceLayer,      &
          !$acc                   transportVelocityMeridional,     &
          !$acc                   penetrativeTemperatureFluxOBL,   &
-         !$acc                   normalizedRelativeVorticityCell  &
+         !$acc                   normalizedRelativeVorticityCell, &
+         !$acc                   nhPressureCorrection             &
          !$acc                   )
       end if
       if ( trim(config_ocean_run_mode) == 'forward' ) then
@@ -1221,7 +1227,8 @@ contains
                  normalVelocitySurfaceLayer,      &
                  transportVelocityMeridional,     &
                  penetrativeTemperatureFluxOBL,   &
-                 normalizedRelativeVorticityCell)
+                 normalizedRelativeVorticityCell, &
+                 nhPressureCorrection)
       end if
       if ( trim(config_ocean_run_mode) == 'forward' ) then
          nullify(wettingVelocityFactor)

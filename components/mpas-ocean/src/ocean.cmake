@@ -8,9 +8,14 @@ list(APPEND INCLUDES "core_ocean/gotm/include")
 # check if lapack is linked
 find_package(LAPACK)
 find_package(BLAS)
+find_package(PETSC)
 if(LAPACK_FOUND AND BLAS_FOUND)
   list(APPEND CPPDEFS "-DUSE_LAPACK")
   list(APPEND SLIBS "${LAPACK_LIBRARIES} ${BLAS_LIBRARIES}")
+endif()
+if(PETSC_FOUND)
+  list(APPEND CPPDEFS "-DUSE_PETSC")
+  list(APPEND INCLUDES "${PETSC_PATH}/include")
 endif()
 
 # driver (files live in E3SM)
@@ -104,6 +109,14 @@ list(APPEND RAW_SOURCES
   core_ocean/shared/mpas_ocn_time_varying_forcing.F
   core_ocean/shared/mpas_ocn_wetting_drying.F
   core_ocean/shared/mpas_ocn_vel_tidal_potential.F
+  core_ocean/shared/mpas_ocn_vvel_hmix_del2.F
+  core_ocean/shared/mpas_ocn_vvel_hmix_del4.F
+  core_ocean/shared/mpas_ocn_nonhydrostatic_pressure_solve.F
+  core_ocean/shared/mpas_ocn_vvel_pgrad.F
+  core_ocean/shared/mpas_ocn_vvel_coriolis.F
+  core_ocean/shared/mpas_ocn_vvel_advection.F
+  core_ocean/shared/mpas_ocn_vvel_horiz_advection.F
+  core_ocean/shared/mpas_ocn_vvel_vert_advection.F
   core_ocean/shared/mpas_ocn_stokes_drift.F
 )
 
