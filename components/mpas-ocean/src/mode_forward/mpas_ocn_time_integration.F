@@ -44,6 +44,9 @@ module ocn_time_integration
    !
    !--------------------------------------------------------------------
 
+    ! Enum for selecting different time integrators
+    integer, public :: timeIntegratorChoice
+
    !--------------------------------------------------------------------
    !
    ! Public member functions
@@ -58,9 +61,6 @@ module ocn_time_integration
    ! Private module variables
    !
    !--------------------------------------------------------------------
-
-    ! Enum for selecting different time integrators
-    integer :: timeIntegratorChoice
 
     integer, parameter :: &
        timeIntUnknown         = 0, &! unknown or undefined

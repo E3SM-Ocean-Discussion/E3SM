@@ -67,6 +67,7 @@ module ocn_tendency
    use ocn_wetting_drying
    use ocn_vel_tidal_potential
    use ocn_vel_self_attraction_loading
+   use ocn_manufactured_solution
 
    implicit none
    private
@@ -224,6 +225,10 @@ contains
       ! Compute thickness change due to tidal forcing
       call ocn_tidal_forcing_layer_thickness(forcingPool, &
                                              tendThick, err)
+
+      ! Compute thickness tendency to manufactured solution
+      call ocn_manufactured_solution_tend_thick(forcingPool, &
+                                                tendThick, err)
 
 #ifdef MPAS_OPENACC
       !$acc exit data copyout(tendThick, surfaceThicknessFlux, surfaceThicknessFluxRunoff)
@@ -447,6 +452,10 @@ contains
                                 sfcStress, kineticEnergyCell, &
                                 layerThickEdgeDrag, &
                                 layerThickEdgeMean, tendVel, err)
+ 
+      ! Compute tendency term for manufactured solution
+      call ocn_manufactured_solution_tend_vel(forcingPool, &
+                                              tendVel, err)
 
       ! vertical mixing treated implicitly in a later routine
       ! adjust total velocity tendency based on wetting/drying

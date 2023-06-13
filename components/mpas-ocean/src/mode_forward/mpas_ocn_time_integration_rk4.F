@@ -43,6 +43,7 @@ module ocn_time_integration_rk4
    use ocn_effective_density_in_land_ice
    use ocn_surface_land_ice_fluxes
    use ocn_transport_tests
+   use ocn_time_varying_forcing
 
    implicit none
    private
@@ -115,7 +116,7 @@ module ocn_time_integration_rk4
 
       type (mpas_pool_type), pointer :: nextProvisPool, prevProvisPool
 
-      real (kind=RKIND), dimension(4) :: rk_weights, rk_substep_weights
+      real (kind=RKIND), dimension(4) :: rk_weights, rk_substep_weights, forcingTimeIncrementRK4
 
       real (kind=RKIND) :: coef
       real (kind=RKIND), dimension(:,:), pointer :: &
@@ -183,6 +184,7 @@ module ocn_time_integration_rk4
       ! Tidal boundary condition
       logical, pointer :: config_use_tidal_forcing
       character (len=StrKIND), pointer :: config_tidal_forcing_type
+      real (kind=RKIND), pointer :: forcingTimeIncrement
       real (kind=RKIND), dimension(:), pointer :: tidalInputMask, tidalBCValue
       real (kind=RKIND), dimension(:,:), pointer :: restingThickness
       real (kind=RKIND) :: totalDepth
@@ -227,6 +229,7 @@ module ocn_time_integration_rk4
          call mpas_pool_get_subpool(statePool, 'tracers', tracersPool)
          call mpas_pool_get_subpool(block % structs, 'mesh', meshPool)
          call mpas_pool_get_subpool(block % structs, 'diagnostics', diagnosticsPool)
+         call mpas_pool_get_subpool(block % structs, 'forcing', forcingPool)
 
          call mpas_pool_create_pool(provisStatePool)
 
@@ -248,6 +251,10 @@ module ocn_time_integration_rk4
 
          call mpas_pool_get_array(meshPool, 'maxLevelCell', maxLevelCell)
          call mpas_pool_get_array(meshPool, 'maxLevelEdgeTop', maxLevelEdgeTop)
+
+         call mpas_pool_get_array(forcingPool, 'forcingTimeIncrement', forcingTimeIncrement)
+
+         forcingTimeIncrement = 0.0_RKIND
 
          ! Lower k-loop limit of 1 rather than minLevel* needed in *New = *Cur
          ! assignments below are needed to maintain bit-for-bit results
@@ -379,6 +386,14 @@ module ocn_time_integration_rk4
       rk_substep_weights(3) = dt
       rk_substep_weights(4) = dt ! a_4 only used for ALE step, otherwise it is skipped.
 
+      ! these are time increments to evaluate the tidal forcing at the
+      ! intermediate time-steps as required by RK4
+
+      forcingTimeIncrementRK4(1) = 0.0_RKIND
+      forcingTimeIncrementRK4(2) = dt/2.
+      forcingTimeIncrementRK4(3) = dt/2.
+      forcingTimeIncrementRK4(4) = dt
+
       call mpas_timer_start("RK4-main loop")
 
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -498,8 +513,14 @@ module ocn_time_integration_rk4
         ! which is the same as k_j / h.
         call mpas_timer_start("RK4 vel/thick tendency computations")
 
+       call ocn_time_varying_forcing_get(domain % streamManager, domain, domain % clock)
+
         block => domain % blocklist
         do while (associated(block))
+           call mpas_pool_get_subpool(block % structs, 'forcing', forcingPool)
+           call mpas_pool_get_array(forcingPool, 'forcingTimeIncrement', forcingTimeIncrement)
+           forcingTimeIncrement = forcingTimeIncrementRK4(rk_step)
+           
            call ocn_time_integrator_rk4_compute_vel_tends(domain, block, dt, rk_substep_weights(rk_step), domain % dminfo, err )
 
            call ocn_time_integrator_rk4_compute_thick_tends( block, dt, rk_substep_weights(rk_step), err )
