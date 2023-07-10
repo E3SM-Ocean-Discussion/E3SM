@@ -675,7 +675,7 @@ contains
 
 !***********************************************************************
 !
-!  routine ocn_diagnostic_solve_sshEdge
+!  routine ocn_diagnostic_solve_wctEdge
 !
 !> \brief   Computes layer thickness at edge
 !> \author  Matt Turner
@@ -756,6 +756,7 @@ contains
 
       case (thickEdgeFluxUpwind)
          allocate(wctCell(nCellsAll))
+
          !$omp parallel
          !$omp do schedule(runtime)
          do iCell = 1, nCellsAll

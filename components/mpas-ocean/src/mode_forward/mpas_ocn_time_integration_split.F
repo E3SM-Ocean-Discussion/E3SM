@@ -177,6 +177,7 @@ module ocn_time_integration_split
          normalThicknessFluxSum, &! sum of thickness flux in column
          thicknessSum,     &! sum of thicknesses in column
          flux,             &! temp for computing flux for barotropic
+         sshEdge,          &! sea surface height at edge
          CoriolisTerm,     &! temp for computing coriolis term (fuperp)
          normalVelocityCorrection, &! velocity correction
          temp,             &! temp for holding vars at new time
@@ -249,6 +250,7 @@ module ocn_time_integration_split
          sshTend                ! sea-surface height tendency
 
       real (kind=RKIND), dimension(:,:), pointer :: &
+         restingThickness,      &
          normalVelocityTend,    &! normal velocity tendency
          highFreqThicknessTend, &! thickness tendency for high-freq iter
          lowFreqDivergenceTend, &! thickness tendency for low freq
@@ -384,6 +386,7 @@ module ocn_time_integration_split
                                           lowFreqDivergenceTend)
 
       call mpas_pool_get_array(tracersPool, 'activeTracers', activeTracersNew, 2)
+      call mpas_pool_get_array(verticalMeshPool, 'restingThickness', restingThickness)
 
       allocate(bottomDepthEdge(nEdgesAll+1))
 
@@ -1096,7 +1099,6 @@ module ocn_time_integration_split
                   nEdges = nEdgesHalo(edgeHaloComputeCounter-1)
                endif
 
-
                ! config_btr_gam1_velWt1 sets the forward weighting of
                !    velocity in the SSH computation
                ! config_btr_gam1_velWt1=  1
@@ -1118,6 +1120,8 @@ module ocn_time_integration_split
                !$omp end do
                !$omp end parallel
 
+               ! Compute barotropic thickness at the edge. Note this
+               ! matches the sum of baroclinic thicknesses at this edge.
                call ocn_diagnostic_solve_wctEdge(btrvel_temp, sshSubcycleCur, &
                          bottomDepthEdge, wctEdge)
 
@@ -1130,7 +1134,13 @@ module ocn_time_integration_split
                      iEdge = edgesOnCell(i, iCell)
                      if (maxLevelEdgeTop(iEdge).eq.0) cycle
 
-                     flux = btrvel_temp(iEdge)*wctEdge(iEdge)
+                     ! There is a redundant computation here of btrvel_temp
+                     ! but is needed to preserve decomp
+                     flux = ((1.0-config_btr_gam1_velWt1)* &
+                            normalBarotropicVelocitySubcycleCur(iEdge) &
+                          +       config_btr_gam1_velWt1 * &
+                            normalBarotropicVelocitySubcycleNew(iEdge))&
+                           *wctEdge(iEdge)
 
                      sshTend(iCell) = sshTend(iCell) + &
                                       edgeSignOncell(i, iCell)*flux* &
@@ -1162,11 +1172,9 @@ module ocn_time_integration_split
 
                   !$omp parallel
                   !$omp do schedule(runtime) &
-                  !$omp private(thicknessSum, flux)
+                  !$omp private(flux)
                   do iEdge = 1, nEdges
                      if (maxLevelEdgeTop(iEdge).eq.0) cycle
-                     cell1 = cellsOnEdge(1,iEdge)
-                     cell2 = cellsOnEdge(2,iEdge)
 
                      flux = ((1.0-config_btr_gam1_velWt1)* &
                             normalBarotropicVelocitySubcycleCur(iEdge) &
@@ -1377,6 +1385,7 @@ module ocn_time_integration_split
                   ! config_btr_gam3_velWt2=  0
                   !    flux = normalBarotropicVelocityOld*H
 
+                  call mpas_log_write('begin sshTemp')
                   !$omp parallel
                   !$omp do schedule(runtime)
                   do iCell = 1, nCells
@@ -1400,9 +1409,11 @@ module ocn_time_integration_split
                   !$omp end do
                   !$omp end parallel
 
+                  call mpas_log_write('call wctWdge on L1396')
                   call ocn_diagnostic_solve_wctEdge(btrvel_temp, sshTemp, &
                          bottomDepthEdge, wctEdge)
 
+                  call mpas_log_write('begin main loop')
                   !$omp parallel
                   !$omp do schedule(runtime) &
                   !$omp private(i, iEdge, flux)
@@ -1410,11 +1421,14 @@ module ocn_time_integration_split
                      sshTend(iCell) = 0.0_RKIND
                      do i = 1, nEdgesOnCell(iCell)
                         iEdge = edgesOnCell(i, iCell)
+
                         if (maxLevelEdgeTop(iEdge).eq.0) cycle
 
-                        ! SSH is a linear combination of SSHold
-                        ! and SSHnew.
-                        flux = btrvel_temp(iEdge) * wctEdge(iEdge)
+                        flux = ((1.0-config_btr_gam3_velWt2)* &
+                           normalBarotropicVelocitySubcycleCur(iEdge) &
+                             +       config_btr_gam3_velWt2 * &
+                           normalBarotropicVelocitySubcycleNew(iEdge))&
+                             *wctEdge(iEdge)
 
                         sshTend(iCell) = sshTend(iCell) + &
                                          edgeSignOnCell(i, iCell)* &
@@ -1455,7 +1469,7 @@ module ocn_time_integration_split
                          normalBarotropicVelocitySubcycleCur(iEdge) &
                           +       config_btr_gam3_velWt2  * &
                          normalBarotropicVelocitySubcycleNew(iEdge)) &
-                            * wctEdge(iEdge)
+                          * wctEdge(iEdge)
 
                      barotropicThicknessFlux(iEdge) = &
                      barotropicThicknessFlux(iEdge) + flux
@@ -1601,8 +1615,10 @@ module ocn_time_integration_split
                                              nVertLevels)
             call ocn_MLE_add_to_transport_vel(normalTransportVelocity, nEdges)
 
-            call ocn_edge_var_from_cell_var_upwind( &
-                     uTemp, layerThicknessCur, layerThickEdgeFlux)
+            call mpas_log_write('update layerThicknessEdge')
+            call ocn_diagnostic_solve_layerThicknessEdge( &
+                     uTemp, layerThicknessCur, restingThickness)
+            call mpas_log_write('update layerThicknessEdge: end')
 
             !$omp parallel
             !$omp do schedule(runtime) &
