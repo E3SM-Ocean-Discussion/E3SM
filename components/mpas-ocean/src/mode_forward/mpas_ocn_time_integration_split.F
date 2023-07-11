@@ -193,7 +193,6 @@ module ocn_time_integration_split
       real (kind=RKIND), dimension(:), allocatable :: &
          btrvel_temp,      &
          sshTemp,          &
-         wctTemp,          &
          wctEdge,          &! flux thickness at edge
          bottomDepthEdge
 
@@ -1346,7 +1345,6 @@ module ocn_time_integration_split
                if (config_btr_solve_SSH2) then
 
                   allocate(sshTemp(nCellsAll))
-                  allocate(wctTemp(nCellsAll))
 
                   call mpas_pool_get_array(statePool, 'sshSubcycle', &
                                                        sshSubcycleCur,&
@@ -1385,7 +1383,6 @@ module ocn_time_integration_split
                   ! config_btr_gam3_velWt2=  0
                   !    flux = normalBarotropicVelocityOld*H
 
-                  call mpas_log_write('begin sshTemp')
                   !$omp parallel
                   !$omp do schedule(runtime)
                   do iCell = 1, nCells
@@ -1409,11 +1406,9 @@ module ocn_time_integration_split
                   !$omp end do
                   !$omp end parallel
 
-                  call mpas_log_write('call wctWdge on L1396')
                   call ocn_diagnostic_solve_wctEdge(btrvel_temp, sshTemp, &
                          bottomDepthEdge, wctEdge)
 
-                  call mpas_log_write('begin main loop')
                   !$omp parallel
                   !$omp do schedule(runtime) &
                   !$omp private(i, iEdge, flux)
@@ -1428,7 +1423,7 @@ module ocn_time_integration_split
                            normalBarotropicVelocitySubcycleCur(iEdge) &
                              +       config_btr_gam3_velWt2 * &
                            normalBarotropicVelocitySubcycleNew(iEdge))&
-                             *wctEdge(iEdge)
+                             * wctEdge(iEdge)
 
                         sshTend(iCell) = sshTend(iCell) + &
                                          edgeSignOnCell(i, iCell)* &
@@ -1481,7 +1476,6 @@ module ocn_time_integration_split
                   edgeHaloComputeCounter = config_num_halos + 1
 
                   deallocate(sshTemp)
-                  deallocate(wctTemp)
 
                endif ! config_btr_solve_SSH2
                call mpas_timer_stop('ssh corrector')
@@ -1615,57 +1609,119 @@ module ocn_time_integration_split
                                              nVertLevels)
             call ocn_MLE_add_to_transport_vel(normalTransportVelocity, nEdges)
 
-            call mpas_log_write('update layerThicknessEdge')
-            call ocn_diagnostic_solve_layerThicknessEdge( &
-                     uTemp, layerThicknessCur, restingThickness)
-            call mpas_log_write('update layerThicknessEdge: end')
+            !call mpas_log_write('update layerThicknessEdge')
+            !call ocn_diagnostic_solve_layerThicknessEdge( &
+            !         uTemp, layerThicknessCur, restingThickness)
+            !call mpas_log_write('update layerThicknessEdge: end')
 
-            !$omp parallel
-            !$omp do schedule(runtime) &
-            !$omp private(k, normalThicknessFluxSum, &
-            !$omp         thicknessSum, normalVelocityCorrection)
-            do iEdge = 1, nEdges
+            if (trim(config_thickness_flux_type) == 'upwind') then
+               !$omp parallel
+               !$omp do schedule(runtime) &
+               !$omp private(cell1, cell2, k, normalThicknessFluxSum, &
+               !$omp         thicknessSum, normalVelocityCorrection)
+               do iEdge = 1, nEdges
+                  call mpas_log_write('Compute velocity correction for iEdge $i of nEdges $i', &
+                       intArgs=(/ iEdge, nEdges /))
+                  ! thicknessSum is initialized outside the loop because
+                  ! on land boundaries maxLevelEdgeTop=0, but I want to
+                  ! initialize thicknessSum with a nonzero value to avoid
+                  ! a NaN.
+                  cell1 = cellsOnEdge(1,iEdge)
+                  cell2 = cellsOnEdge(2,iEdge)
+                  do k = minLevelEdgeBot(iEdge), maxLevelEdgeTop(iEdge)
+                     layerThickEdgeFlux(:,iEdge) = -1.0e34_RKIND
+                     if (uTemp(k,iEdge) > 0.0_RKIND) then
+                        layerThickEdgeFlux(k,iEdge) = layerThicknessCur(k,cell1)
+                     elseif (uTemp(k,iEdge) < 0.0_RKIND) then
+                        layerThickEdgeFlux(k,iEdge) = layerThicknessCur(k,cell2)
+                     else
+                        layerThickEdgeFlux(k,iEdge) = max(layerThicknessCur(k,cell1), &
+                                                          layerThicknessCur(k,cell2))
+                     end if
+                  enddo 
+                  normalThicknessFluxSum = layerThickEdgeFlux(minLevelEdgeBot(iEdge),iEdge)* &
+                                           uTemp(minLevelEdgeBot(iEdge),iEdge)
+                  thicknessSum  = layerThickEdgeFlux(minLevelEdgeBot(iEdge),iEdge)
 
-               ! thicknessSum is initialized outside the loop because
-               ! on land boundaries maxLevelEdgeTop=0, but I want to
-               ! initialize thicknessSum with a nonzero value to avoid
-               ! a NaN.
-               normalThicknessFluxSum = layerThickEdgeFlux(minLevelEdgeBot(iEdge),iEdge)* &
-                                        uTemp(minLevelEdgeBot(iEdge),iEdge)
-               thicknessSum  = layerThickEdgeFlux(minLevelEdgeBot(iEdge),iEdge)
+                  do k = minLevelEdgeBot(iEdge)+1, maxLevelEdgeTop(iEdge)
+                     normalThicknessFluxSum = normalThicknessFluxSum + &
+                                              layerThickEdgeFlux(k,iEdge)*&
+                                              uTemp(k,iEdge)
+                     thicknessSum = thicknessSum + &
+                                    layerThickEdgeFlux(k,iEdge)
+                  enddo
 
-               do k = minLevelEdgeBot(iEdge)+1, maxLevelEdgeTop(iEdge)
-                  normalThicknessFluxSum = normalThicknessFluxSum + &
-                                           layerThickEdgeFlux(k,iEdge)*&
-                                           uTemp(k,iEdge)
-                  thicknessSum = thicknessSum + &
-                                 layerThickEdgeFlux(k,iEdge)
-               enddo
+                  normalVelocityCorrection = useVelocityCorrection* &
+                                ((barotropicThicknessFlux(iEdge) - &
+                                  normalThicknessFluxSum)/thicknessSum)
+                  call mpas_log_write('Velocity correction for iEdge $i = $r', &
+                       intArgs=(/ iEdge /), realArgs=(/ normalVelocityCorrection /))
 
-               normalVelocityCorrection = useVelocityCorrection* &
-                             ((barotropicThicknessFlux(iEdge) - &
-                               normalThicknessFluxSum)/thicknessSum)
+                  do k = 1, nVertLevels
 
-               do k = 1, nVertLevels
+                     ! normalTransportVelocity = normalBarotropicVelocity
+                     !                         + normalBaroclinicVelocity
+                     !                         + normalGMBolusVelocity
+                     !                         + normalMLEvelocity 
+                     !                         + normalVelocityCorrection
+                     ! This is the velocity used in advective terms for layerThickness
+                     ! and tracers in tendency calls in stage 3.
+                     normalTransportVelocity(k,iEdge) = edgeMask(k,iEdge)*( &
+                                normalTransportVelocity(k,iEdge) + &
+                                normalVelocityCorrection)
+                  enddo
 
-                  ! normalTransportVelocity = normalBarotropicVelocity
-                  !                         + normalBaroclinicVelocity
-                  !                         + normalGMBolusVelocity
-                  !                         + normalMLEvelocity 
-                  !                         + normalVelocityCorrection
-                  ! This is the velocity used in advective terms for layerThickness
-                  ! and tracers in tendency calls in stage 3.
-                  normalTransportVelocity(k,iEdge) = edgeMask(k,iEdge)*( &
-                             normalTransportVelocity(k,iEdge) + &
-                             normalVelocityCorrection)
-               enddo
+               end do ! iEdge
+               !$omp end do
+               !$omp end parallel
+            else
+               !$omp parallel
+               !$omp do schedule(runtime) &
+               !$omp private(k, normalThicknessFluxSum, &
+               !$omp         thicknessSum, normalVelocityCorrection)
+               do iEdge = 1, nEdges
 
-            end do ! iEdge
-            !$omp end do
-            !$omp end parallel
+                  ! thicknessSum is initialized outside the loop because
+                  ! on land boundaries maxLevelEdgeTop=0, but I want to
+                  ! initialize thicknessSum with a nonzero value to avoid
+                  ! a NaN.
+                  normalThicknessFluxSum = layerThickEdgeFlux(minLevelEdgeBot(iEdge),iEdge)* &
+                                           uTemp(minLevelEdgeBot(iEdge),iEdge)
+                  thicknessSum  = layerThickEdgeFlux(minLevelEdgeBot(iEdge),iEdge)
 
+                  do k = minLevelEdgeBot(iEdge)+1, maxLevelEdgeTop(iEdge)
+                     normalThicknessFluxSum = normalThicknessFluxSum + &
+                                              layerThickEdgeFlux(k,iEdge)*&
+                                              uTemp(k,iEdge)
+                     thicknessSum = thicknessSum + &
+                                    layerThickEdgeFlux(k,iEdge)
+                  enddo
+
+                  normalVelocityCorrection = useVelocityCorrection* &
+                                ((barotropicThicknessFlux(iEdge) - &
+                                  normalThicknessFluxSum)/thicknessSum)
+
+                  do k = 1, nVertLevels
+
+                     ! normalTransportVelocity = normalBarotropicVelocity
+                     !                         + normalBaroclinicVelocity
+                     !                         + normalGMBolusVelocity
+                     !                         + normalMLEvelocity 
+                     !                         + normalVelocityCorrection
+                     ! This is the velocity used in advective terms for layerThickness
+                     ! and tracers in tendency calls in stage 3.
+                     normalTransportVelocity(k,iEdge) = edgeMask(k,iEdge)*( &
+                                normalTransportVelocity(k,iEdge) + &
+                                normalVelocityCorrection)
+                  enddo
+
+               end do ! iEdge
+               !$omp end do
+               !$omp end parallel
+            endif
             deallocate(uTemp)
 
+            call mpas_log_write('Applied velocity correction, end stage 2')
             call mpas_timer_stop('btr se ssh verif')
 
          endif ! split_explicit
