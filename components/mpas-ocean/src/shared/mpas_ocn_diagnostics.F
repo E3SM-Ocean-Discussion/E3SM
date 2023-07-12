@@ -39,7 +39,11 @@ module ocn_diagnostics
    use ocn_surface_land_ice_fluxes
    use ocn_vertical_advection
 
-   implicit none
+   interface ocn_edge_var_from_cell_var_upwind
+      module procedure ocn_edge_var_from_cell_var_upwind_1d
+      module procedure ocn_edge_var_from_cell_var_upwind_2d
+   end interface
+
    private
    save
 
@@ -57,7 +61,8 @@ module ocn_diagnostics
 
    public :: ocn_diagnostic_solve, &
              ocn_diagnostic_solve_layerThicknessEdge, &
-             ocn_diagnostic_solve_sshEdge, &
+             ocn_diagnostic_solve_wctEdge, &
+             ocn_edge_var_from_cell_var_upwind, &
              ocn_relativeVorticity_circulation, &
              ocn_vert_transport_velocity_top, &
              ocn_fuperp, &
@@ -683,15 +688,20 @@ contains
 !
 !-----------------------------------------------------------------------
 
-   subroutine ocn_diagnostic_solve_sshEdge(btrVelocity, sshCell, sshEdge)!{{{
+   subroutine ocn_diagnostic_solve_wctEdge(btrVelocity, sshCell, &
+                         bottomDepthEdge, wctEdge)!{{{
 
       !-----------------------------------------------------------------
       ! input variables
       !-----------------------------------------------------------------
 
       real (kind=RKIND), dimension(:), intent(in) :: &
-         btrVelocity,  &!< [in] barotropic velocity
-         sshCell           !< [in] ssh at cells
+         btrVelocity,   &!< [in] barotropic velocity
+         sshCell,       &!< ssh at cells, used for centered water column
+                         !< thickness
+         bottomDepthEdge !< bottom depth centered at edges, used for
+                         !< centered water column thickness
+      ! bottomDepth is already present
 
       !-----------------------------------------------------------------
       ! output variables
@@ -699,7 +709,7 @@ contains
 
       ! Outputs are the shared variables from diagnostic_variables:
       real (kind=RKIND), dimension(:), intent(inout) :: &
-         sshEdge !< [out] ssh on edge
+         wctEdge !< [out] wct on edge
 
       !-----------------------------------------------------------------
       ! local variables
@@ -709,16 +719,20 @@ contains
          iEdge,       &! edge and vertical loop indices
          cell1, cell2  ! neighbor cell indices across an edge
 
+      real (kind=RKIND), dimension(:), allocatable :: wctCell, sshEdge
+
       ! End preamble
       !-----------------------------------------------------------------
       ! Begin code
 
-      sshEdge(:) = 0.0_RKIND
-      call mpas_log_write('begin sshEdge routine')
+      call mpas_timer_start("wctEdge")
+      wctEdge(:) = -1.0e34_RKIND
       ! Compute edge flux based on option set on init
       select case (thickEdgeFluxChoice)
 
       case (thickEdgeFluxCenter)
+         allocate(sshEdge(nEdgesAll))
+         sshEdge(:) = -1.0e34_RKIND
          ! Use centered (mean) thickness as flux value
 
          ! Compute mean layer thickness at edge
@@ -732,38 +746,28 @@ contains
             cell1 = cellsOnEdge(1,iEdge)
             cell2 = cellsOnEdge(2,iEdge)
             sshEdge(iEdge) = 0.5_RKIND*(sshCell(cell1) + sshCell(cell2))
+            wctEdge(iEdge) = sshEdge(iEdge) + bottomDepthEdge(iEdge)
          end do
 #ifndef MPAS_OPENACC
          !$omp end do
          !$omp end parallel
 #endif
+         deallocate(sshEdge)
 
       case (thickEdgeFluxUpwind)
-         ! Use upwind thickness as the edge flux value
-
-#ifdef MPAS_OPENACC
-         !$acc parallel loop &
-         !$acc    present(btrVelocity, sshCell, sshEdge, cellsOnEdge) &
-         !$acc    private(cell1, cell2)
-#else
+         allocate(wctCell(nCellsAll))
          !$omp parallel
-         !$omp do schedule(runtime) private(cell1, cell2)
-#endif
-         do iEdge = 1, nEdgesAll
-            cell1 = cellsOnEdge(1,iEdge)
-            cell2 = cellsOnEdge(2,iEdge)
-            if (btrVelocity(iEdge) > 0.0_RKIND) then
-               sshEdge(iEdge) = sshCell(cell1)
-            elseif (btrVelocity(iEdge) < 0.0_RKIND) then
-               sshEdge(iEdge) = sshCell(cell2)
-            else
-               sshEdge(iEdge) = max(sshCell(cell1), sshCell(cell2)) 
-            end if
-         end do
-#ifndef MPAS_OPENACC
+         !$omp do schedule(runtime)
+         do iCell = 1, nCellsAll
+            wctCell(iCell) = sshCell(iCell) + bottomDepth(iCell)
+         end do ! cell loop for ssh
          !$omp end do
          !$omp end parallel
-#endif
+
+         ! Use upwind thickness as the edge flux value
+         call ocn_edge_var_from_cell_var_upwind( &
+                            btrVelocity, wctCell, wctEdge)
+         deallocate(wctCell)
 
       case default
          ! Should have been caught on init
@@ -771,11 +775,12 @@ contains
                              MPAS_LOG_CRIT)
 
       end select
-      call mpas_log_write('end sshEdge routine')
+      call mpas_timer_stop("wctEdge")
 
    !--------------------------------------------------------------------
 
-   end subroutine ocn_diagnostic_solve_sshEdge!}}}
+   end subroutine ocn_diagnostic_solve_wctEdge!}}}
+
 !***********************************************************************
 !
 !  routine ocn_diagnostic_solve_layerThicknessEdge
@@ -884,43 +889,8 @@ contains
 
       case (thickEdgeFluxUpwind)
          ! Use upwind thickness as the edge flux value
-
-#ifdef MPAS_OPENACC
-         !$acc parallel loop &
-         !$acc    present(normalVelocity, layerThickness, &
-         !$acc            minLevelEdgeBot, maxLevelEdgeTop, &
-         !$acc            layerThickEdgeFlux, cellsOnEdge) &
-         !$acc    private(k, kmin, kmax, cell1, cell2)
-#else
-         !$omp parallel
-         !$omp do schedule(runtime) private(k, kmin, kmax, cell1, cell2)
-#endif
-         do iEdge = 1, nEdgesAll
-            kmin = minLevelEdgeBot(iEdge)
-            kmax = maxLevelEdgeTop(iEdge)
-            cell1 = cellsOnEdge(1,iEdge)
-            cell2 = cellsOnEdge(2,iEdge)
-            do k=1,nVertLevels
-               ! initialize layerThicknessEdgeFlux to avoid divide by
-               ! zero and NaN problems.
-               layerThickEdgeFlux(k,iEdge) = -1.0e34_RKIND
-            end do
-            do k = kmin,kmax
-               if (normalVelocity(k,iEdge) > 0.0_RKIND) then
-                  layerThickEdgeFlux(k,iEdge) = layerThickness(k,cell1)
-               elseif (normalVelocity(k,iEdge) < 0.0_RKIND) then
-                  layerThickEdgeFlux(k,iEdge) = layerThickness(k,cell2)
-               else
-                  layerThickEdgeFlux(k,iEdge) = &
-                                      max(layerThickness(k,cell1), &
-                                          layerThickness(k,cell2))
-               end if
-            end do
-         end do
-#ifndef MPAS_OPENACC
-         !$omp end do
-         !$omp end parallel
-#endif
+         call ocn_edge_var_from_cell_var_upwind( &
+            normalVelocity, layerThickness, layerThickEdgeFlux)
 
       case (thickEdgeFluxConstant)
          ! Use linearized version H*u where H is constant in time
@@ -1029,6 +999,160 @@ contains
    !--------------------------------------------------------------------
 
    end subroutine ocn_diagnostic_solve_layerThicknessEdge!}}}
+
+!***********************************************************************
+!
+!  routine ocn_edge_var_from_cell_var_upwind_2d
+!
+!> \brief   Computes edge variable from upwind cell variable
+!> \author  Matt Turner
+!> \date    October 2020
+!> \details
+!
+!-----------------------------------------------------------------------
+
+   subroutine ocn_edge_var_from_cell_var_upwind_2d(&
+                   normalVelocity, cellVar, edgeVar)!{{{
+
+      !-----------------------------------------------------------------
+      ! input variables
+      !-----------------------------------------------------------------
+
+      real (kind=RKIND), dimension(:,:), intent(in) :: &
+         normalVelocity,  &!< [in] transport
+         cellVar           !< [in] layer thickness at cell center
+
+      !-----------------------------------------------------------------
+      ! output variables
+      !-----------------------------------------------------------------
+
+      real (kind=RKIND), dimension(:,:), intent(inout) :: &
+         edgeVar
+
+      !-----------------------------------------------------------------
+      ! local variables
+      !-----------------------------------------------------------------
+
+      integer :: &
+         iEdge, k,     &! edge and vertical loop indices
+         cell1, cell2, &! neighbor cell indices across an edge
+         kmin, kmax     ! min,max active vertical levels
+
+      ! End preamble
+      !-----------------------------------------------------------------
+      ! Begin code
+
+      ! Use upwind thickness as the edge flux value
+
+#ifdef MPAS_OPENACC
+      !$acc parallel loop &
+      !$acc    present(normalVelocity, layerThickness, &
+      !$acc            minLevelEdgeBot, maxLevelEdgeTop, &
+      !$acc            layerThickEdgeFlux, cellsOnEdge) &
+      !$acc    private(k, kmin, kmax, cell1, cell2)
+#else
+      !$omp parallel
+      !$omp do schedule(runtime) private(k, kmin, kmax, cell1, cell2)
+#endif
+      do iEdge = 1, nEdgesAll
+         kmin = minLevelEdgeBot(iEdge)
+         kmax = maxLevelEdgeTop(iEdge)
+         cell1 = cellsOnEdge(1,iEdge)
+         cell2 = cellsOnEdge(2,iEdge)
+         ! initialize layerThicknessEdgeFlux to avoid divide by
+         ! zero and NaN problems.
+         edgeVar(:,iEdge) = -1.0e34_RKIND
+         do k = kmin,kmax
+            if (normalVelocity(k,iEdge) > 0.0_RKIND) then
+               edgeVar(k,iEdge) = cellVar(k,cell1)
+            elseif (normalVelocity(k,iEdge) < 0.0_RKIND) then
+               edgeVar(k,iEdge) = cellVar(k,cell2)
+            else
+               edgeVar(k,iEdge) = max(cellVar(k,cell1), &
+                                      cellVar(k,cell2))
+            end if
+         end do
+      end do
+#ifndef MPAS_OPENACC
+      !$omp end do
+      !$omp end parallel
+#endif
+
+   !--------------------------------------------------------------------
+
+   end subroutine ocn_edge_var_from_cell_var_upwind_2d!}}}
+
+!***********************************************************************
+!
+!  routine ocn_edge_var_from_cell_var_upwind_1d
+!
+!> \brief   Computes edge variable from upwind cell variable
+!> \author  Matt Turner
+!> \date    October 2020
+!> \details
+!
+!-----------------------------------------------------------------------
+
+   subroutine ocn_edge_var_from_cell_var_upwind_1d(&
+                   btrVelocity, cellVar, edgeVar)!{{{
+
+      !-----------------------------------------------------------------
+      ! input variables
+      !-----------------------------------------------------------------
+
+      real (kind=RKIND), dimension(:), intent(in) :: &
+         btrVelocity,  &!< [in] transport
+         cellVar           !< [in] layer thickness at cell center
+
+      !-----------------------------------------------------------------
+      ! output variables
+      !-----------------------------------------------------------------
+
+      real (kind=RKIND), dimension(:), intent(inout) :: &
+         edgeVar
+
+      !-----------------------------------------------------------------
+      ! local variables
+      !-----------------------------------------------------------------
+
+      integer :: &
+         iEdge, k,     &! edge and vertical loop indices
+         cell1, cell2   ! neighbor cell indices across an edge
+
+      ! End preamble
+      !-----------------------------------------------------------------
+      ! Begin code
+
+      ! Use upwind thickness as the edge flux value
+
+#ifdef MPAS_OPENACC
+      !$acc parallel loop &
+      !$acc    present(btrVelocity, sshCell, sshEdge, cellsOnEdge) &
+      !$acc    private(cell1, cell2)
+#else
+      !$omp parallel
+      !$omp do schedule(runtime) private(cell1, cell2)
+#endif
+      do iEdge = 1, nEdgesAll
+         if ( maxLevelEdgeTop(iEdge) < 1 ) cycle
+         cell1 = cellsOnEdge(1,iEdge)
+         cell2 = cellsOnEdge(2,iEdge)
+         if (btrVelocity(iEdge) > 0.0_RKIND) then
+            edgeVar(iEdge) = cellVar(cell1)
+         elseif (btrVelocity(iEdge) < 0.0_RKIND) then
+            edgeVar(iEdge) = cellVar(cell2)
+         else
+            edgeVar(iEdge) = max(cellVar(cell1), cellVar(cell2))
+         end if
+      end do
+#ifndef MPAS_OPENACC
+      !$omp end do
+      !$omp end parallel
+#endif
+
+   !--------------------------------------------------------------------
+
+   end subroutine ocn_edge_var_from_cell_var_upwind_1d!}}}
 
 !***********************************************************************
 !
