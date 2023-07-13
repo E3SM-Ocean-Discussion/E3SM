@@ -1075,7 +1075,6 @@ module ocn_time_integration_split
                !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
                ! Barotropic subcycle: SSH PREDICTOR STEP
                !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-               call mpas_timer_start('ssh predictor')
 
                call mpas_pool_get_array(statePool, 'sshSubcycle', &
                                                     sshSubcycleCur, &
@@ -1186,12 +1185,10 @@ module ocn_time_integration_split
 
                ! a cell halo layer is now corrupted - decrement counter
                cellHaloComputeCounter = cellHaloComputeCounter - 1
-               call mpas_timer_stop('ssh predictor')
 
                !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
                ! Barotropic subcycle: VELOCITY CORRECTOR STEP
                !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-               call mpas_timer_start('velocity corrector')
 
                do BtrCorIter = 1, config_n_btr_cor_iter
                   uPerpTime = newBtrSubcycleTime
@@ -1330,13 +1327,11 @@ module ocn_time_integration_split
                      cellHaloComputeCounter = cellHaloComputeCounter-1
 
                end do !do BtrCorIter=1,config_n_btr_cor_iter
-               call mpas_timer_stop('velocity corrector')
 
                !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
                ! Barotropic subcycle: SSH CORRECTOR STEP
                !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
-               call mpas_timer_start('ssh corrector')
                if (config_btr_solve_SSH2) then
 
                   allocate(sshTemp(nCellsAll))
@@ -1465,7 +1460,6 @@ module ocn_time_integration_split
                   deallocate(sshTemp)
 
                endif ! config_btr_solve_SSH2
-               call mpas_timer_stop('ssh corrector')
 
                !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
                ! Barotropic subcycle: Accumulate running sums, advance

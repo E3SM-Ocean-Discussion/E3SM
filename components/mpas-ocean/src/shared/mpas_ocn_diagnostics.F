@@ -725,7 +725,6 @@ contains
       !-----------------------------------------------------------------
       ! Begin code
 
-      call mpas_timer_start("wctEdge")
       wctEdge(:) = -1.0e34_RKIND
       ! Compute edge flux based on option set on init
       select case (thickEdgeFluxChoice)
@@ -776,7 +775,6 @@ contains
                              MPAS_LOG_CRIT)
 
       end select
-      call mpas_timer_stop("wctEdge")
 
    !--------------------------------------------------------------------
 
