@@ -1056,6 +1056,7 @@ contains
       !$omp do schedule(runtime) private(k, kmin, kmax, cell1, cell2)
 #endif
       do iEdge = 1, nEdgesAll
+         if ( maxLevelEdgeTop(iEdge).eq.0 ) cycle
          kmin = minLevelEdgeBot(iEdge)
          kmax = maxLevelEdgeTop(iEdge)
          cell1 = cellsOnEdge(1,iEdge)
@@ -1135,9 +1136,9 @@ contains
       !$omp do schedule(runtime) private(cell1, cell2)
 #endif
       do iEdge = 1, nEdgesAll
-         if ( maxLevelEdgeTop(iEdge) < 1 ) cycle
-         cell1 = cellsOnEdge(1,iEdge)
-         cell2 = cellsOnEdge(2,iEdge)
+         if ( maxLevelEdgeTop(iEdge).eq.0 ) cycle
+         cell1 = cellsOnEdge(1, iEdge)
+         cell2 = cellsOnEdge(2, iEdge)
          if (btrVelocity(iEdge) > 0.0_RKIND) then
             edgeVar(iEdge) = cellVar(cell1)
          elseif (btrVelocity(iEdge) < 0.0_RKIND) then
