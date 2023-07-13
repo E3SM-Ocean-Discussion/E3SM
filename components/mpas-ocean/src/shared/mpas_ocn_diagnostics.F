@@ -730,8 +730,6 @@ contains
       select case (thickEdgeFluxChoice)
 
       case (thickEdgeFluxCenter)
-         allocate(sshEdge(nEdgesAll))
-         sshEdge(:) = -1.0e34_RKIND
          ! Use centered (mean) thickness as flux value
 
          ! Compute mean layer thickness at edge
@@ -739,19 +737,18 @@ contains
          !$acc parallel loop collapse(2) &
 #else
          !$omp parallel
-         !$omp do schedule(runtime)
+         !$omp do schedule(runtime) private (cell1, cell2)
 #endif
          do iEdge = 1, nEdgesAll
             cell1 = cellsOnEdge(1,iEdge)
             cell2 = cellsOnEdge(2,iEdge)
-            sshEdge(iEdge) = 0.5_RKIND*(sshCell(cell1) + sshCell(cell2))
-            wctEdge(iEdge) = sshEdge(iEdge) + bottomDepthEdge(iEdge)
+            wctEdge(iEdge) = 0.5_RKIND*(sshCell(cell1) + sshCell(cell2)) &
+                             + bottomDepthEdge(iEdge)
          end do
 #ifndef MPAS_OPENACC
          !$omp end do
          !$omp end parallel
 #endif
-         deallocate(sshEdge)
 
       case (thickEdgeFluxUpwind)
          allocate(wctCell(nCellsAll))
