@@ -198,7 +198,7 @@ module ocn_time_integration_split
       real (kind=RKIND), dimension(:), allocatable :: &
          btrvel_temp,      &
          sshTemp,          &
-         wctEdge,          &! flux thickness at edge
+         wctEdge,          &! flux water column thickness at edge
          bottomDepthEdge
 
       ! State Array Pointers
@@ -254,7 +254,6 @@ module ocn_time_integration_split
          sshTend                ! sea-surface height tendency
 
       real (kind=RKIND), dimension(:,:), pointer :: &
-         restingThickness,      &
          normalVelocityTend,    &! normal velocity tendency
          highFreqThicknessTend, &! thickness tendency for high-freq iter
          lowFreqDivergenceTend, &! thickness tendency for low freq
@@ -390,7 +389,6 @@ module ocn_time_integration_split
                                           lowFreqDivergenceTend)
 
       call mpas_pool_get_array(tracersPool, 'activeTracers', activeTracersNew, 2)
-      call mpas_pool_get_array(verticalMeshPool, 'restingThickness', restingThickness)
 
       allocate(bottomDepthEdge(nEdgesAll+1))
 
@@ -1115,10 +1113,10 @@ module ocn_time_integration_split
                !$omp parallel
                !$omp do schedule(runtime)
                do iEdge = 1, nEdgesAll
-                  btrvel_temp(iEdge) = (1.0-config_btr_gam1_velWt1) * &
-                               normalBarotropicVelocitySubcycleCur(iEdge) &
-                             +       config_btr_gam1_velWt1 *             &
-                               normalBarotropicVelocitySubcycleNew(iEdge)
+                  btrvel_temp(iEdge) = (1.0_RKIND - config_btr_gam1_velWt1) * &
+                                       normalBarotropicVelocitySubcycleCur(iEdge) + &
+                                       config_btr_gam1_velWt1 * &
+                                       normalBarotropicVelocitySubcycleNew(iEdge)
                end do
                !$omp end do
                !$omp end parallel
@@ -1378,9 +1376,9 @@ module ocn_time_integration_split
                   do iCell = 1, nCells
                      ! SSH is linear combination of SSHold and SSHnew
                      sshTemp(iCell) = (1-config_btr_gam2_SSHWt1)* &
-                                            sshSubcycleCur(iCell) &
-                                    +    config_btr_gam2_SSHWt1 * &
-                                            sshSubcycleNew(iCell)
+                                      sshSubcycleCur(iCell) + &
+                                      config_btr_gam2_SSHWt1 * &
+                                      sshSubcycleNew(iCell)
                   end do ! cell loop for ssh
                   !$omp end do
                   !$omp end parallel
@@ -1389,9 +1387,9 @@ module ocn_time_integration_split
                   !$omp do schedule(runtime)
                   do iEdge = 1, nEdgesAll
                      btrvel_temp(iEdge) = (1.0-config_btr_gam3_velWt2) * &
-                                  normalBarotropicVelocitySubcycleCur(iEdge) &
-                                +       config_btr_gam3_velWt2 *             &
-                                  normalBarotropicVelocitySubcycleNew(iEdge)
+                                          normalBarotropicVelocitySubcycleCur(iEdge) + &
+                                          config_btr_gam3_velWt2 * &
+                                          normalBarotropicVelocitySubcycleNew(iEdge)
                   end do
                   !$omp end do
                   !$omp end parallel
@@ -1430,9 +1428,9 @@ module ocn_time_integration_split
                   do iCell = 1, nCells
                      ! SSH is linear combination of SSHold and SSHnew
                      sshTemp(iCell) = (1-config_btr_gam2_SSHWt1)* &
-                                            sshSubcycleCur(iCell) &
-                                    +    config_btr_gam2_SSHWt1 * &
-                                            sshSubcycleNew(iCell)
+                                      sshSubcycleCur(iCell) + &
+                                      config_btr_gam2_SSHWt1 * &
+                                      sshSubcycleNew(iCell)
                   end do ! cell loop for ssh
                   !$omp end do
                   !$omp end parallel
@@ -1608,7 +1606,7 @@ module ocn_time_integration_split
                   cell1 = cellsOnEdge(1,iEdge)
                   cell2 = cellsOnEdge(2,iEdge)
                   do k=1,nVertLevels
-                     ! initialize layerThicknessEdgeFlux to avoid divide by
+                     ! initialize layerThickEdgeFlux to avoid divide by
                      ! zero and NaN problems.
                      layerThickEdgeFlux(k,iEdge) = -1.0e34_RKIND
                   end do

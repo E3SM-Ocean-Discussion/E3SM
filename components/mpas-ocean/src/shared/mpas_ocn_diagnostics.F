@@ -673,13 +673,11 @@ contains
 !  routine ocn_diagnostic_solve_wctEdge
 !
 !> \brief   Computes layer thickness at edge
-!> \author  Matt Turner
-!> \date    October 2020
+!> \author  Carolyn Begeman
+!> \date    July 2023
 !> \details
-!>  This routine computes the diagnostic variables layerThickEdgeFlux
-!>  and layerThickEdgeMean. The Mean is a simple mean across the edge
-!>  but the Flux value can either be the mean or an upwind value,
-!>  depending on user input.
+!>  This routine computes the water column thickness on edges, wctEdge, which 
+!>  can either be the mean or an upwind value, depending on user input.
 !
 !-----------------------------------------------------------------------
 
@@ -704,7 +702,7 @@ contains
 
       ! Outputs are the shared variables from diagnostic_variables:
       real (kind=RKIND), dimension(:), intent(inout) :: &
-         wctEdge !< [out] wct on edge
+         wctEdge !< [out] water column thickness on edge
 
       !-----------------------------------------------------------------
       ! local variables
@@ -729,7 +727,9 @@ contains
 
          ! Compute mean layer thickness at edge
 #ifdef MPAS_OPENACC
-         !$acc parallel loop collapse(2) &
+         !$acc parallel loop &
+         !$acc    present(bottomDepthEdge, sshCell, sshEdge, cellsOnEdge, wctEdge) &
+         !$acc    private(cell1, cell2)
 #else
          !$omp parallel
          !$omp do schedule(runtime) private (cell1, cell2)
@@ -759,14 +759,14 @@ contains
          ! Use upwind thickness as the edge flux value
 #ifdef MPAS_OPENACC
          !$acc parallel loop &
-         !$acc    present(btrVelocity, sshCell, sshEdge, cellsOnEdge) &
+         !$acc    present(btrVelocity, sshCell, sshEdge, cellsOnEdge, maxLevelEdgeTop, wctCell, wctEdge) &
          !$acc    private(cell1, cell2)
 #else
          !$omp parallel
          !$omp do schedule(runtime) private(cell1, cell2)
 #endif
          do iEdge = 1, nEdgesAll
-            if ( maxLevelEdgeTop(iEdge).eq.0 ) cycle
+            if ( maxLevelEdgeTop(iEdge) == 0 ) cycle
             cell1 = cellsOnEdge(1, iEdge)
             cell2 = cellsOnEdge(2, iEdge)
             if (btrVelocity(iEdge) > 0.0_RKIND) then
