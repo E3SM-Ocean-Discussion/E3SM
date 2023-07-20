@@ -32,6 +32,7 @@ OBJS = mpas_kind_types.o \
        mpas_domain_routines.o \
        mpas_field_routines.o \
        mpas_pool_routines.o \
+       mpas_smart_routines.o \
        xml_stream_parser.o \
        regex_matching.o \
        mpas_field_accessor.o \
@@ -109,6 +110,11 @@ mpas_stream_manager.o: mpas_io_streams.o mpas_timekeeping.o mpas_derived_types.o
 mpas_forcing.o: mpas_derived_types.o mpas_timekeeping.o mpas_stream_manager.o mpas_log.o mpas_io_units.o
 
 mpas_c_interfacing.o:
+
+mpas_smart_routines.o: mpas_derived_types.o mpas_kind_types.o mpas_pool_routines.o mpas_field_routines.o mpas_threading.o mpas_log.o \
+                         $(SMARTREDIS_PATH)/../src/fortran/fortran_c_interop.F90 \
+                         $(SMARTREDIS_PATH)/../src/fortran/dataset.F90 \
+                         $(SMARTREDIS_PATH)/../src/fortran/client.F90
 
 xml_stream_parser.o: xml_stream_parser.c
 	$(CC) $(CFLAGS) $(CPPFLAGS) $(CPPINCLUDES) -I../external/ezxml -c xml_stream_parser.c

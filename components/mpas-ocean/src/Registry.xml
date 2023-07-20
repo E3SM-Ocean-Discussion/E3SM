@@ -164,6 +164,10 @@
 					possible_values="Any positive integer value greater than 0."
 					mode="forward;analysis;init"
 		/>
+		<nml_option name="config_use_smartsim" type="logical" default_value=".false." units="unitless"
+					description="Logical flag determining whether a smartredis client should be initialized. Relies on use of the SMARTSIM flag in the model build"
+					possible_values=".true. or .false."
+		/>
 	</nml_record>
 	<nml_record name="decomposition" mode="forward;analysis;init">
 		<nml_option name="config_num_halos" type="integer" default_value="3"
@@ -1871,6 +1875,17 @@
 			<var name="RiTopOfCell"/>
 			<var name="vertViscTopOfCell"/>
 			<var name="vertDiffTopOfCell"/>
+		</stream>
+		<stream name="smartsend"
+				type="output"
+				filename_template="output/smartsend.nc"
+				filename_interval="00-01-00_00:00:00"
+				reference_time="0001-01-01_00:00:00"
+				clobber_mode="truncate"
+				output_interval="0000_01:00:00"
+				runtime_format="single_file"
+				mode="forward">
+			<var name="gmBolusKappa"/>
 		</stream>
 
 		<stream name="restart"

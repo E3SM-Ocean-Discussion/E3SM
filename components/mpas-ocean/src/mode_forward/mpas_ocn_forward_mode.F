@@ -30,6 +30,7 @@ module ocn_forward_mode
    use mpas_log
    use mpas_decomp
    use mpas_log
+   use mpas_smart_routines
 
    use ocn_analysis_driver
    use ocn_init_routines
@@ -96,6 +97,9 @@ module ocn_forward_mode
    use ocn_constants
    use ocn_config
 
+   use smartredis_client, only: client_type
+   use smartredis_dataset, only: dataset_type
+
    implicit none
    private
 
@@ -144,12 +148,33 @@ module ocn_forward_mode
       !-----------------------------------------------------------------
 
       integer :: err_tmp    ! local error codes from subroutine calls
+      integer(kind=enum_kind) :: err_client
+      character(len=100) :: log_string
+      character(len=StrKIND) :: datasetName, configName, fieldName
+      character(len=*), parameter :: script_key = 'init_script'
+      character(len=*), parameter :: script_file = &
+         'data_processing_script.txt'
+      character(len=255) :: script_in_key, script_out_key
+
+      character(len=255), dimension(1) :: inputs, outputs
 
       real (kind=RKIND) :: &
          dt,               &! time step in seconds
          maxDensity,       &! local max of mesh density
          maxDensity_global  ! global max of mesh density
 
+      ! Arrays to send/receive from orchestrator
+      real (kind=RKIND) :: &
+         sendArrayReal0d, recvArrayReal0d
+      real (kind=RKIND), dimension(:), allocatable :: &
+         sendArrayReal1d, recvArrayReal1d
+      real (kind=RKIND), dimension(:,:), allocatable :: &
+         sendArrayReal2d, recvArrayReal2d
+      real (kind=RKIND), dimension(:,:,:), allocatable :: &
+         sendArrayReal3d, recvArrayReal3d
+      real (kind=RKIND), dimension(:,:,:,:), allocatable :: &
+         sendArrayReal4d, recvArrayReal4d
+      real (kind=RKIND) :: meta_scalar
       real (kind=RKIND), dimension(:), pointer :: &
          meshDensity        ! pointer to mesh density array
 
@@ -173,6 +198,9 @@ module ocn_forward_mode
          alarmTimeStep   ! alarm interval in time manager form
 
       character (len=StrKIND) :: units
+      type(client_type) :: client
+      type(dataset_type) :: dataset
+      logical :: is_error
 
       ! End preamble
       !-------------
@@ -202,6 +230,96 @@ module ocn_forward_mode
       ! Extract block structure from domain
       ! Currently only support one block per task
       block => domain % blocklist
+
+      if (config_use_smartsim) then
+         call mpas_smart_client_init(client, ierr)
+         if (ierr /= 0) then
+            call mpas_log_write('Error initializing smartredis client', &
+                                MPAS_LOG_CRIT)
+         endif
+
+         ! ---- Example: Send config option to client ----
+         ! configName = 'config_mom_del2'
+         ! call mpas_smart_config_send(domain, configName, ierr)
+         ! if (ierr /= 0) then
+         !    call mpas_log_write('Error: Smartsim put config at initialization')
+         ! endif
+
+         allocate(sendArrayReal1d(1), recvArrayReal1d(1))
+         allocate(sendArrayReal2d(1,1), recvArrayReal2d(1,1))
+         sendArrayReal1d(:) = 2.0_RKIND
+         recvArrayReal1d(:) = 0.0_RKIND
+         sendArrayReal2d(1,1) = 2.0_RKIND
+         recvArrayReal2d(1,1) = 0.0_RKIND
+         script_in_key = 'init_send_script'
+         script_out_key = 'init_recv_script'
+         inputs(1) = script_in_key
+         outputs(1) = script_out_key
+         allocate(sendArrayReal4d(1,1,28,28))
+         call random_number(sendArrayReal4d)
+         !sendArrayReal4d(:,:,:,:) = 2.0_RKIND
+         err_client = client%put_tensor(script_in_key, sendArrayReal4d, shape(sendArrayReal4d))
+         if (err_client /= SRNoError) then
+            write(log_string,*) 'Error put tensor for script:',err_client
+            call mpas_log_write(log_string)
+         else
+            call mpas_log_write('Put tensor for script set')
+         endif
+         !err_client = client%set_script_from_file(script_key, "CPU", script_file)
+         !if (err_client /= SRNoError) then
+         !   write(log_string,*) 'Error setting client script:',err_client
+         !   call mpas_log_write(log_string)
+         !else
+         !   call mpas_log_write('Client script set')
+         !endif
+         !err_client = client%run_script(script_key, "pre_process", inputs, outputs)
+         !if (err_client /= SRNoError) then
+         !   write(log_string,*) 'Error running script pre_process:',err_client
+         !   call mpas_log_write(log_string)
+         !   is_error = client%SR_error_parser(err_client)
+         !else
+         !   call mpas_log_write('Pre_process script run')
+         !endif
+         !err_client = client%run_script(script_key, "post_process", inputs, outputs)
+         !if (err_client /= SRNoError) then
+         !   write(log_string,*) 'Error running script post_process:',err_client
+         !   call mpas_log_write(log_string)
+         !   is_error = client%SR_error_parser(err_client)
+         !else
+         !   call mpas_log_write('Post_process script run')
+         !endif
+
+         datasetName = 'example_fortran_dataset'
+         call mpas_smart_dataset_init(datasetName, dataset, ierr)
+         fieldName = 'ssh'
+
+         ! Add a tensor to the dataset and verify that we can retrieve it
+         call mpas_smart_dataset_add_field(dataset, domain, fieldName, ierr)
+         if (ierr /= 0) then
+            call mpas_log_write('dataset%add_tensor failed')
+         endif
+         call mpas_smart_dataset_recv_field(dataset, domain, fieldName, ierr)
+         if (ierr /= 0) then
+            call mpas_log_write('dataset%unpack_dataset_tensor failed')
+         endif
+         configName = 'config_mom_del2'
+         call mpas_smart_dataset_config_send(dataset, domain, configName, ierr)
+         if (ierr /= 0) then
+            call mpas_log_write('dataset%add_meta_scalar failed')
+         endif
+         call mpas_smart_dataset_config_recv(dataset, domain, configName, ierr)
+         if (ierr /= 0) then
+            call mpas_log_write('dataset%get_meta_scalar failed')
+         endif
+         call mpas_smart_dataset_put(dataset, ierr)
+         if (err_client .ne. SRNoError) then
+            write(log_string,*) 'client%put_dataset failed:',err_client
+            call mpas_log_write(log_string)
+         else
+            call mpas_log_write('Dataset put')
+         endif
+
+      endif
 
       !-----------------------------------------------------------------
       ! Initialize data from external file input
@@ -509,6 +627,28 @@ module ocn_forward_mode
               MPAS_LOG_ERR, masterOnly=.true., flushNow=.true.)
          return
       endif
+      !call mpas_timer_start('smartsend_init')
+
+      !! Since we use diagnostics_variables module, we do not need to fetch variables from pools
+      !call mpas_log_write('Start smartsend at init')
+      !err_client = client%put_tensor("init_send_array", sendArrayReal1d, shape(sendArrayReal1d))
+      !if (err_client /= SRNoError) then
+      !   write(log_string,*) 'client%put_tensor failed with err:',err_client
+      !   call mpas_log_write(log_string)
+      !else
+      !   call mpas_log_write('client%put_tensor successful')!TODO test pointer
+      !endif
+      !err_client = client%unpack_tensor("init_recv_array", recvArrayReal0d, shape(recvArrayReal0d))
+      !if (err_client /= SRNoError) then
+      !   write(log_string,*) 'client%unpack_tensor failed with err:',err_client
+      !   call mpas_log_write(log_string)
+      !else
+      !   write(log_string,*) 'client%unpack_tensor succeeded:',recvArrayReal0d
+      !   call mpas_log_write(log_string)
+      !endif
+      !call mpas_log_write('End smartsend at init')
+
+      !call mpas_timer_stop('smartsend_init')
 
    !--------------------------------------------------------------------
 
@@ -611,6 +751,11 @@ module ocn_forward_mode
       type (mpas_pool_type), pointer :: scratchPool
 
       type (MPAS_timeInterval_type) :: timeStep
+
+      logical :: validField
+      logical :: isActive
+      character(len=StrKind) :: fieldName
+      character(len=StrKIND) :: log_string
 
       ierr = 0
 
@@ -782,6 +927,32 @@ module ocn_forward_mode
          call mpas_stream_mgr_write(domain % streamManager, streamID='restart', ierr=ierr)
          call mpas_timer_stop('io_write')
 
+         !Note: these commands will get the field and not field%array
+         ! TODO LATER: Move variable names into a stream and ensure that the array dimensions of 
+         ! the variable being sent to the database node match that of the source array
+         ! Loop through variable names in stream and get from allFields rather
+         ! than hard-code variables in diagnosticsPool
+         call mpas_timer_start('smartsim i/o')
+         call MPAS_stream_mgr_begin_iteration(domain%streamManager, &
+                                              'smartsend', ierr)
+         do while (MPAS_stream_mgr_get_next_field(domain%streamManager, &
+                               'smartsend', fieldName))
+            call mpas_smart_field_send(domain, fieldName, ierr)
+            if (ierr /= 0.0_RKIND) then
+               call mpas_log_write('MPAS I/O error in smartsend stream')
+            endif
+         end do
+         call MPAS_stream_mgr_begin_iteration(domain%streamManager, &
+                                              'smartrecv', ierr)
+         do while (MPAS_stream_mgr_get_next_field(domain%streamManager, &
+                               'smartrecv', fieldName))
+            call mpas_smart_field_recv(domain, fieldName, ierr)
+            if (ierr /= 0.0_RKIND) then
+               call mpas_log_write('MPAS I/O error in smartrecv stream')
+            endif
+         end do
+         call mpas_timer_stop('smartsim i/o')
+
 
          call mpas_timer_start('reset_io_alarms')
          call mpas_stream_mgr_reset_alarms(domain % streamManager, streamID='restart', ierr=ierr)
@@ -848,7 +1019,7 @@ module ocn_forward_mode
    function ocn_forward_mode_finalize(domain) result(iErr)!{{{
 
       type (domain_type), intent(inout) :: domain
-
+      character(len=100) :: log_string
       integer :: ierr
 
       ! destroy the ocean mesh structure
