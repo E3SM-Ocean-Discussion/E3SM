@@ -64,8 +64,9 @@ module ocn_vmix_cvmix
    type(cvmix_shear_params_type)  :: cvmix_shear_params
    type(cvmix_tidal_params_type)  :: cvmix_tidal_params
 
-   logical :: lnonzero_surf_nonlocal, cvmixOn, cvmixConvectionOn, cvmixKPPOn
-   real (kind=RKIND) :: backgroundVisc, backgroundDiff
+   logical :: cvmixOn, cvmixConvectionOn, cvmixKPPOn, thinFilmViscOn
+   real (kind=RKIND) :: backgroundVisc, backgroundDiff, thinFilmViscConstant, hMin, hMax, hRampFactor
+   real (kind=RKIND) :: thinFilmViscConstant, hMin, hMax, hRampFactor
 
    integer :: cvmixBackgroundChoice        ! user choice of cvmix background scheme
 
@@ -156,14 +157,14 @@ contains
       integer, dimension(:,:), pointer :: edgesOnCell, cellsOnEdge, cellsOnCell, cellMask
 
       integer :: k, i, iCell, iNeighbor, timeLevel, kIndexOBL, kav, iEdge, nCells
-      integer :: edgeCount, nEdges, topIndex, nsmooth, kpp_stage
+      integer :: edgeCount, nEdges, topIndex, nsmooth, num_levels, kpp_stage
       integer, pointer :: nVertLevels, nVertLevelsP1
       integer, dimension(:), pointer :: nCellsArray
       integer, dimension(:), allocatable :: surfaceAverageIndex
 
       real (kind=RKIND) :: x, bulkRichardsonNumberStop, sfc_layer_depth
       real (kind=RKIND) :: normalVelocityAv, delU2, areaSum, blTemp,tangentialVelocityAv
-      real (kind=RKIND) :: sigma
+      real (kind=RKIND) :: sigma, columnThickness
       real (kind=RKIND), dimension(:), allocatable :: Nsqr_iface, turbulentScalarVelocityScale, &
                                                       deltaVelocitySquared, normalVelocitySum, &
                                                       potentialDensitySum, RiTemp,              &
@@ -172,7 +173,7 @@ contains
       real (kind=RKIND), dimension(:), allocatable, target :: RiSmoothed, BVFSmoothed, OBLDepths, interfaceForcings
       logical :: bulkRichardsonFlag
 
-      real (kind=RKIND) :: langmuirEnhancementFactor, alphaAngle
+      real (kind=RKIND) :: langmuirEnhancementFactor, alphaAngle, vertViscMin
 
       real(kind=RKIND), dimension(:,:), pointer :: stokesDriftZonalWavenumber
       real(kind=RKIND), dimension(:,:), pointer :: stokesDriftMeridionalWavenumber
@@ -319,6 +320,38 @@ contains
       allocate(deltaVelocitySquared(nVertLevels))
       allocate(layerThicknessSum(nVertLevels))
       allocate(layerThicknessEdgeSum(nVertLevels))
+
+      if (thinFilmViscOn) then
+         columnThickness = 0.0_RKIND
+
+         !$omp parallel
+         !$omp do schedule(runtime) private(k, num_levels, columnThickness, vertViscMin)
+         do iCell = 1, nCells
+            do k = minLevelCell(iCell), maxLevelCell(iCell)
+               columnThickness = columnThickness + layerThickness(k, iCell)
+            end do
+
+            num_levels = maxLevelCell(iCell) - minLevelCell(iCell) + 1
+            if (columnThickness < hMin * num_levels) then
+               if (thinFilmViscOn) then
+                 if (thinFilmRampOn) then
+                   vertViscMin = thinFilmViscConstant * tanh(hRampFactor * &
+                        (columnThickness - hMin * num_levels)/(hMin * num_levels)))
+                 else
+                   vertViscMin = thinFilmViscConstant
+                 endif
+               endif
+               do k = 1, nVertLevelsP1
+                  vertViscTopOfCell(k, iCell) = max(vertViscTopOfCell(k, iCell), &
+                                                    vertViscMin)
+               end do
+               end do
+            end if
+            columnThickness = 0.0_RKIND
+         end do
+         !$omp end do
+         !$omp end parallel
+      endif
 
       do k = 1, nVertLevels
          Nsqr_iface(k) = 0.0_RKIND
@@ -1115,6 +1148,18 @@ contains
                lenhanced_diff = config_cvmix_kpp_use_enhanced_diff)
       endif
 
+      thinFilmViscOn = config_use_thin_film_viscosity
+      thinFilmRampOn = config_zero_drying_velocity_ramp
+      if (thinFilmViscOn) then
+         thinFilmViscConstant = config_thin_film_viscosity_constant
+         if (thinFilmRampOn) then
+            hMin = config_zero_drying_velocity_ramp_hmin
+            hMax = config_zero_drying_velocity_ramp_hmax
+            hRampFactor = config_zero_drying_velocity_ramp_factor
+         else
+            hMin = config_drying_min_cell_height
+         endif
+      endif
 
    !--------------------------------------------------------------------
 
