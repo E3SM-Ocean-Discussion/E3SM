@@ -1345,7 +1345,7 @@ contains
     integer(in)              :: kArea        ! index of area field in aVect
     integer(in)              :: ko,ki  ! fraction indices
     integer(in)              :: lSize        ! size of aVect
-    real(r8)                 :: ca_i,ca_o  ! area of a grid cell
+    real(r8)                 :: ca_i,ca_o,ca_c  ! area of a grid cell
     logical,save             :: first_time    = .true.
     logical,save             :: flds_wiso_ocn = .false.
 
@@ -1391,13 +1391,14 @@ contains
        do n=1,lSize
           ca_o =  dom_o%data%rAttr(kArea,n) * frac_o%rAttr(ko,n)
           ca_i =  dom_o%data%rAttr(kArea,n) * frac_o%rAttr(ki,n)
+          ca_c =  dom_o%data%rAttr(kArea,n) !DC area including ice-shelf cavities
           nf = f_area; budg_dataL(nf,ic,ip) = budg_dataL(nf,ic,ip) + ca_o
           nf = f_wfrz;  budg_dataL(nf,ic,ip) = budg_dataL(nf,ic,ip) - (ca_o+ca_i)*max(0.0_r8,o2x_o%rAttr(index_o2x_Fioo_frazil,n))
           nf = f_hfrz;  budg_dataL(nf,ic,ip) = budg_dataL(nf,ic,ip) + (ca_o+ca_i)*max(0.0_r8,o2x_o%rAttr(index_o2x_Fioo_q,n))
           nf = f_hh2ot; budg_dataL(nf,ic,ip) = budg_dataL(nf,ic,ip) + (ca_o+ca_i)*o2x_o%rAttr(index_o2x_Faoo_h2otemp,n)
 !DC do we need only ca_o, if use P above?
 !          nf = f_wism;  budg_dataL(nf,ic,ip) = budg_dataL(nf,ic,ip) + (ca_o+ca_i)*o2x_o%rAttr(index_o2x_Foxo_ismw,n) ! gives 0, different scaling?
-          nf = f_wism;  budg_dataL(nf,ic,ip) = budg_dataL(nf,ic,ip) + o2x_o%rAttr(index_o2x_Foxo_ismw,n) ! gives values orders of magnitude too high
+          nf = f_wism;  budg_dataL(nf,ic,ip) = budg_dataL(nf,ic,ip) + ca_c*o2x_o%rAttr(index_o2x_Foxo_ismw,n) ! think this is right scaling
           nf = f_wrrof; budg_dataL(nf,ic,ip) = budg_dataL(nf,ic,ip) - (ca_o+ca_i)*o2x_o%rAttr(index_o2x_Foxo_rrofl,n)
           nf = f_wriof; budg_dataL(nf,ic,ip) = budg_dataL(nf,ic,ip) - (ca_o+ca_i)*o2x_o%rAttr(index_o2x_Foxo_rrofi,n)
        end do
