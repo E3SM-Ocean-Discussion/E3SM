@@ -2694,7 +2694,10 @@ contains
                                                avgOceanSurfaceDOCSemiLabile, &
                                                avgOceanSurfaceFeParticulate, &
                                                avgOceanSurfaceFeDissolved, &
-                                               ssh
+                                               ssh, &
+                                               landIceFreshwaterFlux, &
+                                               removedRiverRunoffFlux, &
+                                               removedIceRunoffFlux
 
    real (kind=RKIND), dimension(:,:), pointer :: avgTracersSurfaceValue, avgSurfaceVelocity, &
                                                  avgSSHGradient, avgOceanSurfacePhytoC, &
@@ -2703,6 +2706,7 @@ contains
    real (kind=RKIND) :: surfaceFreezingTemp
 
    logical, pointer :: frazilIceActive,          &
+                       config_remove_AIS_coupler_runoff, &
                        config_use_ecosysTracers, &
                        config_use_DMSTracers,    &
                        config_use_MacroMoleculesTracers,  &
@@ -2719,6 +2723,7 @@ contains
    call mpas_pool_get_package(domain % packages, 'frazilIceActive', frazilIceActive)
    call mpas_pool_get_config(domain % configs, 'config_use_ecosysTracers', config_use_ecosysTracers)
    call mpas_pool_get_config(domain % configs, 'config_land_ice_flux_mode', config_land_ice_flux_mode)
+   call mpas_pool_get_config(domain % configs, 'config_remove_AIS_coupler_runoff', config_remove_AIS_coupler_runoff)
    call mpas_pool_get_config(domain % configs, 'config_use_DMSTracers', config_use_DMSTracers)
    call mpas_pool_get_config(domain % configs, 'config_use_MacroMoleculesTracers', config_use_MacroMoleculesTracers)
    call mpas_pool_get_config(domain % configs, 'config_use_ecosysTracers_sea_ice_coupling',  &
@@ -2760,6 +2765,15 @@ contains
         call mpas_pool_get_array(forcingPool, 'frazilSurfacePressure', frazilSurfacePressure)
         call mpas_pool_get_array(statePool, 'accumulatedFrazilIceMass', accumulatedFrazilIceMass, 1)
      end if
+
+     !DC Cryo fields , 0 when data
+     if (config_land_ice_flux_mode == 'standalone' .or. 'data') then
+        call mpas_pool_get_array(forcingPool, 'landIceFreshwaterFlux', landIceFreshwaterFlux)
+     endif
+     if (config_remove_AIS_coupler_runoff) then
+        call mpas_pool_get_array(forcingPool, 'removedRiverRunoffFlux', removedRiverRunoffFlux)
+        call mpas_pool_get_array(forcingPool, 'removedIceRunoffFlux', removedIceRunoffFlux)
+     endif
 
      ! BGC fields
      if (config_use_ecosysTracers) then
@@ -2811,6 +2825,15 @@ contains
        o2x_o % rAttr(index_o2x_So_dhdy, n) = avgSSHGradient(index_avgMeridionalSSHGradient, i)
 
        o2x_o % rAttr(index_o2x_Faoo_h2otemp, n) = avgTotalFreshWaterTemperatureFlux(i) * rho_sw * cp_sw
+
+!DC landIceFreshwaterFlux seems to be 0 when data
+       if (config_land_ice_flux_mode == 'standalone' .or. 'data') then
+          o2x_o % rAttr(index_o2x_Foxo_ismw, n)  = landIceFreshwaterFlux(i)
+       endif
+       if (config_remove_AIS_coupler_runoff) then
+          o2x_o % rAttr(index_o2x_Foxo_rrofl, n) = removedRiverRunoffFlux(i)
+          o2x_o % rAttr(index_o2x_Foxo_rrofi, n) = removedIceRunoffFlux(i)
+       endif
 
        if ( frazilIceActive ) then
           ! negative when frazil ice can be melted
@@ -3590,6 +3613,7 @@ contains
         endif
 
         if ( landIceFreshwaterFluxField % isActive ) then
+!DC is this ok with proposed implementation? think so since different coupling field
            !landIceFreshwaterFlux(i) = x2o_om(n, index_x2o_Fogx_qicelo)
         end if
         if ( landIceHeatFluxField % isActive ) then
@@ -3984,6 +4008,7 @@ contains
       real (kind=RKIND) :: surfaceFreezingTemp
    
       logical, pointer :: frazilIceActive,          &
+                           config_remove_AIS_coupler_runoff, &
                            config_use_ecosysTracers, &
                            config_use_DMSTracers,    &
                            config_use_MacroMoleculesTracers,  &
@@ -4000,6 +4025,7 @@ contains
       call mpas_pool_get_package(domain % packages, 'frazilIceActive', frazilIceActive)
       call mpas_pool_get_config(domain % configs, 'config_use_ecosysTracers', config_use_ecosysTracers)
       call mpas_pool_get_config(domain % configs, 'config_land_ice_flux_mode', config_land_ice_flux_mode)
+      call mpas_pool_get_config(domain % configs, 'config_remove_AIS_coupler_runoff', config_remove_AIS_coupler_runoff)
       call mpas_pool_get_config(domain % configs, 'config_use_DMSTracers', config_use_DMSTracers)
       call mpas_pool_get_config(domain % configs, 'config_use_MacroMoleculesTracers', config_use_MacroMoleculesTracers)
       call mpas_pool_get_config(domain % configs, 'config_use_ecosysTracers_sea_ice_coupling',  &
@@ -4041,6 +4067,14 @@ contains
             call mpas_pool_get_array(forcingPool, 'frazilSurfacePressure', frazilSurfacePressure)
             call mpas_pool_get_array(statePool, 'accumulatedFrazilIceMass', accumulatedFrazilIceMass, 1)
          end if
+
+        if (config_land_ice_flux_mode == 'standalone' .or. 'data') then
+           call mpas_pool_get_array(forcingPool, 'landIceFreshwaterFlux', landIceFreshwaterFlux)
+        endif
+        if (config_remove_AIS_coupler_runoff) then
+           call mpas_pool_get_array(forcingPool, 'removedRiverRunoffFlux', removedRiverRunoffFlux)
+           call mpas_pool_get_array(forcingPool, 'removedIceRunoffFlux', removedIceRunoffFlux)
+        endif
    
          ! BGC fields
          if (config_use_ecosysTracers) then
@@ -4092,7 +4126,16 @@ contains
             o2x_om(n, index_o2x_So_dhdy) = avgSSHGradient(index_avgMeridionalSSHGradient, i)
    
             o2x_om(n, index_o2x_Faoo_h2otemp) = avgTotalFreshWaterTemperatureFlux(i) * rho_sw * cp_sw
-   
+
+!DC, blindly following pattern
+            if (config_land_ice_flux_mode == 'standalone' .or. 'data') then
+               o2x_om(n, index_o2x_Foxo_ismw)  = landIceFreshwaterFlux(i)
+            endif
+            if (config_remove_AIS_coupler_runoff) then
+               o2x_om(n, index_o2x_Foxo_rrofl) = removedRiverRunoffFlux(i)
+               o2x_om(n, index_o2x_Foxo_rrofi) = removedIceRunoffFlux(i)
+            endif
+
             if ( frazilIceActive ) then
                ! negative when frazil ice can be melted
                keepFrazil = .true.
