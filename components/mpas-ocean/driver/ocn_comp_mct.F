@@ -2696,6 +2696,7 @@ contains
                                                avgOceanSurfaceFeDissolved, &
                                                ssh, &
                                                landIceFreshwaterFlux, &
+                                               dataLandIceFreshwaterFlux, &
                                                removedRiverRunoffFlux, &
                                                removedIceRunoffFlux
 
@@ -2766,9 +2767,12 @@ contains
         call mpas_pool_get_array(statePool, 'accumulatedFrazilIceMass', accumulatedFrazilIceMass, 1)
      end if
 
-     !DC Cryo fields , 0 when data
-     if (config_land_ice_flux_mode == 'standalone' .or. 'data') then
+     !DC Cryo fields
+     if (config_land_ice_flux_mode == 'standalone') then
         call mpas_pool_get_array(forcingPool, 'landIceFreshwaterFlux', landIceFreshwaterFlux)
+     endif
+     if (config_land_ice_flux_mode == 'data') then
+        call mpas_pool_get_array(forcingPool, 'dataLandIceFreshwaterFlux', dataLandIceFreshwaterFlux)
      endif
      if (config_remove_AIS_coupler_runoff) then
         call mpas_pool_get_array(forcingPool, 'removedRiverRunoffFlux', removedRiverRunoffFlux)
@@ -2826,9 +2830,12 @@ contains
 
        o2x_o % rAttr(index_o2x_Faoo_h2otemp, n) = avgTotalFreshWaterTemperatureFlux(i) * rho_sw * cp_sw
 
-!DC landIceFreshwaterFlux seems to be 0 when data
-       if (config_land_ice_flux_mode == 'standalone' .or. 'data') then
+!DC
+       if (config_land_ice_flux_mode == 'standalone') then
           o2x_o % rAttr(index_o2x_Foxo_ismw, n)  = landIceFreshwaterFlux(i)
+       endif
+       if (config_land_ice_flux_mode == 'data') then
+          o2x_o % rAttr(index_o2x_Foxo_ismw, n)  = dataLandIceFreshwaterFlux(i)
        endif
        if (config_remove_AIS_coupler_runoff) then
           o2x_o % rAttr(index_o2x_Foxo_rrofl, n) = removedRiverRunoffFlux(i)
