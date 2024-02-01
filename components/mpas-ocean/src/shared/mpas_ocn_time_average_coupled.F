@@ -53,7 +53,9 @@ module ocn_time_average_coupled
         real (kind=RKIND), dimension(:,:), pointer :: avgTracersSurfaceValue, avgSurfaceVelocity, avgSSHGradient, &
                                                       avgLandIceBoundaryLayerTracers, avgLandIceTracerTransferVelocities
 
-        real (kind=RKIND), dimension(:), pointer :: avgEffectiveDensityInLandIce, avgTotalFreshWaterTemperatureFlux
+        real (kind=RKIND), dimension(:), pointer :: avgEffectiveDensityInLandIce, avgTotalFreshWaterTemperatureFlux, &
+                                                    avgLandIceFreshwaterFlux, &
+                                                    avgRemovedRiverRunoffFlux, avgRemovedIceRunoffFlux
 
         integer :: iCell
         integer, pointer :: nAccumulatedCoupled, nCells
@@ -111,6 +113,33 @@ module ocn_time_average_coupled
               avgLandIceBoundaryLayerTracers(:, iCell) = 0.0_RKIND
               avgLandIceTracerTransferVelocities(:, iCell) = 0.0_RKIND
               avgEffectiveDensityInLandIce(iCell) = 0.0_RKIND
+           end do
+           !$omp end do
+           !$omp end parallel
+        end if
+
+        ! Set up polar fields if necessary
+        if(trim(config_land_ice_flux_mode)=='standalone' .or. 'data') then
+           call mpas_pool_get_array(forcingPool, 'avgLandIceFreshwaterFlux', avgLandIceFreshwaterFlux)
+
+           !$omp parallel
+           !$omp do schedule(runtime)
+           do iCell = 1, nCells
+              avgLandIceFreshwaterFlux(iCell) = 0.0_RKIND
+           end do
+           !$omp end do
+           !$omp end parallel
+        end if
+
+        if(config_remove_AIS_coupler_runoff) then
+           call mpas_pool_get_array(forcingPool, 'avgRemovedRiverRunoffFlux', avgRemovedRiverRunoffFlux)
+           call mpas_pool_get_array(forcingPool, 'avgRemovedIceRunoffFlux', avgRemovedIceRunoffFlux)
+
+           !$omp parallel
+           !$omp do schedule(runtime)
+           do iCell = 1, nCells
+              avgRemovedRiverRunoffFlux(iCell) = 0.0_RKIND
+              avgRemovedIceRunoffFlux(iCell) = 0.0_RKIND
            end do
            !$omp end do
            !$omp end parallel
@@ -215,7 +244,10 @@ module ocn_time_average_coupled
         real (kind=RKIND), dimension(:,:), pointer :: &
                                                       avgLandIceBoundaryLayerTracers, avgLandIceTracerTransferVelocities
         real (kind=RKIND), dimension(:), pointer :: effectiveDensityInLandIce, avgEffectiveDensityInLandIce, &
-                                                    totalFreshWaterTemperatureFlux, avgTotalFreshWaterTemperatureFlux
+                                                    totalFreshWaterTemperatureFlux, avgTotalFreshWaterTemperatureFlux, &
+                                                    landIceFreshwaterFlux, avgLandIceFreshwaterFlux, &
+                                                    removedRiverRunoffFlux, avgRemovedRiverRunoffFlux, &
+                                                    removedIceRunoffFlux, avgRemovedIceRunoffFlux
 
         type (mpas_pool_type), pointer :: tracersPool
 
@@ -309,6 +341,48 @@ module ocn_time_average_coupled
            end do
            !$omp end do
            !$omp end parallel
+        end if
+
+        ! Accumulate polar fields if necessary
+        if(trim(config_land_ice_flux_mode) == 'standalone' .or. 'data') then
+           call mpas_pool_get_array(forcingPool, 'avgLandIceFreshwaterFlux', avgLandIceFreshwaterFlux)
+
+           if(trim(config_land_ice_flux_mode) == 'standalone') then
+              call mpas_pool_get_array(forcingPool, 'landIceFreshwaterFlux', landIceFreshwaterFlux)
+           endif
+
+          ! load data melt rates if used
+          if(trim(config_land_ice_flux_mode) == 'data') then
+            call mpas_pool_get_array(forcingPool, 'dataLandIceFreshwaterFlux', landIceFreshwaterFlux)
+          endif
+
+           !$omp parallel
+           !$omp do schedule(runtime)
+           do iCell = 1, nCells
+              avgLandIceFreshwaterFlux(iCell) = ( avgLandIceFreshwaterFlux(iCell) * nAccumulatedCoupled &
+                                              + landIceFreshwaterFlux(iCell) ) / ( nAccumulatedCoupled + 1)
+           end do
+           !$omp end do
+           !$omp end parallel
+        end if
+
+        if (config_remove_AIS_coupler_runoff) then
+           call mpas_pool_get_array(forcingPool, 'avgRemovedRiverRunoffFlux', avgRemovedRiverRunoffFlux)
+           call mpas_pool_get_array(forcingPool, 'avgRemovedIceRunoffFlux', avgRemovedIceRunoffFlux)
+           call mpas_pool_get_array(forcingPool, 'removedRiverRunoffFlux', removedRiverRunoffFlux)
+           call mpas_pool_get_array(forcingPool, 'removedIceRunoffFlux', removedIceRunoffFlux)
+
+           !$omp parallel
+           !$omp do schedule(runtime)
+           do iCell = 1, nCells
+              avgRemovedRiverRunoffFlux(iCell) = ( avgRemovedRiverRunoffFlux(iCell) * nAccumulatedCoupled &
+                                               + removedRiverRunoffFlux(iCell) ) / ( nAccumulatedCoupled + 1)
+              avgRemovedIceRunoffFlux(iCell) = ( avgRemovedIceRunoffFlux(iCell) * nAccumulatedCoupled &
+                                             + removedIceRunoffFlux(iCell) ) / ( nAccumulatedCoupled + 1)
+           end do
+           !$omp end do
+           !$omp end parallel
+
         end if
 
         !  accumulate BGC coupling fields if necessary

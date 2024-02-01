@@ -2695,10 +2695,9 @@ contains
                                                avgOceanSurfaceFeParticulate, &
                                                avgOceanSurfaceFeDissolved, &
                                                ssh, &
-                                               landIceFreshwaterFlux, &
-                                               dataLandIceFreshwaterFlux, &
-                                               removedRiverRunoffFlux, &
-                                               removedIceRunoffFlux
+                                               avgLandIceFreshwaterFlux, &
+                                               avgRemovedRiverRunoffFlux, &
+                                               avgRemovedIceRunoffFlux
 
    real (kind=RKIND), dimension(:,:), pointer :: avgTracersSurfaceValue, avgSurfaceVelocity, &
                                                  avgSSHGradient, avgOceanSurfacePhytoC, &
@@ -2767,16 +2766,13 @@ contains
         call mpas_pool_get_array(statePool, 'accumulatedFrazilIceMass', accumulatedFrazilIceMass, 1)
      end if
 
-     !DC Cryo fields
-     if (config_land_ice_flux_mode == 'standalone') then
-        call mpas_pool_get_array(forcingPool, 'landIceFreshwaterFlux', landIceFreshwaterFlux)
-     endif
-     if (config_land_ice_flux_mode == 'data') then
-        call mpas_pool_get_array(forcingPool, 'dataLandIceFreshwaterFlux', dataLandIceFreshwaterFlux)
+     ! Cryo fields
+     if (config_land_ice_flux_mode == 'standalone' .or. 'data') then
+        call mpas_pool_get_array(forcingPool, 'avgLandIceFreshwaterFlux', avgLandIceFreshwaterFlux)
      endif
      if (config_remove_AIS_coupler_runoff) then
-        call mpas_pool_get_array(forcingPool, 'removedRiverRunoffFlux', removedRiverRunoffFlux)
-        call mpas_pool_get_array(forcingPool, 'removedIceRunoffFlux', removedIceRunoffFlux)
+        call mpas_pool_get_array(forcingPool, 'avgRemovedRiverRunoffFlux', avgRemovedRiverRunoffFlux)
+        call mpas_pool_get_array(forcingPool, 'avgRemovedIceRunoffFlux', avgRemovedIceRunoffFlux)
      endif
 
      ! BGC fields
@@ -2830,16 +2826,13 @@ contains
 
        o2x_o % rAttr(index_o2x_Faoo_h2otemp, n) = avgTotalFreshWaterTemperatureFlux(i) * rho_sw * cp_sw
 
-!DC
-       if (config_land_ice_flux_mode == 'standalone') then
-          o2x_o % rAttr(index_o2x_Foxo_ismw, n)  = landIceFreshwaterFlux(i)
-       endif
-       if (config_land_ice_flux_mode == 'data') then
-          o2x_o % rAttr(index_o2x_Foxo_ismw, n)  = dataLandIceFreshwaterFlux(i)
+       ! Cryo fields
+       if (config_land_ice_flux_mode == 'standalone' .or. 'data') then
+          o2x_o % rAttr(index_o2x_Foxo_ismw, n)  = avgLandIceFreshwaterFlux(i)
        endif
        if (config_remove_AIS_coupler_runoff) then
-          o2x_o % rAttr(index_o2x_Foxo_rrofl, n) = removedRiverRunoffFlux(i)
-          o2x_o % rAttr(index_o2x_Foxo_rrofi, n) = removedIceRunoffFlux(i)
+          o2x_o % rAttr(index_o2x_Foxo_rrofl, n) = avgRemovedRiverRunoffFlux(i)
+          o2x_o % rAttr(index_o2x_Foxo_rrofi, n) = avgRemovedIceRunoffFlux(i)
        endif
 
        if ( frazilIceActive ) then
@@ -4006,7 +3999,10 @@ contains
                                                    avgOceanSurfaceDOCSemiLabile, &
                                                    avgOceanSurfaceFeParticulate, &
                                                    avgOceanSurfaceFeDissolved, &
-                                                   ssh
+                                                   ssh, &
+                                                   avgLandIceFreshwaterFlux, &
+                                                   avgRemovedRiverRunoffFlux, &
+                                                   avgRemovedIceRunoffFlux
    
       real (kind=RKIND), dimension(:,:), pointer :: avgTracersSurfaceValue, avgSurfaceVelocity, &
                                                       avgSSHGradient, avgOceanSurfacePhytoC, &
@@ -4076,11 +4072,11 @@ contains
          end if
 
         if (config_land_ice_flux_mode == 'standalone' .or. 'data') then
-           call mpas_pool_get_array(forcingPool, 'landIceFreshwaterFlux', landIceFreshwaterFlux)
+           call mpas_pool_get_array(forcingPool, 'avgLandIceFreshwaterFlux', avgLandIceFreshwaterFlux)
         endif
         if (config_remove_AIS_coupler_runoff) then
-           call mpas_pool_get_array(forcingPool, 'removedRiverRunoffFlux', removedRiverRunoffFlux)
-           call mpas_pool_get_array(forcingPool, 'removedIceRunoffFlux', removedIceRunoffFlux)
+           call mpas_pool_get_array(forcingPool, 'avgRemovedRiverRunoffFlux', avgRemovedRiverRunoffFlux)
+           call mpas_pool_get_array(forcingPool, 'avgRemovedIceRunoffFlux', avgRemovedIceRunoffFlux)
         endif
    
          ! BGC fields
@@ -4136,11 +4132,11 @@ contains
 
 !DC, blindly following pattern
             if (config_land_ice_flux_mode == 'standalone' .or. 'data') then
-               o2x_om(n, index_o2x_Foxo_ismw)  = landIceFreshwaterFlux(i)
+               o2x_om(n, index_o2x_Foxo_ismw)  = avgLandIceFreshwaterFlux(i)
             endif
             if (config_remove_AIS_coupler_runoff) then
-               o2x_om(n, index_o2x_Foxo_rrofl) = removedRiverRunoffFlux(i)
-               o2x_om(n, index_o2x_Foxo_rrofi) = removedIceRunoffFlux(i)
+               o2x_om(n, index_o2x_Foxo_rrofl) = avgRemovedRiverRunoffFlux(i)
+               o2x_om(n, index_o2x_Foxo_rrofi) = avgRemovedIceRunoffFlux(i)
             endif
 
             if ( frazilIceActive ) then
