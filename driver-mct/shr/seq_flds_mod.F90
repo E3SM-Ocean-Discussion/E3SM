@@ -1582,13 +1582,21 @@ contains
     units    = 'kg m-2 s-1'
     attname  = 'PFioi_bergw'
     call metadata_set(attname, longname, stdname, units)
-!DC ismw needs P, removed runoff terms do not
+
     ! Water flux from ice shelf melt
     call seq_flds_add(o2x_fluxes,"Foxo_ismw")
     longname = 'Water flux due to basal melting of ice shelves'
     stdname  = 'basal_iceshelf_melt_flux'
     units    = 'kg m-2 s-1'
     attname  = 'Foxo_ismw'
+    call metadata_set(attname, longname, stdname, units)
+
+    ! Heat flux from ice shelf melt
+    call seq_flds_add(o2x_fluxes,"Foxo_ismh")
+    longname = 'Heat flux due to basal melting of ice shelves'
+    stdname  = 'basal_iceshelf_heat_flux'
+    units    = 'J m-2 s-1'
+    attname  = 'Foxo_ismh'
     call metadata_set(attname, longname, stdname, units)
 
     ! Water flux from removed liquid runoff
@@ -1605,6 +1613,14 @@ contains
     stdname  = 'removed_solid_runoff_flux'
     units    = 'kg m-2 s-1'
     attname  = 'Foxo_rrofi'
+    call metadata_set(attname, longname, stdname, units)
+
+    ! Heat flux from removed solid runoff
+    call seq_flds_add(o2x_fluxes,"Foxo_rrofih")
+    longname = 'Heat flux due to removed solid runoff'
+    stdname  = 'removed_solid_runoff_heat_flux'
+    units    = 'J m-2 s-1'
+    attname  = 'Foxo_rrofih'
     call metadata_set(attname, longname, stdname, units)
 
     ! Salt flux

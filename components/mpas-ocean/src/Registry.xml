@@ -3691,13 +3691,19 @@
 			 description="Sum of heat fluxes associated with water fluxes cell centers sent to coupler. Positive into the ocean."
 		/>
 		<var name="avgLandIceFreshwaterFlux" type="real" dimensions="nCells Time" units="kg m^-2 s^-1"
-			 description="Time-averaged sum of freshwater fluxes associated with ice shelf basal melt fluxes cell centers sent to coupler. Positive into the ocean."
+		         description="Time-averaged sum of freshwater fluxes associated with ice shelf basal melt fluxes cell centers sent to coupler. Positive into the ocean."
+		/>
+		<var name="avgLandIceHeatFlux" type="real" dimensions="nCells Time" units="J m^-2 s^-1"
+			 description="Time-averaged sum of heat fluxes associated with ice shelf basal melt fluxes cell centers sent to coupler. Positive into the ocean."
 		/>
 		<var name="avgRemovedRiverRunoffFlux" type="real" dimensions="nCells Time" units="kg m^-2 s^-1"
 			 description="Time-averaged sum of freshwater fluxes associated with removed liquid runoff fluxes cell centers sent to coupler. Positive into the ocean."
 		/>
 		<var name="avgRemovedIceRunoffFlux" type="real" dimensions="nCells Time" units="kg m^-2 s^-1"
 			 description="Time-averaged sum of freshwater fluxes associated with removed ice runoff fluxes cell centers sent to coupler. Positive into the ocean."
+	        />
+		<var name="avgRemovedIceRunoffHeatFlux" type="real" dimensions="nCells Time" units="J m^-2 s^-1"
+			 description="Time-averaged sum of heat fluxes associated with removed ice runoff fluxes cell centers sent to coupler. Positive into the ocean."
 		/>
 
 		<!-- Input fields from coupler or initial condition for forcing under land ice -->
