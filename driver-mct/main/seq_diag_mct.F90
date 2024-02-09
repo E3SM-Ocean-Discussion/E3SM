@@ -1381,7 +1381,7 @@ contains
           index_o2x_Fioo_frazil  = mct_aVect_indexRA(o2x_o,'Fioo_frazil')
           index_o2x_Fioo_q       = mct_aVect_indexRA(o2x_o,'Fioo_q')
           index_o2x_Faoo_h2otemp = mct_aVect_indexRA(o2x_o,'Faoo_h2otemp')
-          index_o2x_Foxo_ismw  = mct_aVect_indexRA(o2x_o,'PFoxo_ismw')
+          index_o2x_Foxo_ismw  = mct_aVect_indexRA(o2x_o,'Foxo_ismw')
           index_o2x_Foxo_rrofl = mct_aVect_indexRA(o2x_o,'Foxo_rrofl')
           index_o2x_Foxo_rrofi = mct_aVect_indexRA(o2x_o,'Foxo_rrofi')
        end if

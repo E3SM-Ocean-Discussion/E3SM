@@ -190,7 +190,7 @@ contains
     index_o2x_Faoo_fdms_ocn = mct_avect_indexra(o2x,'Faoo_fdms_ocn',perrWith='quiet')
     index_o2x_So_ssh        = mct_avect_indexra(o2x,'So_ssh')
 !DC P needed since in ice-shelf ocean domain?
-    index_o2x_Foxo_ismw     = mct_avect_indexra(o2x,'PFoxo_ismw')
+    index_o2x_Foxo_ismw     = mct_avect_indexra(o2x,'Foxo_ismw')
     index_o2x_Foxo_rrofl    = mct_avect_indexra(o2x,'Foxo_rrofl')
     index_o2x_Foxo_rrofi    = mct_avect_indexra(o2x,'Foxo_rrofi')
 
