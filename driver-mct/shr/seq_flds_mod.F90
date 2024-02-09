@@ -1595,7 +1595,7 @@ contains
     call seq_flds_add(o2x_fluxes,"Foxo_ismh")
     longname = 'Heat flux due to basal melting of ice shelves'
     stdname  = 'basal_iceshelf_heat_flux'
-    units    = 'J m-2 s-1'
+    units    = 'W m-2'
     attname  = 'Foxo_ismh'
     call metadata_set(attname, longname, stdname, units)
 
@@ -1619,7 +1619,7 @@ contains
     call seq_flds_add(o2x_fluxes,"Foxo_rrofih")
     longname = 'Heat flux due to removed solid runoff'
     stdname  = 'removed_solid_runoff_heat_flux'
-    units    = 'J m-2 s-1'
+    units    = 'W m-2'
     attname  = 'Foxo_rrofih'
     call metadata_set(attname, longname, stdname, units)
 
