@@ -3619,7 +3619,6 @@ contains
         endif
 
         if ( landIceFreshwaterFluxField % isActive ) then
-!DC is this ok with proposed implementation? think so since different coupling field
            !landIceFreshwaterFlux(i) = x2o_om(n, index_x2o_Fogx_qicelo)
         end if
         if ( landIceHeatFluxField % isActive ) then
@@ -4140,7 +4139,6 @@ contains
    
             o2x_om(n, index_o2x_Faoo_h2otemp) = avgTotalFreshWaterTemperatureFlux(i) * rho_sw * cp_sw
 
-!DC, blindly following pattern
             if (trim(config_land_ice_flux_mode == 'standalone') .or. trim(config_land_ice_flux_mode) == 'data') then
                o2x_om(n, index_o2x_Foxo_ismw)  = avgLandIceFreshwaterFlux(i)
                o2x_om(n, index_o2x_Foxo_ismh)  = avgLandIceHeatFlux(i)
