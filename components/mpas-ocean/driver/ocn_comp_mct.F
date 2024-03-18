@@ -3151,8 +3151,7 @@ contains
 !      o2x_o % rAttr(index_o2x_Faoo_fdms_ocn, n) = DMSFlux(i)
 !      o2x_o % rAttr(index_o2x_Faoo_fco2_ocn, n) = surfaceUpwardCO2Flux(i)
 
-       if ( trim(config_land_ice_flux_mode) .eq. 'standalone' .or. &
-            trim(config_land_ice_flux_mode) .eq. 'coupled'  ) then
+       if ( trim(config_land_ice_flux_mode) .eq. 'coupled'  ) then
           o2x_o % rAttr(index_o2x_So_blt, n) = landIceBoundaryLayerTracers(indexBLT,i)
           o2x_o % rAttr(index_o2x_So_bls, n) = landIceBoundaryLayerTracers(indexBLS,i)
           o2x_o % rAttr(index_o2x_So_htv, n) = landIceTracerTransferVelocities(indexHeatTrans,i)
@@ -4622,7 +4621,7 @@ contains
 !    call mpas_pool_get_array(forcingPool, 'DMSFlux', DMSFlux)
 !    call mpas_pool_get_array(forcingPool, 'surfaceUpwardCO2Flux', surfaceUpwardCO2Flux)
 
-! replace 'o2x_o % rAttr(' with 'o2x_om(n, ' and ', n)' with ')' 
+! replace 'o2x_o % rAttr(' with 'o2x_om(n, ' and ', n)' with ')'
      do i = 1, nCellsSolve
        n = n + 1
 
@@ -4738,8 +4737,7 @@ contains
 !JW       o2x_om(n, index_o2x_So_htv) = landIceHeatTransferVelocity(i)
 !JW       o2x_om(n, index_o2x_So_stv) = landIceSaltTransferVelocity(i)
 
-       if ( trim(config_land_ice_flux_mode) .eq. 'standalone' .or. &
-            trim(config_land_ice_flux_mode) .eq. 'coupled'  ) then
+       if ( trim(config_land_ice_flux_mode) .eq. 'coupled'  ) then
           o2x_om(n, index_o2x_So_blt) = landIceBoundaryLayerTracers(indexBLT,i)
           o2x_om(n, index_o2x_So_bls) = landIceBoundaryLayerTracers(indexBLS,i)
           o2x_om(n, index_o2x_So_htv) = landIceTracerTransferVelocities(indexHeatTrans,i)
