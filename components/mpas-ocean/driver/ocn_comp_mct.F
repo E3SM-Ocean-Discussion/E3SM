@@ -127,7 +127,7 @@ module ocn_comp_mct
    integer :: itimestep, &  ! time step number for MPAS
               ocn_cpl_dt    ! length of coupling interval in seconds - set by coupler/ESMF
 
-   real (kind=RKIND) :: precFactor 
+   real (kind=RKIND) :: precFactor
 
 !=======================================================================
 
@@ -243,10 +243,10 @@ contains
     real (kind=RKIND), pointer :: &
        runningMeanRemovedIceRunoff ! the area integrated, running mean of removed ice runoff from the ocean
 
-    ! freshwater balance adjustment 
+    ! freshwater balance adjustment
     logical, pointer :: config_use_precip_scaling
     character (len=StrKIND), pointer :: config_precip_scaling_mode
-    real (kind=RKIND), pointer :: SFWFScalingFactor ! scaling factor on freshwater fluxes 
+    real (kind=RKIND), pointer :: SFWFScalingFactor ! scaling factor on freshwater fluxes
     real(kind=RKIND), pointer :: scalingFactor
 
 #ifdef HAVE_MOAB
@@ -848,9 +848,9 @@ contains
        ! initialize scaled data ice-shelf melt fluxes based on remove ice runoff
        call ocn_init_scaled_dismf(domain)
 
-       ! Initialize the precipitation scaling scheme 
+       ! Initialize the precipitation scaling scheme
        call ocn_scaled_sfwf_init(domain)
-       ! Ensure a valid first guess at the initial time 
+       ! Ensure a valid first guess at the initial time
        call mpas_pool_get_config(domain % configs, 'config_use_precip_scaling', config_use_precip_scaling)
        if (config_use_precip_scaling) then
           call mpas_pool_get_config(domain % configs, 'config_precip_scaling_mode', config_precip_scaling_mode)
@@ -858,10 +858,10 @@ contains
           block_ptr => domain % blocklist
           call mpas_pool_get_subpool(block_ptr % structs, 'forcing', forcingPool)
           call mpas_pool_get_array(forcingPool, "SFWFScalingFactor", SFWFScalingFactor)
-          if (trim(config_precip_scaling_mode) == 'time-dependent') then 
+          if (trim(config_precip_scaling_mode) == 'time-dependent') then
             call mpas_pool_get_config(domain % configs, 'config_precip_scaling_initial_factor', scalingFactor)
           else if (trim(config_precip_scaling_mode) == 'constant') then
-            call mpas_pool_get_config(domain % configs, 'config_precip_scaling_constant_factor', scalingFactor) 
+            call mpas_pool_get_config(domain % configs, 'config_precip_scaling_constant_factor', scalingFactor)
           end if
           ! Broadcast the scalar to the field
           SFWFScalingFactor = scalingFactor
@@ -915,7 +915,7 @@ contains
       ! initialize scaled data ice-shelf melt fluxes based on remove ice runoff
        call ocn_init_scaled_dismf(domain)
 
-      ! initialize scaled data freshwater fluxes based on water balance relationship 
+      ! initialize scaled data freshwater fluxes based on water balance relationship
        call ocn_scaled_sfwf_init(domain)
 
     end if
@@ -954,13 +954,13 @@ contains
 
     !configuration for freshwater conservation
     call mpas_pool_get_config(domain % configs, 'config_use_precip_scaling', config_use_precip_scaling)
-    if (config_use_precip_scaling) then 
+    if (config_use_precip_scaling) then
       ! independent of space so should be no need to loop over blocks
       block_ptr => domain % blocklist
       call mpas_pool_get_subpool(block_ptr % structs, 'forcing', forcingPool)
       call mpas_pool_get_array(forcingPool, "SFWFScalingFactor", SFWFScalingFactor)
       call seq_infodata_PutData(infodata, precip_fact=SFWFScalingFactor)
-    end if 
+    end if
 
 !-----------------------------------------------------------------------
 !
@@ -1089,9 +1089,9 @@ contains
       real (kind=RKIND), pointer :: &
          runningMeanRemovedIceRunoff ! the area integrated, running mean of removed ice runoff from the ocean
 
-      ! freshwater balance adjustment 
+      ! freshwater balance adjustment
       logical, pointer :: config_use_precip_scaling
-      real (kind=RKIND), pointer :: SFWFScalingFactor ! scaling factor on freshwater fluxes 
+      real (kind=RKIND), pointer :: SFWFScalingFactor ! scaling factor on freshwater fluxes
 
 #ifdef HAVE_MOAB
 #ifdef MOABCOMP
@@ -1346,7 +1346,7 @@ contains
             call mpas_log_write('   Validating ocean state')
          endif
 
-        ! update scalling factors for freshwater fluxes 
+        ! update scalling factors for freshwater fluxes
         call ocn_update_scaling_factor(domain, timeLevel=1)
 
          call ocn_validate_state(domain, timeLevel=1)
@@ -2126,12 +2126,10 @@ contains
                                   riverFluxFeField,   &
                                   landIceFreshwaterFluxField, &
                                   landIceHeatFluxField, &
-                                  landIceFractionField, &
                                   windSpeed10mField, &
-                                 significantWaveHeightField, &
+                                  significantWaveHeightField, &
                                   peakWaveFrequencyField, &
                                   peakWaveDirectionField
-                                  !landIcePressureField
 
    type (field2DReal), pointer :: iceFluxPhytoCField, &
                                   iceFluxDOCField
@@ -2177,13 +2175,11 @@ contains
                                                riverFluxFe,   &
                                                landIceFreshwaterFlux, &
                                                landIceHeatFlux, &
-                                               landIceFraction, &
                                                areaCell, &
                                                windSpeed10m, &
                                                significantWaveHeight, &
                                                peakWaveFrequency, &
                                                peakWaveDirection
-                                               !landIcePressure
 
    real (kind=RKIND), dimension(:), pointer :: latCell
 
@@ -2199,7 +2195,9 @@ contains
 
    real (kind=RKIND) :: riverFactor
 
-   ! freshwater balance adjustment 
+   logical :: landIceFluxesCoupled
+
+   ! freshwater balance adjustment
    logical, pointer :: config_use_precip_scaling
 
 !-----------------------------------------------------------------------
@@ -2237,8 +2235,14 @@ contains
    !configuration for freshwater balance constrains
    call mpas_pool_get_config(domain % configs, 'config_use_precip_scaling', config_use_precip_scaling)
    if (config_use_precip_scaling) then
-      !extract scaling factors 
+      !extract scaling factors
       call seq_infodata_GetData(infodata, precip_fact=precFactor)
+   end if
+
+   if ( trim(config_land_ice_flux_mode) .eq. 'coupled'  ) then
+      landIceFluxesCoupled = .true.
+   else
+      landIceFluxesCoupled = .false.
    end if
 
    n = 0
@@ -2283,15 +2287,12 @@ contains
 
       call mpas_pool_get_field(forcingPool, 'landIceFreshwaterFlux', landIceFreshwaterFluxField)
       call mpas_pool_get_field(forcingPool, 'landIceHeatFlux', landIceHeatFluxField)
-      call mpas_pool_get_field(forcingPool, 'landIceFraction', landIceFractionField)
       call mpas_pool_get_field(forcingPool, 'landIceInterfaceTracers', landIceInterfaceTracersField)
 
       call mpas_pool_get_field(forcingPool, 'windSpeed10m', windSpeed10mField)
 
       call mpas_pool_get_dimension(forcingPool, 'index_landIceInterfaceTemperature', indexIT)
       call mpas_pool_get_dimension(forcingPool, 'index_landIceInterfaceSalinity', indexIS)
-
-   !call mpas_pool_get_field(forcingPool, 'landIcePressure', landIcePressureField)
 
       windStressZonal => windStressZonalField % array
       windStressMeridional => windStressMeridionalField % array
@@ -2319,14 +2320,12 @@ contains
       landIceFreshwaterFlux => landIceFreshwaterFluxField % array
       landIceHeatFlux => landIceHeatFluxField % array
       landIceInterfaceTracers => landIceInterfaceTracersField % array
-      landIceFraction => landIceFractionField % array
       windSpeed10m => windSpeed10mField % array
       stokesDriftZonalWavenumber => stokesDriftZonalWavenumberField % array
       stokesDriftMeridionalWavenumber => stokesDriftMeridionalWavenumberField % array
       significantWaveHeight => significantWaveHeightField % array
       peakWaveFrequency => peakWaveFrequencyField % array
       peakWaveDirection => peakWaveDirectionField % array
-      !landIcePressure => landIcePressureField % array
 
       call mpas_pool_get_array(meshPool, 'latCell', latCell)
       call mpas_pool_get_array(meshPool, 'areaCell', areaCell)
@@ -2544,22 +2543,18 @@ contains
            end if
         endif
 
-        if ( landIceFreshwaterFluxField % isActive ) then
-           !landIceFreshwaterFlux(i) = x2o_o % rAttr(index_x2o_Fogx_qicelo, n)
+        if ( landIceFluxesCoupled ) then
+           landIceFreshwaterFlux(i) = x2o_o % rAttr(index_x2o_Fogx_qicelo, n)
+           landIceHeatFlux(i) = x2o_o % rAttr(index_x2o_Fogx_qiceho, n)
+           landIceInterfaceTracers(indexIT, i) = x2o_o % rAttr(index_x2o_Sg_blit, n)
+           landIceInterfaceTracers(indexIS, i) = x2o_o % rAttr(index_x2o_Sg_blis, n)
+
+           ! We are not yet ready for MALI to supply land-ice fraction, floating
+           !  fraction or pressure
+           ! landIceFraction(i) = x2o_o % rAttr(index_x2o_Sg_icemask, n)
+           ! landIceFloatingFraction(i) = x2o_o % rAttr(index_x2o_Sg_???, n)
+           ! landIcePressure(i) = x2o_o % rAttr(index_x2o_Sg_lithop, n)
         end if
-        if ( landIceHeatFluxField % isActive ) then
-           !landIceHeatFlux(i) = x2o_o % rAttr(index_x2o_Fogx_qiceho, n)
-        end if
-        if ( landIceInterfaceTracersField % isActive ) then
-           !landIceInterfaceTracers(indexIT, i) = x2o_o % rAttr(index_x2o_Sg_blit, n)
-           !landIceInterfaceTracers(indexIS, i) = x2o_o % rAttr(index_x2o_Sg_blis, n)
-        end if
-        if ( landIceFractionField % isActive ) then
-           !landIceFraction(i) = x2o_o % rAttr(index_x2o_Sg_icemask, n)
-        end if
-        !if ( landIcePressureField % isActive ) then
-           !landIcePressure(i) = x2o_o % rAttr(index_x2o_Sg_lithop, n)
-        !end if
 
         ! BGC fields
         if (config_use_ecosysTracers) then
@@ -2717,14 +2712,12 @@ contains
 
    call mpas_pool_get_field(forcingPool, 'landIceFreshwaterFlux', landIceFreshwaterFluxField)
    call mpas_pool_get_field(forcingPool, 'landIceHeatFlux', landIceHeatFluxField)
-   call mpas_pool_get_field(forcingPool, 'landIceFraction', landIceFractionField)
    call mpas_pool_get_field(forcingPool, 'landIceInterfaceTracers', landIceInterfaceTracersField)
 
    call mpas_pool_get_field(forcingPool, 'windSpeed10m', windSpeed10mField)
 
    call mpas_pool_get_dimension(forcingPool, 'index_landIceInterfaceTemperature', indexIT)
    call mpas_pool_get_dimension(forcingPool, 'index_landIceInterfaceSalinity', indexIS)
-   !call mpas_pool_get_field(forcingPool, 'landIcePressure', landIcePressureField)
 
    ! BGC fields
    if (config_use_ecosysTracers) then
@@ -2851,21 +2844,17 @@ contains
       call mpas_dmpar_exch_halo_field(peakWaveDirectionField)
    end if
 
-   if ( landIceFreshwaterFluxField % isActive ) then
+   if ( landIceFluxesCoupled ) then
       call mpas_dmpar_exch_halo_field(landIceFreshwaterFluxField)
-   end if
-   if ( landIceHeatFluxField % isActive ) then
       call mpas_dmpar_exch_halo_field(landIceHeatFluxField)
-   end if
-   if ( landIceInterfaceTracersField % isActive ) then
       call mpas_dmpar_exch_halo_field(landIceInterfaceTracersField)
+
+      ! We are not yet ready for MALI to supply land-ice fraction, floating
+      !  fraction or pressure
+      ! call mpas_dmpar_exch_halo_field(landIceFractionField)
+      ! call mpas_dmpar_exch_halo_field(landIceFloatingFractionField)
+      ! call mpas_dmpar_exch_halo_field(landIcePressureField)
    end if
-   if ( landIceFractionField % isActive ) then
-      call mpas_dmpar_exch_halo_field(landIceFractionField)
-   end if
-!   if ( landIcePressureField % isActive ) then
-!      call mpas_dmpar_exch_halo_field(landIcePressureField)
-!   end if
 
    if ( windSpeed10mField % isActive ) then
       call mpas_dmpar_exch_halo_field(windSpeed10mField)
@@ -3751,12 +3740,10 @@ contains
                                   riverFluxFeField,   &
                                   landIceFreshwaterFluxField, &
                                   landIceHeatFluxField, &
-                                  landIceFractionField, &
                                   windSpeed10mField, &
-                                 significantWaveHeightField, &
+                                  significantWaveHeightField, &
                                   peakWaveFrequencyField, &
                                   peakWaveDirectionField
-                                  !landIcePressureField
 
    type (field2DReal), pointer :: iceFluxPhytoCField, &
                                   iceFluxDOCField
@@ -3802,13 +3789,11 @@ contains
                                                riverFluxFe,   &
                                                landIceFreshwaterFlux, &
                                                landIceHeatFlux, &
-                                               landIceFraction, &
                                                areaCell, &
                                                windSpeed10m, &
                                                significantWaveHeight, &
                                                peakWaveFrequency, &
                                                peakWaveDirection
-                                               !landIcePressure
 
    real (kind=RKIND), dimension(:), pointer :: latCell
 
@@ -3823,6 +3808,8 @@ contains
    real (kind=RKIND), dimension(:,:), pointer :: landIceInterfaceTracers
 
    real (kind=RKIND) :: riverFactor
+
+   logical :: landIceFluxesCoupled
 
 !-----------------------------------------------------------------------
 !
@@ -3879,6 +3866,12 @@ contains
    call mpas_pool_get_config(domain % configs, 'config_remove_ais_ice_runoff', config_remove_ais_ice_runoff)
    call mpas_pool_get_config(domain % configs, 'config_cvmix_kpp_use_theory_wave', config_cvmix_kpp_use_theory_wave)
 
+   if ( trim(config_land_ice_flux_mode) .eq. 'coupled'  ) then
+      landIceFluxesCoupled = .true.
+   else
+      landIceFluxesCoupled = .false.
+   end if
+
    n = 0
    removedRiverRunoffFluxThisProc = 0.0_RKIND
    removedIceRunoffFluxThisProc = 0.0_RKIND
@@ -3921,15 +3914,12 @@ contains
 
       call mpas_pool_get_field(forcingPool, 'landIceFreshwaterFlux', landIceFreshwaterFluxField)
       call mpas_pool_get_field(forcingPool, 'landIceHeatFlux', landIceHeatFluxField)
-      call mpas_pool_get_field(forcingPool, 'landIceFraction', landIceFractionField)
       call mpas_pool_get_field(forcingPool, 'landIceInterfaceTracers', landIceInterfaceTracersField)
 
       call mpas_pool_get_field(forcingPool, 'windSpeed10m', windSpeed10mField)
 
       call mpas_pool_get_dimension(forcingPool, 'index_landIceInterfaceTemperature', indexIT)
       call mpas_pool_get_dimension(forcingPool, 'index_landIceInterfaceSalinity', indexIS)
-
-   !call mpas_pool_get_field(forcingPool, 'landIcePressure', landIcePressureField)
 
       windStressZonal => windStressZonalField % array
       windStressMeridional => windStressMeridionalField % array
@@ -3957,14 +3947,12 @@ contains
       landIceFreshwaterFlux => landIceFreshwaterFluxField % array
       landIceHeatFlux => landIceHeatFluxField % array
       landIceInterfaceTracers => landIceInterfaceTracersField % array
-      landIceFraction => landIceFractionField % array
       windSpeed10m => windSpeed10mField % array
       stokesDriftZonalWavenumber => stokesDriftZonalWavenumberField % array
       stokesDriftMeridionalWavenumber => stokesDriftMeridionalWavenumberField % array
       significantWaveHeight => significantWaveHeightField % array
       peakWaveFrequency => peakWaveFrequencyField % array
       peakWaveDirection => peakWaveDirectionField % array
-      !landIcePressure => landIcePressureField % array
 
       call mpas_pool_get_array(meshPool, 'latCell', latCell)
       call mpas_pool_get_array(meshPool, 'areaCell', areaCell)
@@ -4185,22 +4173,19 @@ contains
            end if
         endif
 
-        if ( landIceFreshwaterFluxField % isActive ) then
-           !landIceFreshwaterFlux(i) = x2o_om(n, index_x2o_Fogx_qicelo)
+        if ( landIceFluxesCoupled ) then
+
+           landIceFreshwaterFlux(i) = x2o_om(n, index_x2o_Fogx_qicelo)
+           landIceHeatFlux(i) = x2o_om(n, index_x2o_Fogx_qiceho)
+           landIceInterfaceTracers(indexIT, i) = x2o_om(n, index_x2o_Sg_blit)
+           landIceInterfaceTracers(indexIS, i) = x2o_om(n, index_x2o_Sg_blis)
+
+           ! We are not yet ready for MALI to supply land-ice fraction, floating
+           !  fraction or pressure
+           ! landIceFraction(i) = x2o_om(n, index_x2o_Sg_icemask)
+           ! landIceFloatingFraction(i) = x2o_om(n, index_x2o_Sg_???)
+           ! landIcePressure(i) = x2o_om(n, index_x2o_Sg_lithop)
         end if
-        if ( landIceHeatFluxField % isActive ) then
-           !landIceHeatFlux(i) = x2o_om(n, index_x2o_Fogx_qiceho)
-        end if
-        if ( landIceInterfaceTracersField % isActive ) then
-           !landIceInterfaceTracers(indexIT, i) = x2o_om(n, index_x2o_Sg_blit)
-           !landIceInterfaceTracers(indexIS, i) = x2o_om(n, index_x2o_Sg_blis)
-        end if
-        if ( landIceFractionField % isActive ) then
-           !landIceFraction(i) = x2o_om(n, index_x2o_Sg_icemask)
-        end if
-        !if ( landIcePressureField % isActive ) then
-           !landIcePressure(i) = x2o_om(n, index_x2o_Sg_lithop)
-        !end if
 
         ! BGC fields
         if (config_use_ecosysTracers) then
@@ -4358,14 +4343,12 @@ contains
 
    call mpas_pool_get_field(forcingPool, 'landIceFreshwaterFlux', landIceFreshwaterFluxField)
    call mpas_pool_get_field(forcingPool, 'landIceHeatFlux', landIceHeatFluxField)
-   call mpas_pool_get_field(forcingPool, 'landIceFraction', landIceFractionField)
    call mpas_pool_get_field(forcingPool, 'landIceInterfaceTracers', landIceInterfaceTracersField)
 
    call mpas_pool_get_field(forcingPool, 'windSpeed10m', windSpeed10mField)
 
    call mpas_pool_get_dimension(forcingPool, 'index_landIceInterfaceTemperature', indexIT)
    call mpas_pool_get_dimension(forcingPool, 'index_landIceInterfaceSalinity', indexIS)
-   !call mpas_pool_get_field(forcingPool, 'landIcePressure', landIcePressureField)
 
    ! BGC fields
    if (config_use_ecosysTracers) then
@@ -4492,21 +4475,18 @@ contains
       call mpas_dmpar_exch_halo_field(peakWaveDirectionField)
    end if
 
-   if ( landIceFreshwaterFluxField % isActive ) then
+   if ( landIceFluxesCoupled ) then
       call mpas_dmpar_exch_halo_field(landIceFreshwaterFluxField)
-   end if
-   if ( landIceHeatFluxField % isActive ) then
       call mpas_dmpar_exch_halo_field(landIceHeatFluxField)
-   end if
-   if ( landIceInterfaceTracersField % isActive ) then
       call mpas_dmpar_exch_halo_field(landIceInterfaceTracersField)
+
+      ! We are not yet ready for MALI to supply land-ice fraction, floating
+      !  fraction or pressure
+      ! call mpas_dmpar_exch_halo_field(landIceFractionField)
+      ! call mpas_dmpar_exch_halo_field(landIceFloatingFractionField)
+      ! call mpas_dmpar_exch_halo_field(landIcePressureField)
    end if
-   if ( landIceFractionField % isActive ) then
-      call mpas_dmpar_exch_halo_field(landIceFractionField)
-   end if
-!   if ( landIcePressureField % isActive ) then
-!      call mpas_dmpar_exch_halo_field(landIcePressureField)
-!   end if
+
 
    if ( windSpeed10mField % isActive ) then
       call mpas_dmpar_exch_halo_field(windSpeed10mField)
