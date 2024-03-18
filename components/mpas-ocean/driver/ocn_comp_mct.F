@@ -3066,7 +3066,8 @@ contains
    character (len=StrKIND), pointer :: config_land_ice_flux_mode
    character (len=StrKIND), pointer :: config_glc_thermal_forcing_coupling_mode
 
-   logical :: keepFrazil
+   logical :: keepFrazil, landIceFluxesCoupled
+
 
    logical :: ocn_c2_glctf           ! .true.  => ocn to glc thermal forcing coupling on
 
@@ -3088,6 +3089,12 @@ contains
                                                 config_use_DMSTracers_sea_ice_coupling)
    call mpas_pool_get_config(domain % configs, 'config_use_MacroMoleculesTracers_sea_ice_coupling',  &
                                                 config_use_MacroMoleculesTracers_sea_ice_coupling)
+
+   if ( trim(config_land_ice_flux_mode) .eq. 'coupled'  ) then
+      landIceFluxesCoupled = .true.
+   else
+      landIceFluxesCoupled = .false.
+   end if
 
    ! Determine if ocn to glc thermal forcing coupling is on
    call seq_infodata_GetData(infodata, ocn_c2_glctf=ocn_c2_glctf)
@@ -3202,7 +3209,7 @@ contains
 !    call mpas_pool_get_array(forcingPool, 'DMSFlux', DMSFlux)
 !    call mpas_pool_get_array(forcingPool, 'surfaceUpwardCO2Flux', surfaceUpwardCO2Flux)
 
-     if ( trim(config_land_ice_flux_mode) .eq. 'coupled'  ) then
+     if ( landIceFluxesCoupled  ) then
         call mpas_pool_get_array(forcingPool, 'avgLandIceBoundaryLayerTracers', avgLandIceBoundaryLayerTracers)
         call mpas_pool_get_array(forcingPool, 'avgLandIceTracerTransferVelocities', avgLandIceTracerTransferVelocities)
         call mpas_pool_get_array(forcingPool, 'avgEffectiveDensityInLandIce', avgEffectiveDensityInLandIce)
@@ -3323,7 +3330,7 @@ contains
 !      o2x_o % rAttr(index_o2x_Faoo_fdms_ocn, n) = DMSFlux(i)
 !      o2x_o % rAttr(index_o2x_Faoo_fco2_ocn, n) = surfaceUpwardCO2Flux(i)
 
-       if ( trim(config_land_ice_flux_mode) .eq. 'coupled'  ) then
+       if ( landIceFluxesCoupled  ) then
           o2x_o % rAttr(index_o2x_So_blt, n) = avgLandIceBoundaryLayerTracers(indexBLT,i)
           o2x_o % rAttr(index_o2x_So_bls, n) = avgLandIceBoundaryLayerTracers(indexBLS,i)
           o2x_o % rAttr(index_o2x_So_htv, n) = avgLandIceTracerTransferVelocities(indexHeatTrans,i)
@@ -4692,7 +4699,7 @@ contains
 
    character (len=StrKIND), pointer :: config_land_ice_flux_mode
 
-   logical :: keepFrazil
+   logical :: keepFrazil, landIceFluxesCoupled
 
 
    ! get configure options
@@ -4709,6 +4716,12 @@ contains
                                                 config_use_DMSTracers_sea_ice_coupling)
    call mpas_pool_get_config(domain % configs, 'config_use_MacroMoleculesTracers_sea_ice_coupling',  &
                                                 config_use_MacroMoleculesTracers_sea_ice_coupling)
+
+   if ( trim(config_land_ice_flux_mode) .eq. 'coupled'  ) then
+     landIceFluxesCoupled = .true.
+   else
+     landIceFluxesCoupled = .false.
+   end if
 
    n = 0
    block_ptr => domain % blocklist
@@ -4794,7 +4807,7 @@ contains
 !    call mpas_pool_get_array(forcingPool, 'surfaceUpwardCO2Flux', surfaceUpwardCO2Flux)
 
 
-     if ( trim(config_land_ice_flux_mode) .eq. 'coupled'  ) then
+     if ( landIceFluxesCoupled ) then
         call mpas_pool_get_array(forcingPool, 'avgLandIceBoundaryLayerTracers', avgLandIceBoundaryLayerTracers)
         call mpas_pool_get_array(forcingPool, 'avgLandIceTracerTransferVelocities', avgLandIceTracerTransferVelocities)
         call mpas_pool_get_array(forcingPool, 'avgEffectiveDensityInLandIce', avgEffectiveDensityInLandIce)
@@ -4928,7 +4941,7 @@ contains
 !JW       o2x_om(n, index_o2x_So_htv) = landIceHeatTransferVelocity(i)
 !JW       o2x_om(n, index_o2x_So_stv) = landIceSaltTransferVelocity(i)
 
-       if ( trim(config_land_ice_flux_mode) .eq. 'coupled'  ) then
+       if ( landIceFluxesCoupled ) then
           o2x_om(n, index_o2x_So_blt) = avgLandIceBoundaryLayerTracers(indexBLT,i)
           o2x_om(n, index_o2x_So_bls) = avgLandIceBoundaryLayerTracers(indexBLS,i)
           o2x_om(n, index_o2x_So_htv) = avgLandIceTracerTransferVelocities(indexHeatTrans,i)
