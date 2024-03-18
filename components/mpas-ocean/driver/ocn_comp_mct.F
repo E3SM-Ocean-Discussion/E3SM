@@ -3007,6 +3007,7 @@ contains
                        index_avgZonalSSHGradient, index_avgMeridionalSSHGradient, &
                        nGlcZLevels
 
+
    type (block_type), pointer :: block_ptr
 
    type (mpas_pool_type), pointer :: meshPool,             &
@@ -3039,13 +3040,16 @@ contains
                                                avgRemovedRiverRunoffFlux, &
                                                avgRemovedIceRunoffFlux, &
                                                avgLandIceHeatFlux, &
-                                               avgRemovedIceRunoffHeatFlux
+                                               avgRemovedIceRunoffHeatFlux, &
+                                               avgEffectiveDensityInLandIce
 
    real (kind=RKIND), dimension(:,:), pointer :: avgTracersSurfaceValue, avgSurfaceVelocity, &
                                                  avgSSHGradient, avgOceanSurfacePhytoC, &
                                                  avgOceanSurfaceDOC, layerThickness, &
                                                  avgThermalForcingAtZLevels, &
-                                                 avgThermalForcingAtZLevelsMask
+                                                 avgThermalForcingAtZLevelsMask, &
+                                                 avgLandIceBoundaryLayerTracers, &
+                                                 avgLandIceTracerTransferVelocities
 
    real (kind=RKIND) :: surfaceFreezingTemp
 
@@ -3198,6 +3202,12 @@ contains
 !    call mpas_pool_get_array(forcingPool, 'DMSFlux', DMSFlux)
 !    call mpas_pool_get_array(forcingPool, 'surfaceUpwardCO2Flux', surfaceUpwardCO2Flux)
 
+     if ( trim(config_land_ice_flux_mode) .eq. 'coupled'  ) then
+        call mpas_pool_get_array(forcingPool, 'avgLandIceBoundaryLayerTracers', avgLandIceBoundaryLayerTracers)
+        call mpas_pool_get_array(forcingPool, 'avgLandIceTracerTransferVelocities', avgLandIceTracerTransferVelocities)
+        call mpas_pool_get_array(forcingPool, 'avgEffectiveDensityInLandIce', avgEffectiveDensityInLandIce)
+     endif
+
      do i = 1, nCellsSolve
        n = n + 1
 
@@ -3314,11 +3324,11 @@ contains
 !      o2x_o % rAttr(index_o2x_Faoo_fco2_ocn, n) = surfaceUpwardCO2Flux(i)
 
        if ( trim(config_land_ice_flux_mode) .eq. 'coupled'  ) then
-          o2x_o % rAttr(index_o2x_So_blt, n) = landIceBoundaryLayerTracers(indexBLT,i)
-          o2x_o % rAttr(index_o2x_So_bls, n) = landIceBoundaryLayerTracers(indexBLS,i)
-          o2x_o % rAttr(index_o2x_So_htv, n) = landIceTracerTransferVelocities(indexHeatTrans,i)
-          o2x_o % rAttr(index_o2x_So_stv, n) = landIceTracerTransferVelocities(indexSaltTrans,i)
-          o2x_o % rAttr(index_o2x_So_rhoeff, n) = 0.0_RKIND
+          o2x_o % rAttr(index_o2x_So_blt, n) = avgLandIceBoundaryLayerTracers(indexBLT,i)
+          o2x_o % rAttr(index_o2x_So_bls, n) = avgLandIceBoundaryLayerTracers(indexBLS,i)
+          o2x_o % rAttr(index_o2x_So_htv, n) = avgLandIceTracerTransferVelocities(indexHeatTrans,i)
+          o2x_o % rAttr(index_o2x_So_stv, n) = avgLandIceTracerTransferVelocities(indexSaltTrans,i)
+          o2x_o % rAttr(index_o2x_So_rhoeff, n) = avgEffectiveDensityInLandIce(i)
        endif
        if (trim(config_glc_thermal_forcing_coupling_mode) == '3d') then
           do iLevel = 1, nGlcZLevels
@@ -4783,6 +4793,13 @@ contains
 !    call mpas_pool_get_array(forcingPool, 'DMSFlux', DMSFlux)
 !    call mpas_pool_get_array(forcingPool, 'surfaceUpwardCO2Flux', surfaceUpwardCO2Flux)
 
+
+     if ( trim(config_land_ice_flux_mode) .eq. 'coupled'  ) then
+        call mpas_pool_get_array(forcingPool, 'avgLandIceBoundaryLayerTracers', avgLandIceBoundaryLayerTracers)
+        call mpas_pool_get_array(forcingPool, 'avgLandIceTracerTransferVelocities', avgLandIceTracerTransferVelocities)
+        call mpas_pool_get_array(forcingPool, 'avgEffectiveDensityInLandIce', avgEffectiveDensityInLandIce)
+     endif
+
 ! replace 'o2x_o % rAttr(' with 'o2x_om(n, ' and ', n)' with ')'
      do i = 1, nCellsSolve
        n = n + 1
@@ -4912,13 +4929,12 @@ contains
 !JW       o2x_om(n, index_o2x_So_stv) = landIceSaltTransferVelocity(i)
 
        if ( trim(config_land_ice_flux_mode) .eq. 'coupled'  ) then
-          o2x_om(n, index_o2x_So_blt) = landIceBoundaryLayerTracers(indexBLT,i)
-          o2x_om(n, index_o2x_So_bls) = landIceBoundaryLayerTracers(indexBLS,i)
-          o2x_om(n, index_o2x_So_htv) = landIceTracerTransferVelocities(indexHeatTrans,i)
-          o2x_om(n, index_o2x_So_stv) = landIceTracerTransferVelocities(indexSaltTrans,i)
-          o2x_om(n, index_o2x_So_rhoeff) = 0.0_RKIND
+          o2x_om(n, index_o2x_So_blt) = avgLandIceBoundaryLayerTracers(indexBLT,i)
+          o2x_om(n, index_o2x_So_bls) = avgLandIceBoundaryLayerTracers(indexBLS,i)
+          o2x_om(n, index_o2x_So_htv) = avgLandIceTracerTransferVelocities(indexHeatTrans,i)
+          o2x_om(n, index_o2x_So_stv) = avgLandIceTracerTransferVelocities(indexSaltTrans,i)
+          o2x_om(n, index_o2x_So_rhoeff) = avgEffectiveDensityInLandIce(i)
        endif
-
        !Fyke: test
        !write(stderrUnit,*) 'n=',n
        !write(stderrUnit,*) 'o2x_om(n, index_o2x_So_blt)=',o2x_om(n, index_o2x_So_blt)
