@@ -3313,11 +3313,6 @@ contains
 !      o2x_o % rAttr(index_o2x_Faoo_fdms_ocn, n) = DMSFlux(i)
 !      o2x_o % rAttr(index_o2x_Faoo_fco2_ocn, n) = surfaceUpwardCO2Flux(i)
 
-!JW       o2x_o % rAttr(index_o2x_So_blt, n) = landIceBoundaryLayerTemperature(i)
-!JW       o2x_o % rAttr(index_o2x_So_bls, n) = landIceBoundaryLayerSalinity(i)
-!JW       o2x_o % rAttr(index_o2x_So_htv, n) = landIceHeatTransferVelocity(i)
-!JW       o2x_o % rAttr(index_o2x_So_stv, n) = landIceSaltTransferVelocity(i)
-
        if ( trim(config_land_ice_flux_mode) .eq. 'standalone' .or. &
             trim(config_land_ice_flux_mode) .eq. 'coupled'  ) then
           o2x_o % rAttr(index_o2x_So_blt, n) = landIceBoundaryLayerTracers(indexBLT,i)
@@ -3343,19 +3338,6 @@ contains
           enddo
        endif
 
-
-       !Fyke: test
-       !write(stderrUnit,*) 'n=',n
-       !write(stderrUnit,*) 'o2x_o % rAttr(index_o2x_So_blt, n)=',o2x_o % rAttr(index_o2x_So_blt, n)
-       !write(stderrUnit,*) 'o2x_o % rAttr(index_o2x_So_bls, n)=',o2x_o % rAttr(index_o2x_So_bls, n)
-       !write(stderrUnit,*) 'o2x_o % rAttr(index_o2x_So_htv, n)=',o2x_o % rAttr(index_o2x_So_htv, n)
-       !write(stderrUnit,*) 'o2x_o % rAttr(index_o2x_So_stv, n)=',o2x_o % rAttr(index_o2x_So_stv, n)
-       !write(stderrUnit,*) 'o2x_o % rAttr(index_o2x_So_rhoeff, n)=',o2x_o % rAttr(index_o2x_So_rhoeff, n)
-       !o2x_o % rAttr(index_o2x_So_blt, n) = 0._r8
-       !o2x_o % rAttr(index_o2x_So_bls, n) = 34.5_r8
-       !o2x_o % rAttr(index_o2x_So_htv, n) = 1.e-4_r8
-       !o2x_o % rAttr(index_o2x_So_stv, n) = 3.e-6_r8
-       !o2x_o % rAttr(index_o2x_So_rhoeff, n) = 1000._r8*9.81_r8*918._r8 !lithostatic pressure of 1km of ice
 
      end do
 
