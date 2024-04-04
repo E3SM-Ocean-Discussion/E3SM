@@ -121,6 +121,18 @@ _TESTS = {
             )
         },
 
+    "e3sm_cryo_developer" : {
+        "tests"   : (
+            "SMS_D_Ld1.TL319_IcoswISC30E3r5.GMPAS-JRA1p5-DIB-PISMF.mpaso-jra_1958",
+            "ERS_Ld5.T62_oQU240wLI.GMPAS-DIB-IAF-PISMF",
+            "PEM_Ln5.T62_oQU240wLI.GMPAS-DIB-IAF-PISMF",
+            "PET_Ln5.T62_oQU240wLI.GMPAS-DIB-IAF-PISMF",
+            "ERS_Ld5.T62_oQU240wLI.GMPAS-DIB-IAF-DISMF",
+            "PEM_Ln5.T62_oQU240wLI.GMPAS-DIB-IAF-DISMF",
+            "PET_Ln5.T62_oQU240wLI.GMPAS-DIB-IAF-DISMF",
+            )
+        },
+
     "eam_condidiag" : {
         "tests"   : (
             "SMS_D_Ln5.ne4pg2_oQU480.F2010",
@@ -257,7 +269,7 @@ _TESTS = {
         },
 
     "e3sm_developer" : {
-        "inherit" : ("e3sm_land_developer", "e3sm_atm_developer", "e3sm_ice_developer"),
+        "inherit" : ("e3sm_land_developer", "e3sm_atm_developer", "e3sm_ice_developer", "e3sm_cryo_developer"),
         "time"    : "0:45:00",
         "tests"   : (
             "ERS.f19_g16_rx1.A",
@@ -267,7 +279,6 @@ _TESTS = {
             "NCK.f19_g16_rx1.A",
             "SMS.ne30_f19_g16_rx1.A",
             "ERS_Ld5.T62_oQU120.CMPASO-NYF",
-            "SMS_Ld1.T62_oQU240wLI.GMPAS-IAF-DISMF",
             "ERS.f09_g16_g.MALISIA",
             "SMS.T62_oQU120_ais20.MPAS_LISIO_TEST",
             "SMS.f09_g16_a.IGELM_MLI",
