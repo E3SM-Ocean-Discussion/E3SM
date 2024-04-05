@@ -353,7 +353,7 @@ def buildnml(case, caseroot, compname):
             data_ismf_file = 'prescribed_ismf_paolo2023.IcoswISC30E3r5.20240227.nc'
 
     elif ocn_grid == 'RRS6to18E3r6':
-        decomp_date = '20240402'
+        decomp_date = '20240404'
         decomp_prefix = 'partitions/mpas-o.graph.info.'
         restoring_file = 'sss.PHC2_monthlyClimatology.RRS6to18E3r6.20240402.nc'
         analysis_mask_file = 'RRS6to18E3r6_mocBasinsAndTransects20210623.nc'
