@@ -129,7 +129,7 @@ contains
       real (kind=RKIND), dimension(:, :), pointer :: normalVelocity
       real (kind=RKIND), dimension(:, :, :), pointer :: ecosysTracers, activeTracers, debugTracers, &
            DMSTracers, MacroMoleculesTracers
-      integer, pointer :: nVertLevels, nCellsSolve, tracerIndex
+      integer, pointer :: nVertLevels, nCellsSolve, nCells, tracerIndex
       integer :: iCell, k, iTracer
       integer, dimension(3) :: indexField
 
@@ -964,8 +964,7 @@ contains
        real (kind=RKIND), dimension(:), pointer :: landIceDraft, &
                                                    landIcePressure, &
                                                    landIceFraction, &
-                                                   landIceFloatingFraction, &
-                                                   ssh
+                                                   landIceFloatingFraction
 
        integer, pointer :: nCells
        integer, dimension(:), pointer :: maxLevelCell, landIceMask, landIceFloatingMask
@@ -1007,7 +1006,6 @@ contains
           call mpas_pool_get_array(landIceInitPool, 'landIcePressureObserved', landIcePressureObserved)
           call mpas_pool_get_array(landIceInitPool, 'landIceFracObserved', landIceFracObserved)
           call mpas_pool_get_array(landIceInitPool, 'landIceFloatingFracObserved', landIceFloatingFracObserved)
-          call mpas_pool_get_array(statePool, 'ssh', ssh, 1)
           call mpas_pool_get_array(forcingPool, 'landIceMask', landIceMask)
           call mpas_pool_get_array(forcingPool, 'landIceFloatingMask', landIceFloatingMask)
           call mpas_pool_get_array(forcingPool, 'landIceDraft', landIceDraft)
@@ -1020,7 +1018,6 @@ contains
                'indicates that this field is missing in the initial condition file (e.g. ' // &
                'because it is meant for an older E3SM version).', MPAS_LOG_CRIT)
           endif
-          ssh(:) = 0.0_RKIND
           landIceFraction(:) = 0.0_RKIND
           landIceDraft(:) = 0.0_RKIND
           landIcePressure(:) = 0.0_RKIND
@@ -1038,7 +1035,6 @@ contains
              end if
 
              landIceDraft(iCell) = landIceDraftObserved(iCell)
-             ssh(iCell) = landIceDraft(iCell)
              landIcePressure(iCell) = landIcePressureObserved(iCell)
              if (landIcePressure(iCell) > 0.0_RKIND) then
                 modifyLandIcePressureMask(iCell) = 1
