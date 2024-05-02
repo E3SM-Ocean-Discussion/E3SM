@@ -482,7 +482,7 @@ contains
 
      deallocate(values)
      ! now start comparing tags after set
-     ierr  = iMOAB_GetMeshInfo ( appId, nvert, nvise, nbl, nsurf, nvisBC );
+     ierr  = iMOAB_GetMeshInfo ( appId, nvert, nvise, nbl, nsurf, nvisBC )
      if (ierr > 0 )  &
         call shr_sys_abort(subname//'Error: fail to get mesh info')
      if (ent_type .eq. 0) then
@@ -503,6 +503,7 @@ contains
      values  = mct_values - values
 
      difference = dot_product(values, values)
+     differenceg = 0. ! intel complained; why ?
      call shr_mpi_sum(difference,differenceg,mpicom,subname)
      difference = sqrt(differenceg)
      iamroot = seq_comm_iamroot(CPLID)

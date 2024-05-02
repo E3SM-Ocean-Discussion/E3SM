@@ -130,6 +130,11 @@
   </compset>
 
   <compset>
+    <alias>I1850CNPRDCTCBCTOP</alias>
+    <lname>1850_DATM%QIA_ELM%CNPRDCTCBCTOP_SICE_SOCN_MOSART_SGLC_SWAV</lname>
+  </compset>
+
+  <compset>
     <alias>ICB1850CRDCTCBC</alias>
     <lname>1850_SATM_ELM%CRDCTCBC_SICE_SOCN_MOSART_SGLC_SWAV</lname>
   </compset>
@@ -773,7 +778,7 @@
 
   <compset>
     <alias>IGELM_MLI</alias>
-    <lname>2000_DATM%QIA_ELM%SP_SICE_SOCN_MOSART_MALI%SIA_SWAV</lname>
+    <lname>2000_DATM%QIA_ELM%SP_SICE_SOCN_MOSART_MALI_SWAV</lname>
   </compset>
 
   <compset>
