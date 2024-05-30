@@ -229,12 +229,16 @@ module elm_varctl
   logical, public            :: use_fates_ed_st3   = .false.            ! true => static stand structure
   logical, public            :: use_fates_ed_prescribed_phys = .false.  ! true => prescribed physiology
   logical, public            :: use_fates_inventory_init = .false.      ! true => initialize fates from inventory
-  logical, public            :: use_fates_nocomp = .false.              ! true => use no comopetition mode
-  logical, public            :: use_fates_sp = .false.                  ! true => use FATES satellite phenology mode
+  logical, public            :: use_fates_nocomp = .false.              ! true => no competition mode
+  logical, public            :: use_fates_sp = .false.                  ! true => FATES satellite phenology mode
+  logical, public            :: use_fates_luh = .false.                 ! true => FATES land use transitions mode
+  character(len=256), public :: fluh_timeseries = ''                    ! filename for land use harmonization data
   character(len=256), public :: fates_inventory_ctrl_filename = ''      ! filename for inventory control
   integer, public            :: fates_parteh_mode = -9                  ! 1 => carbon only
                                                                         ! 2 => C+N+P (not enabled yet)
                                                                         ! no others enabled
+  integer, public            :: fates_seeddisp_cadence = iundef         ! 0 => no seed dispersal across gridcells
+                                                                        ! 1, 2, 3  => daily, monthly, or yearly seed dispersal
 
 
   !----------------------------------------------------------
@@ -364,6 +368,15 @@ module elm_varctl
   logical, public :: use_lake_wat_storage = .false.
   logical, public :: use_top_solar_rad   = .false.  ! TOP : sub-grid topographic effect on surface solar radiation
 
+  !----------------------------------------------------------
+  ! Fan controls (use_fan)
+  !----------------------------------------------------------
+  logical, public :: use_fan             = .false.
+  character(len=32), public :: fan_mode  = 'none'
+  logical, public :: fan_nh3_to_atm      = .false.
+  logical, public :: fan_to_bgc_crop     = .false.
+  logical, public :: fan_to_bgc_veg      = .false.
+ 
 
   !----------------------------------------------------------
   ! VSFM switches
@@ -526,6 +539,11 @@ module elm_varctl
    ! MPI syncing
    !----------------------------------------------------------
    integer, public :: mpi_sync_nstep_freq = 0
+   
+   !----------------------------------------------------------
+   ! Modified infiltration scheme in surface water storage
+   !----------------------------------------------------------
+   logical, public :: use_modified_infil = .false.
 
 contains
 

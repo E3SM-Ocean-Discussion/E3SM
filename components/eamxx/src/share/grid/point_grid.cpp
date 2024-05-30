@@ -22,6 +22,23 @@ PointGrid (const std::string& grid_name,
   lid2idx.sync_to_dev();
 }
 
+PointGrid::
+PointGrid (const std::string& grid_name,
+           const int          num_my_cols,
+           const int          num_global_cols,
+           const int          num_vertical_levels,
+           const ekat::Comm&  comm)
+ : AbstractGrid(grid_name,GridType::Point,num_my_cols,num_global_cols,num_vertical_levels,comm)
+{
+  create_dof_fields (get_2d_scalar_layout().rank());
+
+  // The lid->idx map is the identity map.
+  auto lid2idx = get_lid_to_idx_map();
+  auto h_lid_to_idx = lid2idx.get_view<int**,Host>();
+  std::iota(h_lid_to_idx.data(),h_lid_to_idx.data()+get_num_local_dofs(),0);
+  lid2idx.sync_to_dev();
+}
+
 FieldLayout
 PointGrid::get_2d_scalar_layout () const
 {
@@ -36,6 +53,20 @@ PointGrid::get_2d_vector_layout (const FieldTag vector_tag, const int vector_dim
   using namespace ShortFieldTagsNames;
 
   return FieldLayout({COL,vector_tag},{get_num_local_dofs(),vector_dim});
+}
+
+FieldLayout
+PointGrid::get_2d_tensor_layout (const std::vector<FieldTag>& cmp_tags,
+                                 const std::vector<int>& cmp_dims) const
+{
+  using namespace ShortFieldTagsNames;
+
+  std::vector<FieldTag> tags = {COL};
+  std::vector<int>      dims = {get_num_local_dofs()};
+
+  tags.insert(tags.end(),cmp_tags.begin(),cmp_tags.end());
+  dims.insert(dims.end(),cmp_dims.begin(),cmp_dims.end());
+  return FieldLayout(tags,dims);
 }
 
 FieldLayout
@@ -58,6 +89,26 @@ PointGrid::get_3d_vector_layout (const bool midpoints, const FieldTag vector_tag
   auto VL = midpoints ? LEV : ILEV;
 
   return FieldLayout({COL,vector_tag,VL},{get_num_local_dofs(),vector_dim,nvl});
+}
+
+FieldLayout
+PointGrid::get_3d_tensor_layout (const bool midpoints,
+                                 const std::vector<FieldTag>& cmp_tags,
+                                 const std::vector<int>& cmp_dims) const
+{
+  using namespace ShortFieldTagsNames;
+
+  int nvl = this->get_num_vertical_levels() + (midpoints ? 0 : 1);
+  auto VL = midpoints ? LEV : ILEV;
+
+  std::vector<FieldTag> tags = {COL};
+  std::vector<int>      dims = {get_num_local_dofs()};
+
+  tags.insert(tags.end(),cmp_tags.begin(),cmp_tags.end());
+  dims.insert(dims.end(),cmp_dims.begin(),cmp_dims.end());
+  tags.push_back(VL);
+  dims.push_back(nvl);
+  return FieldLayout(tags,dims);
 }
 
 std::shared_ptr<AbstractGrid>

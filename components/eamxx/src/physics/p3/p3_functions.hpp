@@ -72,6 +72,7 @@ struct Functions
   using KT = KokkosTypes<Device>;
 
   using C = scream::physics::Constants<Scalar>;
+  using CP3 = scream::physics::P3_Constants<Scalar>;
 
   template <typename S>
   using view_1d = typename KT::template view_1d<S>;
@@ -106,6 +107,12 @@ struct Functions
 
   using WorkspaceManager = typename ekat::WorkspaceManager<Spack, Device>;
   using Workspace        = typename WorkspaceManager::Workspace;
+
+  // Structure to store p3 runtime options
+  struct P3Runtime {
+    // maximum total ice concentration (sum of all categories) (m)
+    Scalar max_total_ni;
+  };
 
   // This struct stores prognostic variables evolved by P3.
   struct P3PrognosticState {
@@ -176,6 +183,8 @@ struct Functions
     view_2d<Spack> diag_eff_radius_qc;
     // Effective ice radius [m]
     view_2d<Spack> diag_eff_radius_qi;
+    // Effective rain radius [m]
+    view_2d<Spack> diag_eff_radius_qr;
     // Bulk density of ice [kg m-3]
     view_2d<Spack> rho_qi;
     // Grid-box average rain flux [kg m^-2 s^-1] pverp
@@ -407,6 +416,30 @@ struct Functions
     const uview_1d<Spack>& nc_tend,
     Scalar& precip_liq_surf);
 
+#ifdef SCREAM_SMALL_KERNELS
+  static void cloud_sedimentation_disp(
+    const uview_2d<Spack>& qc_incld,
+    const uview_2d<const Spack>& rho,
+    const uview_2d<const Spack>& inv_rho,
+    const uview_2d<const Spack>& cld_frac_l,
+    const uview_2d<const Spack>& acn,
+    const uview_2d<const Spack>& inv_dz,
+    const view_dnu_table& dnu,
+    const WorkspaceManager& workspace_mgr,
+    const Int& nj, const Int& nk, const Int& ktop, const Int& kbot, const Int& kdir, const Scalar& dt, const Scalar& inv_dt,
+    const bool& do_predict_nc,
+    const uview_2d<Spack>& qc,
+    const uview_2d<Spack>& nc,
+    const uview_2d<Spack>& nc_incld,
+    const uview_2d<Spack>& mu_c,
+    const uview_2d<Spack>& lamc,
+    const uview_2d<Spack>& qc_tend,
+    const uview_2d<Spack>& nc_tend,
+    const uview_1d<Scalar>& precip_liq_surf,
+    const uview_1d<bool>& is_nucleat_possible,
+    const uview_1d<bool>& is_hydromet_present);
+#endif
+
   // TODO: comment
   KOKKOS_FUNCTION
   static void rain_sedimentation(
@@ -428,7 +461,33 @@ struct Functions
     const uview_1d<Spack>& precip_liq_flux,
     const uview_1d<Spack>& qr_tend,
     const uview_1d<Spack>& nr_tend,
-    Scalar& precip_liq_surf);
+    Scalar& precip_liq_surf,
+    const physics::P3_Constants<ScalarT> & p3constants);
+
+#ifdef SCREAM_SMALL_KERNELS
+  static void rain_sedimentation_disp(
+    const uview_2d<const Spack>& rho,
+    const uview_2d<const Spack>& inv_rho,
+    const uview_2d<const Spack>& rhofacr,
+    const uview_2d<const Spack>& cld_frac_r,
+    const uview_2d<const Spack>& inv_dz,
+    const uview_2d<Spack>& qr_incld,
+    const WorkspaceManager& workspace_mgr,
+    const view_2d_table& vn_table_vals, const view_2d_table& vm_table_vals,
+    const Int& nj, const Int& nk, const Int& ktop, const Int& kbot, const Int& kdir, const Scalar& dt, const Scalar& inv_dt,
+    const uview_2d<Spack>& qr,
+    const uview_2d<Spack>& nr,
+    const uview_2d<Spack>& nr_incld,
+    const uview_2d<Spack>& mu_r,
+    const uview_2d<Spack>& lamr,
+    const uview_2d<Spack>& precip_liq_flux,
+    const uview_2d<Spack>& qr_tend,
+    const uview_2d<Spack>& nr_tend,
+    const uview_1d<Scalar>& precip_liq_surf,
+    const uview_1d<bool>& is_nucleat_possible,
+    const uview_1d<bool>& is_hydromet_present,
+    const physics::P3_Constants<ScalarT> & p3constants);
+#endif
 
   // TODO: comment
   KOKKOS_FUNCTION
@@ -452,7 +511,34 @@ struct Functions
     const uview_1d<Spack>& qi_tend,
     const uview_1d<Spack>& ni_tend,
     const view_ice_table& ice_table_vals,
-    Scalar& precip_ice_surf);
+    Scalar& precip_ice_surf,
+    const physics::P3_Constants<ScalarT> & p3constants);
+
+#ifdef SCREAM_SMALL_KERNELS
+  static void ice_sedimentation_disp(
+    const uview_2d<const Spack>& rho,
+    const uview_2d<const Spack>& inv_rho,
+    const uview_2d<const Spack>& rhofaci,
+    const uview_2d<const Spack>& cld_frac_i,
+    const uview_2d<const Spack>& inv_dz,
+    const WorkspaceManager& workspace_mgr,
+    const Int& nj, const Int& nk, const Int& ktop, const Int& kbot, const Int& kdir, const Scalar& dt, const Scalar& inv_dt,
+    const uview_2d<Spack>& qi,
+    const uview_2d<Spack>& qi_incld,
+    const uview_2d<Spack>& ni,
+    const uview_2d<Spack>& ni_incld,
+    const uview_2d<Spack>& qm,
+    const uview_2d<Spack>& qm_incld,
+    const uview_2d<Spack>& bm,
+    const uview_2d<Spack>& bm_incld,
+    const uview_2d<Spack>& qi_tend,
+    const uview_2d<Spack>& ni_tend,
+    const view_ice_table& ice_table_vals,
+    const uview_1d<Scalar>& precip_ice_surf,
+    const uview_1d<bool>& is_nucleat_possible,
+    const uview_1d<bool>& is_hydromet_present,
+    const physics::P3_Constants<ScalarT> & p3constants);
+#endif
 
   // homogeneous freezing of cloud and rain
   KOKKOS_FUNCTION
@@ -471,6 +557,25 @@ struct Functions
     const uview_1d<Spack>& qm,
     const uview_1d<Spack>& bm,
     const uview_1d<Spack>& th_atm);
+
+#ifdef SCREAM_SMALL_KERNELS
+  static void homogeneous_freezing_disp(
+    const uview_2d<const Spack>& T_atm,
+    const uview_2d<const Spack>& inv_exner,
+    const uview_2d<const Spack>& latent_heat_fusion,
+    const Int& nj, const Int& nk, const Int& ktop, const Int& kbot, const Int& kdir,
+    const uview_2d<Spack>& qc,
+    const uview_2d<Spack>& nc,
+    const uview_2d<Spack>& qr,
+    const uview_2d<Spack>& nr,
+    const uview_2d<Spack>& qi,
+    const uview_2d<Spack>& ni,
+    const uview_2d<Spack>& qm,
+    const uview_2d<Spack>& bm,
+    const uview_2d<Spack>& th_atm,
+    const uview_1d<bool>& is_nucleat_possible,
+    const uview_1d<bool>& is_hydromet_present);
+#endif
 
   // -- Find layers
 
@@ -520,7 +625,15 @@ struct Functions
   KOKKOS_FUNCTION
   static void get_rain_dsd2 (
     const Spack& qr, Spack& nr, Spack& mu_r,
-    Spack& lamr, Spack& cdistr, Spack& logn0r,
+    Spack& lamr,
+    const physics::P3_Constants<ScalarT> & p3constants,
+    const Smask& context = Smask(true) );
+
+  // Computes and returns additional rain size distribution parameters
+  KOKKOS_FUNCTION
+  static void get_cdistr_logn0r (
+    const Spack& qr, const Spack& nr, const Spack& mu_r,
+    const Spack& lamr, Spack& cdistr, Spack& logn0r,
     const Smask& context = Smask(true) );
 
   // Calculates rime density
@@ -536,6 +649,7 @@ struct Functions
   static void cldliq_immersion_freezing(const Spack& T_atm, const Spack& lamc,
     const Spack& mu_c, const Spack& cdist1, const Spack& qc_incld, const Spack& inv_qc_relvar,
     Spack& qc2qi_hetero_freeze_tend, Spack& nc2ni_immers_freeze_tend,
+    const physics::P3_Constants<ScalarT> & p3constants,
     const Smask& context = Smask(true) );
 
   // Computes the immersion freezing of rain
@@ -543,6 +657,7 @@ struct Functions
   static void rain_immersion_freezing(const Spack& T_atm, const Spack& lamr,
     const Spack& mu_r, const Spack& cdistr, const Spack& qr_incld,
     Spack& qr2qi_immers_freeze_tend, Spack& nr2ni_immers_freeze_tend,
+    const physics::P3_Constants<ScalarT> & p3constants,
     const Smask& context = Smask(true) );
 
   // Computes droplet self collection
@@ -557,6 +672,7 @@ struct Functions
   static void cloud_rain_accretion(const Spack& rho, const Spack& inv_rho,
     const Spack& qc_incld, const Spack& nc_incld, const Spack& qr_incld, const Spack& inv_qc_relvar,
     Spack& qc2qr_accret_tend, Spack& nc_accret_tend,
+    const physics::P3_Constants<ScalarT> & p3constants,
     const Smask& context = Smask(true) );
 
   // Computes cloud water autoconversion process rate
@@ -564,11 +680,13 @@ struct Functions
   static void cloud_water_autoconversion(const Spack& rho,  const Spack& qc_incld,
     const Spack& nc_incld, const Spack& inv_qc_relvar,
     Spack& qc2qr_autoconv_tend, Spack& nc2nr_autoconv_tend, Spack& ncautr,
-    const Smask& context = Smask(true) );
+    const physics::P3_Constants<ScalarT> & p3constants,
+    const Smask& context = Smask(true));
 
   // Computes rain self collection process rate
   KOKKOS_FUNCTION
   static void rain_self_collection(const Spack& rho, const Spack& qr_incld, const Spack& nr_incld, Spack& nr_selfcollect_tend,
+		                   const physics::P3_Constants<ScalarT> & p3constants,
                                    const Smask& context = Smask(true) );
 
   // Impose maximum ice number
@@ -583,6 +701,7 @@ struct Functions
   KOKKOS_FUNCTION
   static Spack calc_bulk_rho_rime(
     const Spack& qi_tot, Spack& qi_rim, Spack& bi_rim,
+    const physics::P3_Constants<ScalarT> & p3constants,
     const Smask& context = Smask(true) );
 
   // TODO - comment
@@ -591,6 +710,7 @@ struct Functions
     const view_2d_table& vn_table_vals, const view_2d_table& vm_table_vals,
     const Spack& qr_incld, const Spack& rhofacr,
     Spack& nr_incld, Spack& mu_r, Spack& lamr, Spack& V_qr, Spack& V_nr,
+    const physics::P3_Constants<ScalarT> & p3constants,
     const Smask& context = Smask(true));
 
   //---------------------------------------------------------------------------------
@@ -626,7 +746,8 @@ struct Functions
                                     const Spack& qi_incld, const Spack& qc_incld,
                                     const Spack& ni_incld, const Spack& nc_incld,
                                     Spack& qc2qi_collect_tend, Spack& nc_collect_tend, Spack& qc2qr_ice_shed_tend, Spack& ncshdc,
-                                    const Smask& context = Smask(true));
+                                    const physics::P3_Constants<ScalarT> & p3constants,
+	      			    const Smask& context = Smask(true));
 
   // TODO (comments)
   KOKKOS_FUNCTION
@@ -636,6 +757,7 @@ struct Functions
                                   const Spack& qi_incld, const Spack& ni_incld,
                                   const Spack& qr_incld,
                                   Spack& qr2qi_collect_tend, Spack& nr_collect_tend,
+                                  const physics::P3_Constants<ScalarT> & p3constants,
                                   const Smask& context = Smask(true));
 
   // TODO (comments)
@@ -720,6 +842,7 @@ struct Functions
                              const Spack& qv_supersat_i, const Scalar& inv_dt,
                              const bool& do_predict_nc, const bool& do_prescribed_CCN,
                              Spack& qv2qi_nucleat_tend, Spack& ni_nucleat_tend,
+                             const physics::P3_Constants<ScalarT> & p3constants,
                              const Smask& context = Smask(true));
 
   KOKKOS_FUNCTION
@@ -740,6 +863,12 @@ struct Functions
   static void check_values(const uview_1d<const Spack>& qv, const uview_1d<const Spack>& temp, const Int& ktop, const Int& kbot,
                            const Int& timestepcount, const bool& force_abort, const Int& source_ind, const MemberType& team,
                            const uview_1d<const Scalar>& col_loc);
+
+#ifdef SCREAM_SMALL_KERNELS
+  static void check_values_disp(const uview_2d<const Spack>& qv, const uview_2d<const Spack>& temp, const Int& ktop, const Int& kbot,
+                           const Int& timestepcount, const bool& force_abort, const Int& source_ind,
+                           const uview_2d<const Scalar>& col_loc, const Int& nj, const Int& nk);
+#endif
 
   KOKKOS_FUNCTION
   static void calculate_incloud_mixingratios(
@@ -769,6 +898,7 @@ struct Functions
     const uview_1d<Spack>& ze_rain,
     const uview_1d<Spack>& diag_eff_radius_qc,
     const uview_1d<Spack>& diag_eff_radius_qi,
+    const uview_1d<Spack>& diag_eff_radius_qr,
     const uview_1d<Spack>& inv_cld_frac_i,
     const uview_1d<Spack>& inv_cld_frac_l,
     const uview_1d<Spack>& inv_cld_frac_r,
@@ -779,6 +909,29 @@ struct Functions
     Scalar& precip_liq_surf,
     Scalar& precip_ice_surf,
     view_1d_ptr_array<Spack, 36>& zero_init);
+
+#ifdef SCREAM_SMALL_KERNELS
+  static void p3_main_init_disp(
+    const Int& nj,const Int& nk_pack,
+    const uview_2d<const Spack>& cld_frac_i, const uview_2d<const Spack>& cld_frac_l,
+    const uview_2d<const Spack>& cld_frac_r, const uview_2d<const Spack>& inv_exner,
+    const uview_2d<const Spack>& th_atm, const uview_2d<const Spack>& dz,
+    const uview_2d<Spack>& diag_equiv_reflectivity, const uview_2d<Spack>& ze_ice,
+    const uview_2d<Spack>& ze_rain, const uview_2d<Spack>& diag_eff_radius_qc,
+    const uview_2d<Spack>& diag_eff_radius_qi, const uview_2d<Spack>& diag_eff_radius_qr, const uview_2d<Spack>& inv_cld_frac_i,
+    const uview_2d<Spack>& inv_cld_frac_l, const uview_2d<Spack>& inv_cld_frac_r,
+    const uview_2d<Spack>& exner, const uview_2d<Spack>& T_atm, const uview_2d<Spack>& qv,
+    const uview_2d<Spack>& inv_dz, const uview_1d<Scalar>& precip_liq_surf, const uview_1d<Scalar>& precip_ice_surf,
+    const uview_2d<Spack>& mu_r, const uview_2d<Spack>& lamr, const uview_2d<Spack>& logn0r, const uview_2d<Spack>& nu,
+    const uview_2d<Spack>& cdist, const uview_2d<Spack>& cdist1, const uview_2d<Spack>& cdistr,
+    const uview_2d<Spack>& qc_incld, const uview_2d<Spack>& qr_incld, const uview_2d<Spack>& qi_incld,
+    const uview_2d<Spack>& qm_incld, const uview_2d<Spack>& nc_incld, const uview_2d<Spack>& nr_incld, const uview_2d<Spack>& ni_incld,
+    const uview_2d<Spack>& bm_incld, const uview_2d<Spack>& inv_rho, const uview_2d<Spack>& prec, const uview_2d<Spack>& rho, const uview_2d<Spack>& rhofacr,
+    const uview_2d<Spack>& rhofaci, const uview_2d<Spack>& acn, const uview_2d<Spack>& qv_sat_l, const uview_2d<Spack>& qv_sat_i, const uview_2d<Spack>& sup,
+    const uview_2d<Spack>& qv_supersat_i, const uview_2d<Spack>& qtend_ignore, const uview_2d<Spack>& ntend_ignore, const uview_2d<Spack>& mu_c,
+    const uview_2d<Spack>& lamc, const uview_2d<Spack>& rho_qi, const uview_2d<Spack>& qv2qi_depos_tend, const uview_2d<Spack>& precip_total_tend,
+    const uview_2d<Spack>& nevapr, const uview_2d<Spack>& precip_liq_flux, const uview_2d<Spack>& precip_ice_flux);
+#endif
 
   KOKKOS_FUNCTION
   static void p3_main_part1(
@@ -828,12 +981,66 @@ struct Functions
     const uview_1d<Spack>& ni_incld,
     const uview_1d<Spack>& bm_incld,
     bool& is_nucleat_possible,
-    bool& is_hydromet_present);
+    bool& is_hydromet_present,
+    const physics::P3_Constants<ScalarT> & p3constants);
+
+#ifdef SCREAM_SMALL_KERNELS
+  static void p3_main_part1_disp(
+    const Int& nj,
+    const Int& nk,
+    const bool& do_predict_nc,
+    const bool& do_prescribed_CCN,
+    const Scalar& dt,
+    const uview_2d<const Spack>& pres,
+    const uview_2d<const Spack>& dpres,
+    const uview_2d<const Spack>& dz,
+    const uview_2d<const Spack>& nc_nuceat_tend,
+    const uview_2d<const Spack>& nccn_prescribed,
+    const uview_2d<const Spack>& inv_exner,
+    const uview_2d<const Spack>& exner,
+    const uview_2d<const Spack>& inv_cld_frac_l,
+    const uview_2d<const Spack>& inv_cld_frac_i,
+    const uview_2d<const Spack>& inv_cld_frac_r,
+    const uview_2d<const Spack>& latent_heat_vapor,
+    const uview_2d<const Spack>& latent_heat_sublim,
+    const uview_2d<const Spack>& latent_heat_fusion,
+    const uview_2d<Spack>& T_atm,
+    const uview_2d<Spack>& rho,
+    const uview_2d<Spack>& inv_rho,
+    const uview_2d<Spack>& qv_sat_l,
+    const uview_2d<Spack>& qv_sat_i,
+    const uview_2d<Spack>& qv_supersat_i,
+    const uview_2d<Spack>& rhofacr,
+    const uview_2d<Spack>& rhofaci,
+    const uview_2d<Spack>& acn,
+    const uview_2d<Spack>& qv,
+    const uview_2d<Spack>& th_atm,
+    const uview_2d<Spack>& qc,
+    const uview_2d<Spack>& nc,
+    const uview_2d<Spack>& qr,
+    const uview_2d<Spack>& nr,
+    const uview_2d<Spack>& qi,
+    const uview_2d<Spack>& ni,
+    const uview_2d<Spack>& qm,
+    const uview_2d<Spack>& bm,
+    const uview_2d<Spack>& qc_incld,
+    const uview_2d<Spack>& qr_incld,
+    const uview_2d<Spack>& qi_incld,
+    const uview_2d<Spack>& qm_incld,
+    const uview_2d<Spack>& nc_incld,
+    const uview_2d<Spack>& nr_incld,
+    const uview_2d<Spack>& ni_incld,
+    const uview_2d<Spack>& bm_incld,
+    const uview_1d<bool>& is_nucleat_possible,
+    const uview_1d<bool>& is_hydromet_present,
+    const physics::P3_Constants<ScalarT> & p3constants);
+#endif
 
   KOKKOS_FUNCTION
   static void p3_main_part2(
     const MemberType& team,
     const Int& nk_pack,
+    const Scalar& max_total_ni,
     const bool& do_predict_nc,
     const bool& do_prescribed_CCN,
     const Scalar& dt,
@@ -907,12 +1114,96 @@ struct Functions
     const uview_1d<Spack>& pratot,
     const uview_1d<Spack>& prctot,
     bool& is_hydromet_present,
-    const Int& nk=-1);
+    const Int& nk,
+    const physics::P3_Constants<ScalarT> & p3constants);
+
+#ifdef SCREAM_SMALL_KERNELS
+  static void p3_main_part2_disp(
+    const Int& nj,
+    const Int& nk,
+    const Scalar& max_total_ni,
+    const bool& do_predict_nc,
+    const bool& do_prescribed_CCN,
+    const Scalar& dt,
+    const Scalar& inv_dt,
+    const view_dnu_table& dnu,
+    const view_ice_table& ice_table_vals,
+    const view_collect_table& collect_table_vals,
+    const view_2d_table& revap_table_vals,
+    const uview_2d<const Spack>& pres,
+    const uview_2d<const Spack>& dpres,
+    const uview_2d<const Spack>& dz,
+    const uview_2d<const Spack>& nc_nuceat_tend,
+    const uview_2d<const Spack>& inv_exner,
+    const uview_2d<const Spack>& exner,
+    const uview_2d<const Spack>& inv_cld_frac_l,
+    const uview_2d<const Spack>& inv_cld_frac_i,
+    const uview_2d<const Spack>& inv_cld_frac_r,
+    const uview_2d<const Spack>& ni_activated,
+    const uview_2d<const Spack>& inv_qc_relvar,
+    const uview_2d<const Spack>& cld_frac_i,
+    const uview_2d<const Spack>& cld_frac_l,
+    const uview_2d<const Spack>& cld_frac_r,
+    const uview_2d<const Spack>& qv_prev,
+    const uview_2d<const Spack>& t_prev,
+    const uview_2d<Spack>& T_atm,
+    const uview_2d<Spack>& rho,
+    const uview_2d<Spack>& inv_rho,
+    const uview_2d<Spack>& qv_sat_l,
+    const uview_2d<Spack>& qv_sat_i,
+    const uview_2d<Spack>& qv_supersat_i,
+    const uview_2d<Spack>& rhofacr,
+    const uview_2d<Spack>& rhofaci,
+    const uview_2d<Spack>& acn,
+    const uview_2d<Spack>& qv,
+    const uview_2d<Spack>& th_atm,
+    const uview_2d<Spack>& qc,
+    const uview_2d<Spack>& nc,
+    const uview_2d<Spack>& qr,
+    const uview_2d<Spack>& nr,
+    const uview_2d<Spack>& qi,
+    const uview_2d<Spack>& ni,
+    const uview_2d<Spack>& qm,
+    const uview_2d<Spack>& bm,
+    const uview_2d<Spack>& latent_heat_vapor,
+    const uview_2d<Spack>& latent_heat_sublim,
+    const uview_2d<Spack>& latent_heat_fusion,
+    const uview_2d<Spack>& qc_incld,
+    const uview_2d<Spack>& qr_incld,
+    const uview_2d<Spack>& qi_incld,
+    const uview_2d<Spack>& qm_incld,
+    const uview_2d<Spack>& nc_incld,
+    const uview_2d<Spack>& nr_incld,
+    const uview_2d<Spack>& ni_incld,
+    const uview_2d<Spack>& bm_incld,
+    const uview_2d<Spack>& mu_c,
+    const uview_2d<Spack>& nu,
+    const uview_2d<Spack>& lamc,
+    const uview_2d<Spack>& cdist,
+    const uview_2d<Spack>& cdist1,
+    const uview_2d<Spack>& cdistr,
+    const uview_2d<Spack>& mu_r,
+    const uview_2d<Spack>& lamr,
+    const uview_2d<Spack>& logn0r,
+    const uview_2d<Spack>& qv2qi_depos_tend,
+    const uview_2d<Spack>& precip_total_tend,
+    const uview_2d<Spack>& nevapr,
+    const uview_2d<Spack>& qr_evap_tend,
+    const uview_2d<Spack>& vap_liq_exchange,
+    const uview_2d<Spack>& vap_ice_exchange,
+    const uview_2d<Spack>& liq_ice_exchange,
+    const uview_2d<Spack>& pratot,
+    const uview_2d<Spack>& prctot,
+    const uview_1d<bool>& is_nucleat_possible,
+    const uview_1d<bool>& is_hydromet_present,
+    const physics::P3_Constants<ScalarT> & p3constants);
+#endif
 
   KOKKOS_FUNCTION
   static void p3_main_part3(
     const MemberType& team,
     const Int& nk_pack,
+    const Scalar& max_total_ni,
     const view_dnu_table& dnu,
     const view_ice_table& ice_table_vals,
     const uview_1d<const Spack>& inv_exner,
@@ -947,10 +1238,59 @@ struct Functions
     const uview_1d<Spack>& diag_diam_qi,
     const uview_1d<Spack>& rho_qi,
     const uview_1d<Spack>& diag_equiv_reflectivity,
-    const uview_1d<Spack>& diag_eff_radius_qc);
+    const uview_1d<Spack>& diag_eff_radius_qc,
+    const uview_1d<Spack>& diag_eff_radius_qr,
+    const physics::P3_Constants<ScalarT> & p3constants);
+
+#ifdef SCREAM_SMALL_KERNELS
+  static void p3_main_part3_disp(
+    const Int& nj,
+    const Int& nk_pack,
+    const Scalar& max_total_ni,
+    const view_dnu_table& dnu,
+    const view_ice_table& ice_table_vals,
+    const uview_2d<const Spack>& inv_exner,
+    const uview_2d<const Spack>& cld_frac_l,
+    const uview_2d<const Spack>& cld_frac_r,
+    const uview_2d<const Spack>& cld_frac_i,
+    const uview_2d<Spack>& rho,
+    const uview_2d<Spack>& inv_rho,
+    const uview_2d<Spack>& rhofaci,
+    const uview_2d<Spack>& qv,
+    const uview_2d<Spack>& th_atm,
+    const uview_2d<Spack>& qc,
+    const uview_2d<Spack>& nc,
+    const uview_2d<Spack>& qr,
+    const uview_2d<Spack>& nr,
+    const uview_2d<Spack>& qi,
+    const uview_2d<Spack>& ni,
+    const uview_2d<Spack>& qm,
+    const uview_2d<Spack>& bm,
+    const uview_2d<Spack>& latent_heat_vapor,
+    const uview_2d<Spack>& latent_heat_sublim,
+    const uview_2d<Spack>& mu_c,
+    const uview_2d<Spack>& nu,
+    const uview_2d<Spack>& lamc,
+    const uview_2d<Spack>& mu_r,
+    const uview_2d<Spack>& lamr,
+    const uview_2d<Spack>& vap_liq_exchange,
+    const uview_2d<Spack>& ze_rain,
+    const uview_2d<Spack>& ze_ice,
+    const uview_2d<Spack>& diag_vm_qi,
+    const uview_2d<Spack>& diag_eff_radius_qi,
+    const uview_2d<Spack>& diag_diam_qi,
+    const uview_2d<Spack>& rho_qi,
+    const uview_2d<Spack>& diag_equiv_reflectivity,
+    const uview_2d<Spack>& diag_eff_radius_qc,
+    const uview_2d<Spack>& diag_eff_radius_qr,
+    const uview_1d<bool>& is_nucleat_possible,
+    const uview_1d<bool>& is_hydromet_present,
+    const physics::P3_Constants<ScalarT> & p3constants);
+#endif
 
   // Return microseconds elapsed
   static Int p3_main(
+    const P3Runtime& runtime_options,
     const P3PrognosticState& prognostic_state,
     const P3DiagnosticInputs& diagnostic_inputs,
     const P3DiagnosticOutputs& diagnostic_outputs,
@@ -959,7 +1299,36 @@ struct Functions
     const P3LookupTables& lookup_tables,
     const WorkspaceManager& workspace_mgr,
     Int nj, // number of columns
-    Int nk); // number of vertical cells per column
+    Int nk, // number of vertical cells per column
+    const physics::P3_Constants<ScalarT> & p3constants);
+
+  static Int p3_main_internal(
+    const P3Runtime& runtime_options,
+    const P3PrognosticState& prognostic_state,
+    const P3DiagnosticInputs& diagnostic_inputs,
+    const P3DiagnosticOutputs& diagnostic_outputs,
+    const P3Infrastructure& infrastructure,
+    const P3HistoryOnly& history_only,
+    const P3LookupTables& lookup_tables,
+    const WorkspaceManager& workspace_mgr,
+    Int nj, // number of columns
+    Int nk, // number of vertical cells per column
+    const physics::P3_Constants<ScalarT> & p3constants);
+
+#ifdef SCREAM_SMALL_KERNELS
+  static Int p3_main_internal_disp(
+    const P3Runtime& runtime_options,
+    const P3PrognosticState& prognostic_state,
+    const P3DiagnosticInputs& diagnostic_inputs,
+    const P3DiagnosticOutputs& diagnostic_outputs,
+    const P3Infrastructure& infrastructure,
+    const P3HistoryOnly& history_only,
+    const P3LookupTables& lookup_tables,
+    const WorkspaceManager& workspace_mgr,
+    Int nj, // number of columns
+    Int nk, // number of vertical cells per column
+    const physics::P3_Constants<ScalarT> & p3constants);
+#endif
 
   KOKKOS_FUNCTION
   static void ice_supersat_conservation(Spack& qidep, Spack& qinuc, const Spack& cld_frac_i, const Spack& qv, const Spack& qv_sat_i, const Spack& latent_heat_sublim, const Spack& t_atm, const Real& dt, const Spack& qi2qv_sublim_tend, const Spack& qr2qv_evap_tend, const Smask& context = Smask(true));
@@ -1035,5 +1404,5 @@ void init_tables_from_f90_c(Real* vn_table_vals_data, Real* vm_table_vals_data,
 # include "p3_nr_conservation_impl.hpp"
 # include "p3_ni_conservation_impl.hpp"
 # include "p3_prevent_liq_supersaturation_impl.hpp"
-#endif // GPU || !KOKKOS_ENABLE_*_RELOCATABLE_DEVICE_CODE
+#endif // GPU && !KOKKOS_ENABLE_*_RELOCATABLE_DEVICE_CODE
 #endif // P3_FUNCTIONS_HPP

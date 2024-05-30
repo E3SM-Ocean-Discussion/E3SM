@@ -104,10 +104,7 @@ get_gm (const ekat::Comm& comm)
   const int nlcols = 3;
   const int nlevs = 4;
   const int ngcols = nlcols*comm.size();
-  ekat::ParameterList gm_params;
-  gm_params.set("number_of_global_columns",ngcols);
-  gm_params.set("number_of_vertical_levels",nlevs);
-  auto gm = create_mesh_free_grids_manager(comm,gm_params);
+  auto gm = create_mesh_free_grids_manager(comm,0,0,nlevs,ngcols);
   gm->build_grids();
   return gm;
 }
@@ -139,8 +136,6 @@ get_fm (const std::shared_ptr<const AbstractGrid>& grid,
   const int nlevs  = grid->get_num_vertical_levels();
 
   auto fm = std::make_shared<FieldManager>(grid);
-  fm->registration_begins();
-  fm->registration_ends();
   
   const auto units = ekat::units::Units::nondimensional();
   FL fl ({COL,LEV}, {nlcols,nlevs});
@@ -191,7 +186,6 @@ void write (const int seed, const ekat::Comm& comm)
   auto& ctrl_pl = om_pl.sublist("output_control");
   ctrl_pl.set("frequency_units",std::string("nsteps"));
   ctrl_pl.set("Frequency",1);
-  ctrl_pl.set("MPI Ranks in Filename",true);
   ctrl_pl.set("save_grid_data",false);
 
   // Create Output manager

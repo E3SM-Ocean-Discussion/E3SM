@@ -115,6 +115,7 @@ module ocn_core_interface
       logical, pointer :: thicknessFilterActive
       logical, pointer :: splitTimeIntegratorActive
       logical, pointer :: semiImplicitTimePKGActive
+      logical, pointer :: splitAB2TimeIntegratorActive
       logical, pointer :: windStressBulkPKGActive
       logical, pointer :: variableBottomDragPKGActive
       logical, pointer :: tracerBudgetActive
@@ -122,6 +123,7 @@ module ocn_core_interface
       logical, pointer :: dataLandIceFluxesPKGActive
       logical, pointer :: landIceFluxesPKGActive
       logical, pointer :: landIceCouplingPKGActive
+      logical, pointer :: dataSubglacialRunoffFluxPKGActive
       logical, pointer :: thicknessBulkPKGActive
       logical, pointer :: frazilIceActive
       logical, pointer :: tidalForcingActive
@@ -183,6 +185,7 @@ module ocn_core_interface
       logical, pointer :: config_use_bulk_thickness_flux
       logical, pointer :: config_compute_active_tracer_budgets
       character (len=StrKIND), pointer :: config_land_ice_flux_mode
+      character (len=StrKIND), pointer :: config_subglacial_runoff_mode
 
        type (mpas_pool_iterator_type) :: groupItr
        character (len=StrKIND) :: tracerGroupName, configName, packageName
@@ -216,7 +219,8 @@ module ocn_core_interface
       if ( forwardModeActive ) then
          if (    config_time_integrator == trim('split_explicit') &
             .or. config_time_integrator == trim('unsplit_explicit') &
-            .or. config_time_integrator == trim('split_implicit') ) then
+            .or. config_time_integrator == trim('split_implicit') &
+            .or. config_time_integrator == trim('split_explicit_ab2') ) then
             splitTimeIntegratorActive = .true.
          end if
       endif
@@ -224,6 +228,13 @@ module ocn_core_interface
       if ( forwardModeActive ) then
          if (config_time_integrator == trim('split_implicit') ) then
             semiImplicitTimePKGActive = .true.
+         end if
+      endif
+
+      call mpas_pool_get_package(packagePool, 'splitAB2TimeIntegratorActive', splitAB2TimeIntegratorActive)
+      if ( forwardModeActive ) then
+         if (config_time_integrator == trim('split_explicit_ab2') ) then
+            splitAB2TimeIntegratorActive = .true.
          end if
       endif
 
@@ -306,6 +317,15 @@ module ocn_core_interface
          landIcePressurePKGActive = .true.
          landIceFluxesPKGActive = .true.
          landIceCouplingPKGActive = .true.
+      end if
+
+      !
+      ! test for use of subglacial runoff flux, dataSubglacialRunoffFluxPKGActive
+      !
+      call mpas_pool_get_package(packagePool, 'dataSubglacialRunoffFluxPKGActive', dataSubglacialRunoffFluxPKGActive)
+      call mpas_pool_get_config(configPool, 'config_subglacial_runoff_mode', config_subglacial_runoff_mode)
+      if ( trim(config_subglacial_runoff_mode) == 'data' ) then
+         dataSubglacialRunoffFluxPKGActive = .true.
       end if
 
       !

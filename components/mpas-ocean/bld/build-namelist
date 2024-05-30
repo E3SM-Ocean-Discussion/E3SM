@@ -54,6 +54,9 @@ OPTIONS
      -ocn_ismf             variable for defining how the ocn model will handle ice shelf melt
                            fluxes
                            Options are: none, data, internal, coupled
+     -ocn_sgr              variable for defining how the ocn model will handle subglacial
+                           runoff
+                           Options are: none, data
      -decomp_prefix        decomp_prefix variable
      -date_stamp           date_stamp variable
      -cfg_grid             Directory containing MPASO configuration scripts.
@@ -109,6 +112,7 @@ my %opts = ( help          => 0,
              ocn_forcing   => undef,
              ocn_iceberg   => undef,
              ocn_ismf      => undef,
+             ocn_sgr      => undef,
              decomp_prefix => undef,
              date_stamp    => undef,
              ocn_bgc       => undef,
@@ -134,6 +138,7 @@ GetOptions(
     "ocn_forcing=s"   => \$opts{'ocn_forcing'},
     "ocn_iceberg=s"   => \$opts{'ocn_iceberg'},
     "ocn_ismf=s"      => \$opts{'ocn_ismf'},
+    "ocn_sgr=s"       => \$opts{'ocn_sgr'},
     "decomp_prefix=s" => \$opts{'decomp_prefix'},
     "date_stamp=s"    => \$opts{'date_stamp'},
     "ocn_bgc=s"       => \$opts{'ocn_bgc'},
@@ -176,6 +181,7 @@ my $OCN_GRID      = $opts{'ocn_grid'};
 my $OCN_FORCING   = $opts{'ocn_forcing'};
 my $OCN_ICEBERG   = $opts{'ocn_iceberg'};
 my $OCN_ISMF      = $opts{'ocn_ismf'};
+my $OCN_SGR       = $opts{'ocn_sgr'};
 my $decomp_prefix = $opts{'decomp_prefix'};
 my $date_stamp    = $opts{'date_stamp'};
 my $ocn_bgc       = $opts{'ocn_bgc'};
@@ -557,9 +563,9 @@ add_default($nl, 'config_Redi_constant_kappa');
 add_default($nl, 'config_Redi_maximum_slope');
 add_default($nl, 'config_Redi_use_slope_taper');
 add_default($nl, 'config_Redi_use_surface_taper');
-add_default($nl, 'config_Redi_N2_based_taper_enable');
-add_default($nl, 'config_Redi_N2_based_taper_min');
-add_default($nl, 'config_Redi_N2_based_taper_limit_term1');
+add_default($nl, 'config_Redi_limit_term1');
+add_default($nl, 'config_Redi_use_quasi_monotone_limiter');
+add_default($nl, 'config_Redi_quasi_monotone_safety_factor');
 add_default($nl, 'config_Redi_min_layers_diag_terms');
 add_default($nl, 'config_Redi_horizontal_taper');
 add_default($nl, 'config_Redi_horizontal_ramp_min');
@@ -693,12 +699,18 @@ add_default($nl, 'config_use_bulk_wind_stress');
 add_default($nl, 'config_use_bulk_thickness_flux');
 add_default($nl, 'config_flux_attenuation_coefficient');
 add_default($nl, 'config_flux_attenuation_coefficient_runoff');
+add_default($nl, 'config_flux_attenuation_coefficient_subglacial_runoff');
+add_default($nl, 'config_sgr_flux_vertical_location');
+add_default($nl, 'config_use_sgr_opt_kpp');
+add_default($nl, 'config_use_sgr_opt_temp');
+add_default($nl, 'config_use_sgr_opt_salt');
+add_default($nl, 'config_sgr_temperature');
+add_default($nl, 'config_sgr_salinity');
 
 ############################
 # Namelist group: coupling #
 ############################
 
-add_default($nl, 'config_ssh_grad_relax_timescale');
 if (($OCN_ICEBERG eq 'true') && ($OCN_FORCING eq 'active_atm')) {
 	add_default($nl, 'config_remove_AIS_coupler_runoff', 'val'=>".true.");
 } else {
@@ -789,6 +801,11 @@ add_default($nl, 'config_land_ice_flux_ISOMIP_gammaT');
 add_default($nl, 'config_land_ice_flux_rms_tidal_velocity');
 add_default($nl, 'config_land_ice_flux_jenkins_heat_transfer_coefficient');
 add_default($nl, 'config_land_ice_flux_jenkins_salt_transfer_coefficient');
+if ($OCN_SGR eq 'data') {
+	add_default($nl, 'config_subglacial_runoff_mode', 'val'=>"data");
+} else {
+	add_default($nl, 'config_subglacial_runoff_mode');
+}
 
 #############################
 # Namelist group: advection #

@@ -1,0 +1,61 @@
+site_name: E3SM
+
+nav:
+  - Introduction: 'index.md'
+  - 'Developing Docs': 'https://acme-climate.atlassian.net/wiki/spaces/DOC/pages/3924787306/Developing+Documentation'
+  - Components: '*include ./components/*/mkdocs.yml'
+
+repo_name: E3SM-Project/E3SM
+repo_url: https://github.com/E3SM-Project/E3SM
+
+theme:
+  name: material
+  palette:
+  - media: "(prefers-color-scheme: light)"
+    scheme: default
+    toggle:
+      icon: material/weather-sunny
+      name: Switch to dark mode
+  - media: "(prefers-color-scheme: dark)"
+    scheme: slate
+    toggle:
+      icon: material/weather-night
+      name: Switch to light mode
+  features:
+    - navigation.indexes
+    - navigation.instant
+    - navigation.instant.prefetch
+    - navigation.sections
+    - navigation.path
+    - navigation.tracking
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - search.share
+    - content.code.select
+    - content.code.copy
+    - content.action.edit
+    - content.action.view
+    - content.tooltips
+
+
+markdown_extensions:
+  - footnotes
+  - pymdownx.highlight
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.arithmatex:
+      generic: true
+  - md_in_html
+
+plugins:
+  - monorepo
+  - bibtex:
+      bib_file: components/elm/docs/refs.bib
+  - search
+
+extra_javascript:
+  - javascript/mathjax.js
+  - https://polyfill.io/v3/polyfill.min.js?features=es6
+  - https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js

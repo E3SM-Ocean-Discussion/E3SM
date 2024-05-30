@@ -52,6 +52,13 @@ public:
                 const int num_vertical_lev,
                 const ekat::Comm& comm);
 
+  AbstractGrid (const std::string& name,
+                const GridType type,
+                const int num_local_dofs,
+                const int num_global_dofs,
+                const int num_vertical_lev,
+                const ekat::Comm& comm);
+
   virtual ~AbstractGrid () = default;
 
   // Grid description utilities
@@ -67,13 +74,21 @@ public:
   FieldLayout get_vertical_layout (const bool midpoints) const;
   virtual FieldLayout get_2d_scalar_layout () const = 0;
   virtual FieldLayout get_2d_vector_layout (const FieldTag vector_tag, const int vector_dim) const = 0;
+  virtual FieldLayout get_2d_tensor_layout (const std::vector<FieldTag>& cmp_tags,
+                                            const std::vector<int>& cmp_dims) const = 0;
   virtual FieldLayout get_3d_scalar_layout (const bool midpoints) const = 0;
   virtual FieldLayout get_3d_vector_layout (const bool midpoints, const FieldTag vector_tag, const int vector_dim) const = 0;
+  virtual FieldLayout get_3d_tensor_layout (const bool midpoints,
+                                            const std::vector<FieldTag>& cmp_tags,
+                                            const std::vector<int>& cmp_dims) const = 0;
 
   int get_num_vertical_levels () const { return m_num_vert_levs; }
 
   // Whether this grid contains unique dof GIDs
   bool is_unique () const;
+
+  // Check if the input layout is compatible with this grid
+  bool is_valid_layout (const FieldLayout& layout) const;
 
   // When running with multiple ranks, fields are partitioned across ranks along this FieldTag
   virtual FieldTag get_partitioned_dim_tag () const = 0;
@@ -110,6 +125,7 @@ public:
 
   // Sets pre-existing field as geometry data.
   void set_geometry_data (const Field& f);
+  void delete_geometry_data (const std::string& name);
 
   bool has_geometry_data (const std::string& name) const {
     return m_geo_fields.find(name)!=m_geo_fields.end();
@@ -138,6 +154,16 @@ public:
     return get_owners(gids_v);
   }
 
+  void get_remote_pids_and_lids (const gid_view_h& gids,
+                                 std::vector<int>& pids,
+                                 std::vector<int>& lids) const;
+  void get_remote_pids_and_lids (const std::vector<gid_type>& gids,
+                                 std::vector<int>& pids,
+                                 std::vector<int>& lids) const {
+    gid_view_h gids_v(gids.data(),gids.size());
+    get_remote_pids_and_lids(gids_v,pids,lids);
+  }
+
   // Derived classes can override these methods to verify that the
   // dofs have been set to something that satisfies any requirement of the grid type.
   virtual bool check_valid_dofs()        const { return true; }
@@ -154,6 +180,10 @@ public:
   // NOTE: we'd need setter/getter for this, so we might as well make it public
   std::string m_short_name = "";
 
+  int get_unique_grid_id () const { return m_unique_grid_id; }
+
+  std::map<gid_type,int> get_gid2lid_map () const;
+
 protected:
 
   void copy_data (const AbstractGrid& src, const bool shallow = true);
@@ -167,6 +197,8 @@ private:
   // The grid name and type
   GridType     m_type;
   std::string  m_name;
+
+  int m_unique_grid_id;
 
   std::vector<std::string> m_aliases;
 
@@ -183,6 +215,10 @@ private:
   // The max/min dof GID across all ranks. Mutable, to allow for lazy calculation
   mutable gid_type  m_global_min_dof_gid =  std::numeric_limits<gid_type>::max();
   mutable gid_type  m_global_max_dof_gid = -std::numeric_limits<gid_type>::max();
+
+  // The fcn is_unique is expensive, so we lazy init this at the first call.
+  mutable bool m_is_unique;
+  mutable bool m_is_unique_computed = false;
 
   // The map lid->idx
   Field     m_lid_to_idx;

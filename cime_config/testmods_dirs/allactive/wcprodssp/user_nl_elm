@@ -1,6 +1,10 @@
-! fsurdat used is not the same file for the reference historical run (as recorded in elm.r's global attribute)
+! fsurdat might be set to be not the same file for the reference historical run (as recorded in elm.r's global attribute)
 
  CHECK_FINIDAT_FSURDAT_CONSISTENCY       = .false.
+
+! flanduse_timeseries not ready for v3.LR.SSP production grid, set not to do transient_pft tentatively until SSP compset fully ready
+
+ do_transient_pfts = .false.
 
  hist_dov2xy = .true.,.true.
  hist_fincl2 = 'H2OSNO', 'FSNO', 'QRUNOFF', 'QSNOMELT', 'FSNO_EFF', 'SNORDSL', 'SNOW', 'FSDS', 'FSR', 'FLDS', 'FIRE', 'FIRA'

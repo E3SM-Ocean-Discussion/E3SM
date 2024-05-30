@@ -4,6 +4,8 @@
 #include "share/io/scorpio_output.hpp"
 #include "share/io/scream_scorpio_interface.hpp"
 #include "share/io/scream_io_utils.hpp"
+#include "share/io/scream_io_file_specs.hpp"
+#include "share/io/scream_io_control.hpp"
 
 #include "share/field/field_manager.hpp"
 #include "share/grid/grids_manager.hpp"
@@ -118,16 +120,16 @@ protected:
 
   std::string compute_filename (const IOControl& control,
                                 const IOFileSpecs& file_specs,
-                                const bool is_checkpoint_step,
                                 const util::TimeStamp& timestamp) const;
+
+  void set_file_header(const IOFileSpecs& file_specs);
 
   // Craft the restart parameter list
   void set_params (const ekat::ParameterList& params,
                    const std::map<std::string,std::shared_ptr<fm_type>>& field_mgrs);
 
   void setup_file (      IOFileSpecs& filespecs,
-                   const IOControl& control,
-                   const util::TimeStamp& timestamp);
+                   const IOControl& control);
 
   // Manage logging of info to atm.log
   void push_to_logger();
@@ -144,7 +146,7 @@ protected:
   ekat::ParameterList            m_params;
 
   // The output filename root
-  std::string       m_casename;
+  std::string       m_filename_prefix;
 
   std::vector<double> m_time_bnds;
 
@@ -168,8 +170,8 @@ protected:
   // we might have to load an output checkpoint file (depending on avg type)
   bool m_is_restarted_run;
 
-  // If the user specifies freq units "none" or "never", output is disabled
-  bool m_output_disabled = false;
+  // Whether a restarted run can resume filling previous run output file (if not full)
+  bool m_resume_output_file = false;
 
   // The initial time stamp of the simulation and run. For initial runs, they coincide,
   // but for restarted runs, run_t0>case_t0, with the former being the time at which the
@@ -179,6 +181,9 @@ protected:
 
   // The logger to be used throughout the ATM to log message
   std::shared_ptr<ekat::logger::LoggerBase> m_atm_logger;
+
+  // If true, we save grid data in output file
+  bool m_save_grid_data;
 };
 
 } // namespace scream
