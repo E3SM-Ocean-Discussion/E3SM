@@ -275,6 +275,8 @@
 <config_cvmix_prandtl_number>1.0</config_cvmix_prandtl_number>
 <config_cvmix_background_scheme>'constant'</config_cvmix_background_scheme>
 <config_cvmix_background_diffusion>0.0</config_cvmix_background_diffusion>
+<config_cvmix_background_diffusion_passive>0.0</config_cvmix_background_diffusion_passive>
+<config_cvmix_background_diffusion_passive_enable>.false.</config_cvmix_background_diffusion_passive_enable>
 <config_cvmix_background_viscosity>1.0e-4</config_cvmix_background_viscosity>
 <config_cvmix_BryanLewis_bl1>8.0e-5</config_cvmix_BryanLewis_bl1>
 <config_cvmix_BryanLewis_bl2>1.05E-4</config_cvmix_BryanLewis_bl2>
@@ -346,7 +348,7 @@
 
 <!-- self_attraction_loading -->
 <config_use_self_attraction_loading>.false.</config_use_self_attraction_loading>
-<config_self_attraction_loading_smoothing_width>1.0</config_self_attraction_loading_smoothing_width>
+<config_self_attraction_loading_depth_cutoff>10.0</config_self_attraction_loading_depth_cutoff>
 <config_mpas_to_grid_weights_file>'mpas_to_grid.nc'</config_mpas_to_grid_weights_file>
 <config_grid_to_mpas_weights_file>'grid_to_mpas.nc'</config_grid_to_mpas_weights_file>
 <config_self_attraction_loading_compute_interval>'0000-00-00_00:30:00'</config_self_attraction_loading_compute_interval>
@@ -381,7 +383,6 @@
 <config_specific_heat_sea_water>3.996e3</config_specific_heat_sea_water>
 <config_frazil_maximum_depth>100.0</config_frazil_maximum_depth>
 <config_frazil_sea_ice_reference_salinity>4.0</config_frazil_sea_ice_reference_salinity>
-<config_frazil_land_ice_reference_salinity>0.0</config_frazil_land_ice_reference_salinity>
 <config_frazil_maximum_freezing_temperature>0.0</config_frazil_maximum_freezing_temperature>
 <config_frazil_use_surface_pressure>.false.</config_frazil_use_surface_pressure>
 
@@ -418,7 +419,6 @@
 <config_land_ice_flux_explicit_topDragCoeff ocn_grid="FRISwISC02to60E3r1">4.48e-3</config_land_ice_flux_explicit_topDragCoeff>
 <config_land_ice_flux_explicit_topDragCoeff ocn_grid="FRISwISC01to60E3r1">4.48e-3</config_land_ice_flux_explicit_topDragCoeff>
 <config_land_ice_flux_ISOMIP_gammaT>1e-4</config_land_ice_flux_ISOMIP_gammaT>
-<config_land_ice_flux_rms_tidal_velocity>5e-2</config_land_ice_flux_rms_tidal_velocity>
 <config_land_ice_flux_jenkins_heat_transfer_coefficient>0.011</config_land_ice_flux_jenkins_heat_transfer_coefficient>
 <config_land_ice_flux_jenkins_heat_transfer_coefficient ocn_grid="oEC60to30v3wLI">0.00295</config_land_ice_flux_jenkins_heat_transfer_coefficient>
 <config_land_ice_flux_jenkins_heat_transfer_coefficient ocn_grid="ECwISC30to60E1r2">0.00295</config_land_ice_flux_jenkins_heat_transfer_coefficient>
@@ -441,6 +441,9 @@
 <config_land_ice_flux_jenkins_salt_transfer_coefficient ocn_grid="FRISwISC04to60E3r1">8.42e-5</config_land_ice_flux_jenkins_salt_transfer_coefficient>
 <config_land_ice_flux_jenkins_salt_transfer_coefficient ocn_grid="FRISwISC02to60E3r1">8.42e-5</config_land_ice_flux_jenkins_salt_transfer_coefficient>
 <config_land_ice_flux_jenkins_salt_transfer_coefficient ocn_grid="FRISwISC01to60E3r1">8.42e-5</config_land_ice_flux_jenkins_salt_transfer_coefficient>
+<config_land_ice_flux_tidal_Jourdain_alpha>1.0</config_land_ice_flux_tidal_Jourdain_alpha>
+<config_land_ice_flux_tidal_Jourdain_A0>0.0</config_land_ice_flux_tidal_Jourdain_A0>
+<config_land_ice_flux_tidal_Jourdain_U0>5e-2</config_land_ice_flux_tidal_Jourdain_U0>
 
 <!-- advection -->
 <config_vert_advection_method>'flux-form'</config_vert_advection_method>
@@ -475,8 +478,11 @@
 <config_loglaw_bottom_drag_max>1.0e-1</config_loglaw_bottom_drag_max>
 <config_explicit_bottom_drag_coeff>1.0e-3</config_explicit_bottom_drag_coeff>
 <config_use_topographic_wave_drag>.false.</config_use_topographic_wave_drag>
+<config_topographic_wave_drag_scheme>'ZAE'</config_topographic_wave_drag_scheme>
 <config_topographic_wave_drag_coeff>5.0e-4</config_topographic_wave_drag_coeff>
 <config_thickness_drag_type>'centered'</config_thickness_drag_type>
+<config_topographic_wave_drag_cutoff_depth>500</config_topographic_wave_drag_cutoff_depth>
+<config_topographic_wave_drag_cutoff_width>10</config_topographic_wave_drag_cutoff_width>
 
 <!-- Rayleigh_damping -->
 <config_Rayleigh_damping_coeff>0.0</config_Rayleigh_damping_coeff>
@@ -646,6 +652,9 @@
 <config_manufactured_solution_wavelength_x>2000000.0</config_manufactured_solution_wavelength_x>
 <config_manufactured_solution_wavelength_y>2000000.0</config_manufactured_solution_wavelength_y>
 <config_manufactured_solution_amplitude>1</config_manufactured_solution_amplitude>
+
+<!-- init_mode_subgrid -->
+<config_subgrid_table_levels>-1</config_subgrid_table_levels>
 
 <!-- tracer_forcing_activeTracers -->
 <config_use_activeTracers>.true.</config_use_activeTracers>
