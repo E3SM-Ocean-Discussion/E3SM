@@ -1235,6 +1235,7 @@ contains
       do iCell = 1, nCellsOwned
          Nsurf = minLevelCell(iCell)
          N = maxLevelCell(iCell)
+         if (N == 0) cycle
 
          ! tridiagonal matrix algorithm
          C(Nsurf) = -2.0_RKIND*dt*vertDiffTopOfCell(Nsurf+1,iCell) &
