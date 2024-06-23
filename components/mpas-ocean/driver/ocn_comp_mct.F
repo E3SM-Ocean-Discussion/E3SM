@@ -1739,8 +1739,6 @@ contains
 
    real (kind=RKIND), pointer :: config_density0
 
-   real (kind=RKIND), pointer :: totalRemovedRiverRunoffFlux, totalRemovedIceRunoffFlux
-
    type (block_type), pointer :: block_ptr
 
    type (mpas_pool_type), pointer :: meshPool,             &
@@ -2613,23 +2611,6 @@ contains
       end if
    endif
 
-   ! global sum of removed runoff
-   if (config_remove_AIS_coupler_runoff) then
-      call MPAS_dmpar_sum_real(domain % dminfo, removedRiverRunoffFluxThisProc, removedRiverRunoffFluxReduced)
-      call MPAS_dmpar_sum_real(domain % dminfo, removedIceRunoffFluxThisProc, removedIceRunoffFluxReduced)
-      block_ptr => domain % blocklist
-      do while(associated(block_ptr))
-         call mpas_pool_get_subpool(block_ptr % structs, 'forcing', forcingPool)
-
-         call mpas_pool_get_array(forcingPool, 'totalRemovedRiverRunoffFlux', totalRemovedRiverRunoffFlux)
-         call mpas_pool_get_array(forcingPool, 'totalRemovedIceRunoffFlux', totalRemovedIceRunoffFlux)
-         totalRemovedRiverRunoffFlux = removedRiverRunoffFluxReduced
-         totalRemovedIceRunoffFlux = removedIceRunoffFluxReduced
-
-         block_ptr => block_ptr % next
-      end do
-   endif
-
 !-----------------------------------------------------------------------
 !EOC
 
@@ -3246,8 +3227,6 @@ contains
    real (kind=RKIND), pointer :: config_ecosys_atm_co2_constant_value
 
    real (kind=RKIND), pointer :: config_density0
-
-   real (kind=RKIND), pointer :: totalRemovedRiverRunoffFlux, totalRemovedIceRunoffFlux
 
    type (block_type), pointer :: block_ptr
 
@@ -3939,22 +3918,6 @@ contains
          call mpas_dmpar_exch_halo_field(iceFluxDMSPField)
       endif
    endif
-
-   ! global sum of removed runoff
-   if (config_remove_AIS_coupler_runoff) then
-      call MPAS_dmpar_sum_real(domain % dminfo, removedRiverRunoffFluxThisProc, removedRiverRunoffFluxReduced)
-      call MPAS_dmpar_sum_real(domain % dminfo, removedIceRunoffFluxThisProc, removedIceRunoffFluxReduced)
-      block_ptr => domain % blocklist
-      do while(associated(block_ptr))
-         call mpas_pool_get_subpool(block_ptr % structs, 'forcing', forcingPool)
-
-         call mpas_pool_get_array(forcingPool, 'totalRemovedRiverRunoffFlux', totalRemovedRiverRunoffFlux)
-         call mpas_pool_get_array(forcingPool, 'totalRemovedIceRunoffFlux', totalRemovedIceRunoffFlux)
-         totalRemovedRiverRunoffFlux = removedRiverRunoffFluxReduced
-         totalRemovedIceRunoffFlux = removedIceRunoffFluxReduced
-
-         block_ptr => block_ptr % next
-      end do
    endif
 
 !-----------------------------------------------------------------------
