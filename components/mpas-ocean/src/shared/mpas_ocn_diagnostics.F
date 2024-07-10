@@ -3303,8 +3303,7 @@ contains
          evapTemperatureFlux, &
          icebergTemperatureFlux, &
          seaIceTemperatureFlux, &
-         surfaceStress, &
-         surfaceStressMagnitude
+         sfcStressMag, &
 
       real (kind=RKIND), dimension(:,:), pointer ::  &
          layerThickness,           &! layer thickness
@@ -3381,10 +3380,8 @@ contains
                                              surfaceThicknessFluxRunoff)
       call mpas_pool_get_array(forcingPool, 'penetrativeTemperatureFlux', &
                                              penetrativeTemperatureFlux)
-      call mpas_pool_get_array(forcingPool, 'surfaceStress', &
-                                             surfaceStress)
       call mpas_pool_get_array(forcingPool, 'surfaceStressMagnitude', &
-                                             surfaceStressMagnitude)
+                                             sfcStressMag)
       call mpas_pool_get_array(forcingPool, 'rainTemperatureFlux', &
                                              rainTemperatureFlux)
       call mpas_pool_get_array(forcingPool, 'evapTemperatureFlux', &
@@ -3477,9 +3474,7 @@ contains
                  - fracAbsorbed* (rainTemperatureFlux(iCell) + &
                                   evapTemperatureFlux(iCell) + &
                                   seaIceTemperatureFlux(iCell) + &
-                                  icebergTemperatureFlux(iCell)) &
-                 - fracAbsorbedRunoff* &
-                   activeTracersSurfaceFluxRunoff(indexTempFlux,iCell)
+                                  icebergTemperatureFlux(iCell))
 
          nonLocalSurfaceTracerFlux(indexSaltFlux,iCell) = &
                    activeTracersSurfaceFlux(indexSaltFlux,iCell) &
@@ -3500,21 +3495,8 @@ contains
          surfaceBuoyancyForcing(iCell) = surfaceBuoyancyForcing(iCell)* &
                                          gravity
 
-         ! compute magnitude of surface stress
-         sumSurfaceStressSquared = 0.0_RKIND
-         do i = 1, nEdgesOnCell(iCell)
-            iEdge = edgesOnCell(i, iCell)
-            sumSurfaceStressSquared = sumSurfaceStressSquared &
-                                    + edgeAreaFractionOfCell(i,iCell)* &
-                                      surfaceStress(iEdge)**2
-         enddo
-
-         ! NOTE that the factor of 2 is from averaging dot products
-         ! to cell centers on a C-grid
-         surfaceStressMagnitude(iCell) = &
-                           sqrt(2.0_RKIND * sumSurfaceStressSquared)
          surfaceFrictionVelocity(iCell) = &
-                           sqrt(surfaceStressMagnitude(iCell) / rho_sw)
+                           sqrt(sfcStressMag(iCell) / rho_sw)
 
       enddo
       !$omp end do
