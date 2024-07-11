@@ -3382,14 +3382,6 @@ contains
                                              penetrativeTemperatureFlux)
       call mpas_pool_get_array(forcingPool, 'surfaceStressMagnitude', &
                                              sfcStressMag)
-      call mpas_pool_get_array(forcingPool, 'rainTemperatureFlux', &
-                                             rainTemperatureFlux)
-      call mpas_pool_get_array(forcingPool, 'evapTemperatureFlux', &
-                                             evapTemperatureFlux)
-      call mpas_pool_get_array(forcingPool, 'seaIceTemperatureFlux', &
-                                             seaIceTemperatureFlux)
-      call mpas_pool_get_array(forcingPool, 'icebergTemperatureFlux', &
-                                             icebergTemperatureFlux)
 
       ! allocate scratch space displaced density computation
       ncells = nCellsAll
@@ -3471,10 +3463,7 @@ contains
                    activeTracersSurfaceFlux(indexTempFlux,iCell) &
                  + penetrativeTemperatureFlux(iCell) &
                  - penetrativeTemperatureFluxOBL(iCell)  &
-                 - fracAbsorbed* (rainTemperatureFlux(iCell) + &
-                                  evapTemperatureFlux(iCell) + &
-                                  seaIceTemperatureFlux(iCell) + &
-                                  icebergTemperatureFlux(iCell))
+                 - fracAbsorbed*activeTracers(indexTmpFlux,iCell)
 
          nonLocalSurfaceTracerFlux(indexSaltFlux,iCell) = &
                    activeTracersSurfaceFlux(indexSaltFlux,iCell) &
