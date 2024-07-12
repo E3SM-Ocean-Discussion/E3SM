@@ -3463,7 +3463,8 @@ contains
                    activeTracersSurfaceFlux(indexTempFlux,iCell) &
                  + penetrativeTemperatureFlux(iCell) &
                  - penetrativeTemperatureFluxOBL(iCell)  &
-                 - fracAbsorbed*activeTracers(indexTempFlux,kmin,iCell)
+                 - fracAbsorbed*surfaceThicknessFlux(iCell) * &
+                   activeTracers(indexTempFlux,kmin,iCell)
 
          nonLocalSurfaceTracerFlux(indexSaltFlux,iCell) = &
                    activeTracersSurfaceFlux(indexSaltFlux,iCell) &

@@ -725,9 +725,9 @@ contains
             ! intent out of BoundaryLayerDepth is boundary layer depth measured in meters and vertical index
             indexBoundaryLayerDepth(iCell) = cvmix_variables % kOBL_depth
 
-            do k = minLevelCell(iCell), floor(indexBoundaryLayerDepth(iCell)) + 1
-                vertViscTopOfCell(k, iCell) = multVal*vertViscTopOfCell(k,iCell) + cvmix_variables % Mdiff_iface(k)
-                vertDiffTopOfCell(k, iCell) = multVal*vertDiffTopOfCell(k,iCell) + cvmix_variables % Tdiff_iface(k)
+            do k = minLevelCell(iCell), maxLevelCell(iCell) !floor(indexBoundaryLayerDepth(iCell)) + 1
+                vertViscTopOfCell(k, iCell) = cvmix_variables % Mdiff_iface(k)
+                vertDiffTopOfCell(k, iCell) = cvmix_variables % Tdiff_iface(k)
             end do
 
             ! store non-local flux terms
