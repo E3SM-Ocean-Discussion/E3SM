@@ -1042,17 +1042,22 @@ contains
       ! initialize KPP boundary layer scheme
       !
       if (config_use_cvmix_kpp) then
-        if(config_cvmix_kpp_matching.eq."MatchBoth") then
-           call mpas_log_write( &
-              "Use of option MatchBoth is discouraged, use SimpleShapes instead", &
-               MPAS_LOG_WARN)
-        elseif(.not. config_cvmix_kpp_matching.eq."SimpleShapes") then
+        if(.not. config_cvmix_kpp_matching.eq."SimpleShapes" .or. .not. config_cvmix_kpp_matching.eq."MatchBoth") then
            call mpas_log_write( &
               "Unknown value for config_cvmix_kpp_matching., supported values are:" // &
               "         SimpleShapes or MatchBoth", &
               MPAS_LOG_CRIT)
            err = 1
            return
+        endif
+
+        !multVal sets the parameter for adding diffusivity/viscosity in the
+        !boundary layer
+
+        if (config_cvmix_kpp_matching.eq."SimpleShapes") then
+            multVal = 1.0_RKIND
+        else
+            multVal = 0.0_RKIND
         endif
 
         if (trim(config_cvmix_kpp_langmuir_mixing_opt) .ne. "NONE" .and. &
