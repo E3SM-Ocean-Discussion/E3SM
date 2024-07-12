@@ -1042,7 +1042,7 @@ contains
       ! initialize KPP boundary layer scheme
       !
       if (config_use_cvmix_kpp) then
-        if(.not. config_cvmix_kpp_matching.eq."SimpleShapes" .or. .not. config_cvmix_kpp_matching.eq."MatchBoth") then
+        if(.not. config_cvmix_kpp_matching.eq."SimpleShapes" .and. .not. config_cvmix_kpp_matching.eq."MatchBoth") then
            call mpas_log_write( &
               "Unknown value for config_cvmix_kpp_matching., supported values are:" // &
               "         SimpleShapes or MatchBoth", &

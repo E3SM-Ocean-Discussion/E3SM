@@ -64,7 +64,7 @@ module ocn_diagnostics
              ocn_fuperp, &
              ocn_filter_btr_mode_tend_vel, &
              ocn_reconstruct_eddy_vectors, &
-             ocn_compute_kpp_input_fields, &
+             ocn_compute_mixing_input_fields, &
              ocn_validate_state, &
              ocn_build_log_filename, &
              ocn_diagnostics_init
@@ -3241,12 +3241,12 @@ contains
 
 !***********************************************************************
 !
-!  routine ocn_compute_KPP_input_fields
+!  routine ocn_compute_mixing_input_fields
 !
 !> \brief
-!>    Compute fields necessary to drive the CVMix KPP module
-!> \author  Todd Ringler
-!> \date    20 August 2013
+!>    Compute fields necessary to drive the CVMix KPP and gotm modules
+!> \author  Todd Ringler, Luke Van Roekel
+!> \date    11 July 2024
 !> \details
 !>    CVMix/KPP requires the following fields as intent(in):
 !>       surfaceBuoyancyForcing
@@ -3255,7 +3255,7 @@ contains
 !
 !-----------------------------------------------------------------------
 
-    subroutine ocn_compute_KPP_input_fields(statePool, forcingPool, &
+    subroutine ocn_compute_mixing_input_fields(statePool, forcingPool, &
                                             meshPool, timeLevelIn)!{{{
 
       !-----------------------------------------------------------------
@@ -3303,7 +3303,7 @@ contains
          evapTemperatureFlux, &
          icebergTemperatureFlux, &
          seaIceTemperatureFlux, &
-         sfcStressMag, &
+         sfcStressMag
 
       real (kind=RKIND), dimension(:,:), pointer ::  &
          layerThickness,           &! layer thickness
@@ -3335,7 +3335,7 @@ contains
       !-----------------------------------------------------------------
       ! Begin code
 
-      call mpas_timer_start('KPP input fields')
+      call mpas_timer_start('Mixing input fields')
 
       if (present(timeLevelIn)) then
          timeLevel = timeLevelIn
@@ -3463,7 +3463,7 @@ contains
                    activeTracersSurfaceFlux(indexTempFlux,iCell) &
                  + penetrativeTemperatureFlux(iCell) &
                  - penetrativeTemperatureFluxOBL(iCell)  &
-                 - fracAbsorbed*activeTracers(indexTmpFlux,iCell)
+                 - fracAbsorbed*activeTracers(indexTempFlux,kmin,iCell)
 
          nonLocalSurfaceTracerFlux(indexSaltFlux,iCell) = &
                    activeTracersSurfaceFlux(indexSaltFlux,iCell) &
@@ -3496,11 +3496,11 @@ contains
                  salineContractionCoeff, &
                  densitySurfaceDisplaced)
 
-      call mpas_timer_stop('KPP input fields')
+      call mpas_timer_stop('Mixing input fields')
 
     !-------------------------------------------------------------------
 
-    end subroutine ocn_compute_KPP_input_fields!}}}
+    end subroutine ocn_compute_mixing_input_fields!}}}
 
 !***********************************************************************
 !
