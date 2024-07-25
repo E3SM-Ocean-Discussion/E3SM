@@ -1568,7 +1568,7 @@ contains
       select case (trim(config_vert_coord_movement))
       case ('fixed')
 
-         vertCoordMovementWeights = 0.0_RKIND
+         vertCoordMovementWeights = 1e-14_RKIND
          vertCoordMovementWeights(1) = 1.0_RKIND
 
       case ('uniform_stretching')
@@ -1587,7 +1587,7 @@ contains
                  (config_vert_taper_weight_depth_2 - &
                   config_vert_taper_weight_depth_1)
             ! limit range to (0,1)
-            vertCoordMovementWeights(k) = max( 0.0_RKIND, &
+            vertCoordMovementWeights(k) = max( 1e-14_RKIND, &
                       min( 1.0_RKIND, vertCoordMovementWeights(k) ) )
          end do
 
