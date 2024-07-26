@@ -35,6 +35,7 @@ module ocn_vmix
    use ocn_vmix_coefs_redi
    use ocn_diagnostics_variables
    use ocn_surface_land_ice_fluxes
+   use ocn_diagnostics
 
    implicit none
    private
@@ -205,6 +206,11 @@ contains
 #ifdef MPAS_OPENACC
       !$acc update host(vertViscTopOfEdge, vertDiffTopOfCell)
 #endif
+
+      if(config_use_cvmix_kpp .or. config_use_gotm) then
+         call ocn_compute_mixing_input_fields(statePool, forcingPool,&
+                                                 meshPool, timeLevel)
+      endif
 
       call ocn_vmix_coefs_cvmix_build(meshPool, statePool, forcingPool, err1, timeLevel)
       call ocn_vmix_coefs_redi_build(meshPool, statePool, err2, timeLevel)
