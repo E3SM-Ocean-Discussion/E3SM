@@ -1821,6 +1821,7 @@ my @groups = qw(run_modes
                 tracer_forcing_dmstracers
                 tracer_forcing_macromoleculestracers
                 tracer_forcing_idealagetracers
+                tracer_forcing_freshwatertracers
                 tracer_forcing_cfctracers
                 am_globalstats
                 am_surfaceareaweightedaverages
