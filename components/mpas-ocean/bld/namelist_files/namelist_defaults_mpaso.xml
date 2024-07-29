@@ -718,7 +718,7 @@
 
 <!-- tracer_forcing_freshwaterTracers -->
 <config_use_freshwaterTracers>.false.</config_use_freshwaterTracers>
-<config_use_freshwaterTracers_surface_bulk_forcing>.false.</config_use_freshwaterTracers_surface_bulk_forcing>
+<config_use_freshwaterTracers_surface_bulk_forcing>.true.</config_use_freshwaterTracers_surface_bulk_forcing>
 <config_use_freshwaterTracers_surface_restoring>.false.</config_use_freshwaterTracers_surface_restoring>
 <config_use_freshwaterTracers_interior_restoring>.false.</config_use_freshwaterTracers_interior_restoring>
 <config_use_freshwaterTracers_exponential_decay>.false.</config_use_freshwaterTracers_exponential_decay>
