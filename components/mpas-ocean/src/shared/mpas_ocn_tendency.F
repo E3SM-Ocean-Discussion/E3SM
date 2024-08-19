@@ -1246,8 +1246,6 @@ contains
          if (config_use_cvmix_kpp) then
             call mpas_timer_start("non-local flux from KPP")
             if (.not. config_cvmix_kpp_nonlocal_with_implicit_mix) then
-               call ocn_compute_KPP_input_fields(statePool, forcingPool,&
-                                                 meshPool, timeLevel)
 
                if (computeBudgets) then
                   !$omp parallel
