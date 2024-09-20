@@ -266,6 +266,7 @@ _TESTS = {
             "SMS_D_Ld1.T62_oQU240wLI.GMPAS-IAF-PISMF.mpaso-impl_top_drag",
             "SMS_D_Ld1.T62_oQU240.GMPAS-IAF.mpaso-harmonic_mean_drag",
             "SMS_D_Ld1.T62_oQU240.GMPAS-IAF.mpaso-upwind_advection",
+            "ERS_Ld5.TL319_oQU240wLI_gis20.MPAS_LISIO_JRA1p5.mpaso-ocn_glc_tf_coupling",
             )
         },
 
