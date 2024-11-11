@@ -128,6 +128,7 @@ contains
       ! pointers for the actual output variables within the pools above
       real (kind=RKIND), dimension(:), pointer, contiguous :: &
          surfaceThicknessFlux,     &! surface thickness flux
+         seaIceSalinityFlux,       &
          surfaceThicknessFluxRunoff, &! surface thickness flux from runoff
          surfaceThicknessFluxSubglacialRunoff ! surface thickness flux from runoff
 
@@ -627,6 +628,7 @@ contains
 
       real (kind=RKIND), dimension(:), pointer, contiguous :: &
          penetrativeTemperatureFlux, &! heat flux penetrating below sfc
+         seaIceSalinityFlux, &
          tracerGroupExponentialDecayRate ! exp decay rate for forcing
 
       real (kind=RKIND), dimension(:,:), pointer, contiguous :: &
@@ -702,6 +704,8 @@ contains
                                              penetrativeTemperatureFlux)
       call mpas_pool_get_array(forcingPool, 'fractionAbsorbed', &
                                              fractionAbsorbed)
+      call mpas_pool_get_array(forcingPool, 'seaIceSalinityFlux', &
+                                             seaIceSalinityFlux)
       call mpas_pool_get_array(forcingPool, 'fractionAbsorbedRunoff', &
                                              fractionAbsorbedRunoff)
       call mpas_pool_get_array(forcingPool, 'fractionAbsorbedSubglacialRunoff', &
@@ -1339,15 +1343,21 @@ contains
                endif ! compute budgets
 
                if (isActiveTracer) then
-                  call ocn_tracer_nonlocalflux_tend(meshPool, &
+                  call ocn_tracer_nonlocalflux_tend( &
                                           vertNonLocalFlux, &
                                           nonLocalSurfaceTracerFlux, &
                                           tracerGroupTend, err)
                else ! not active
-                  call ocn_tracer_nonlocalflux_tend(meshPool, &
+                  call ocn_tracer_nonlocalflux_tend( &
                                           vertNonLocalFlux, &
                                           tracerGroupSurfaceFlux, &
                                           tracerGroupTend, err)
+                  if (config_use_brine_rejection_parameterization) then
+                     call ocn_brine_rejection_tendency(tracerGroupTend, &
+                                          layerThickness, &
+                                          seaIceSalinityFlux, &
+                                          indexSalinity, dt, err)
+                  end if
                endif ! active tracer
 
                if (computeBudgets) then

@@ -26,6 +26,8 @@ module ocn_tracer_nonlocalflux
    use mpas_pool_routines
    use ocn_constants
    use ocn_config
+   use ocn_diagnostics_variables
+   use ocn_mesh
 
    implicit none
    private
@@ -44,7 +46,8 @@ module ocn_tracer_nonlocalflux
    !--------------------------------------------------------------------
 
    public :: ocn_tracer_nonlocalflux_tend, &
-             ocn_tracer_nonlocalflux_init
+             ocn_tracer_nonlocalflux_init, &
+             ocn_brine_rejection_tendency
 
    !--------------------------------------------------------------------
    !
@@ -60,6 +63,84 @@ contains
 
 !***********************************************************************
 !
+!  routine ocn_brine_rejction_tend
+!
+!> \brief   Computes tendency term due to brine rejection
+!> \author  Luke Van Roekel
+!> \date    11/08/24
+!> \details
+!>  This routine computes the tendency for salinity from brine rejection, based on 
+!>      Nguyen et al 2009
+!
+!-----------------------------------------------------------------------
+
+   subroutine ocn_brine_rejection_tendency(tend, layerThickness, seaIceSalinityFlux, index_salinity, dt, err)
+      !----------------------------------------------------------------
+      !
+      ! variables
+      !
+      !----------------------------------------------------------------
+
+      real (kind=RKIND), dimension(:,:,:), intent(inout) :: &
+         tend !< tracer tendency, only will modify the salinity tend here
+
+      real (kind=RKIND), dimension(:), intent(in) :: &
+         seaIceSalinityFlux
+
+      real (kind=RKIND), dimension(:,:), intent(in) :: &
+         layerThickness
+
+      real, dimension(:), allocatable :: sis_flux
+
+      real (kind=RKIND) :: dt
+
+      integer, intent(in) :: index_salinity
+
+      integer :: err
+
+      !----------------------------------------------------------------
+      !
+      ! local variables
+      !
+      !----------------------------------------------------------------
+
+      integer :: iCell, k, nCells
+
+      real (kind=RKIND) :: remainder, z, integral, D, A, rejectedSalt
+
+      nCells = nCellsHalo(1)
+
+      allocate(sis_flux(nVertLevels+1))
+
+      do iCell = 1, nCells
+        if (seaIceSalinityFlux(iCell) > 0) then !only compute for salinity into ocean
+           sis_flux(:) = 0.0_RKIND
+           D = boundaryLayerDepth(iCell)
+           z = 0.0_RKIND
+           A = (config_brine_param_n + 1) / D**(config_brine_param_n+1)
+           k = minLevelCell(iCell)
+           ! need a salinity flux top and bottom and the flux into a cell is the divergence??
+           do while (z < D)
+              sis_flux(k) = A*z**config_brine_param_n*seaIceSalinityFlux(iCell)
+              z = z + layerThickness(k,iCell)
+              k = k + 1
+           end do
+           ! need to pick up the last bit that goes over
+           sis_flux(k) = 1.0_RKIND ! this should finish
+
+           do k=minLevelCell(iCell),maxLevelCell(iCell)
+              ! need to flip over so we take k+1 - k
+              tend(index_salinity, k, iCell) = tend(index_salinity, k, iCell) + &
+                 sis_flux(k+1) - sis_flux(k)
+           end do
+        end if
+      end do
+
+      deallocate(sis_flux)
+  end subroutine ocn_brine_rejection_tendency
+
+!***********************************************************************
+!
 !  routine ocn_tracer_nonlocalflux_tend
 !
 !> \brief   Computes tendency term due to non-local flux transport
@@ -70,15 +151,12 @@ contains
 !
 !-----------------------------------------------------------------------
 
-   subroutine ocn_tracer_nonlocalflux_tend(meshPool, vertNonLocalFlux, surfaceTracerFlux, tend, err)!{{{
+   subroutine ocn_tracer_nonlocalflux_tend(vertNonLocalFlux, surfaceTracerFlux, tend, err)!{{{
       !-----------------------------------------------------------------
       !
       ! input variables
       !
       !-----------------------------------------------------------------
-
-      type (mpas_pool_type), intent(in) :: &
-         meshPool          !< Input: mesh information
 
       real (kind=RKIND), dimension(:,:), intent(in) :: &
         surfaceTracerFlux !< Input: surface tracer fluxes
@@ -110,9 +188,6 @@ contains
       !-----------------------------------------------------------------
 
       integer :: iCell, k, iTracer, nTracers, nCells
-      integer, pointer :: nVertLevels
-      integer, dimension(:), pointer :: nCellsArray
-      integer, dimension(:), pointer :: minLevelCell, maxLevelCell
       real (kind=RKIND) :: fluxTopOfCell, fluxBottomOfCell
 
       err = 0
@@ -121,14 +196,9 @@ contains
 
       call mpas_timer_start('non-local flux')
 
-      call mpas_pool_get_dimension(meshPool, 'nCellsArray', nCellsArray)
-      call mpas_pool_get_dimension(meshPool, 'nVertLevels', nVertLevels)
       nTracers = size(tend, dim=1)
 
-      call mpas_pool_get_array(meshPool, 'minLevelCell', minLevelCell)
-      call mpas_pool_get_array(meshPool, 'maxLevelCell', maxLevelCell)
-
-      nCells = nCellsArray( 1 )
+      nCells = nCellsHalo( 1 )
 
       !$omp parallel
       !$omp do schedule(runtime) private(k, iTracer, fluxTopOfCell, fluxBottomOfCell)
