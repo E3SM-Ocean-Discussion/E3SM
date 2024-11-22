@@ -463,6 +463,16 @@
 					possible_values=".true. or .false."
 		/>
 	</nml_record>
+	<nml_record name="brine_rejection" mode="forward">
+	    <nml_option name="config_use_brine_rejection_parameterization" type="logical" default_value=".true."
+		            description="if true use brine rejection parameterization of Nguyen et al 2009"
+					possible_values=".true. or .false."
+		/>
+	    <nml_option name="config_brine_param_n" type="integer" default_value="5"
+                    description="power in the parameterization for distribution of the salinity flux"
+					possible_values='small integers (0-5)'
+		/>
+	</nml_record>
 	<nml_record name="cvmix" mode="forward">
 		<nml_option name="config_use_cvmix" type="logical" default_value=".true."
 					description="If true, use the Community Vertical MIXing routines to compute vertical diffusivity and viscosity"
