@@ -115,19 +115,19 @@ contains
       do iCell = 1, nCells
         if (seaIceSalinityFlux(iCell) > 0) then !only compute for salinity into ocean
            !this is set to 1 such that across the BLD we don't have a huge salt flux divergence.
-           sis_flux(:) = 1.0_RKIND
+           sis_flux(:) = 1.0_RKIND*seaIceSalinityFlux(iCell)
            D = boundaryLayerDepth(iCell)
            z = 0.0_RKIND
            A = (config_brine_param_n + 1) / D**(config_brine_param_n+1)
            k = minLevelCell(iCell)
            ! need a salinity flux top and bottom and the flux into a cell is the divergence??
            do while (z < D)
-              sis_flux(k) = A*z**config_brine_param_n*seaIceSalinityFlux(iCell)
+              sis_flux(k) = min(1.0_RKIND,A*z**config_brine_param_n)*seaIceSalinityFlux(iCell)
               z = z + layerThickness(k,iCell)
               k = k + 1
            end do
            ! need to pick up the last bit that goes over
-           sis_flux(k) = 1.0_RKIND ! this should finish
+           sis_flux(k) = 1.0_RKIND*seaIceSalinityFlux(iCell) ! this should finish
           
            do k=minLevelCell(iCell),maxLevelCell(iCell)
               ! need to flip over so we take k+1 - k
