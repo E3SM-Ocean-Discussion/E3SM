@@ -4453,6 +4453,12 @@ the value is less than 0
 Default: -1
 </entry>
 
+<entry id="rad_asym_vis" type="real"  category="radiation"
+       group="radiation_nl" valid_values="" >
+Split radiation asymmetrically between VIS/NIR, coef for VIS
+Default: 0.5
+</entry>
+
 <entry id="spectralflux" type="logical"  category="radiation"
        group="radiation_nl" valid_values="" >
 Return fluxes per band in addition to the total fluxes.

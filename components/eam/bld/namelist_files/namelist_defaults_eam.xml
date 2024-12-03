@@ -1859,6 +1859,9 @@ with se_tstep, dt_remap_factor, dt_tracer_factor set to -1
 <!-- Radiation bugfix -->
 <use_rad_dt_cosz phys="default">.true.</use_rad_dt_cosz>
 
+<!-- DC -->
+<rad_asym_vis phys="default">0.5 </rad_asym_vis>
+
 <!-- Tunable parameters for 72 layer model -->
 
 <ice_sed_ai phys="default" microphys="mg2"> 500.0     </ice_sed_ai>
