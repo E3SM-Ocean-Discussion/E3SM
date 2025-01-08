@@ -2675,7 +2675,7 @@ contains
             ! thickness (gravity is positive), but we also allow some amount of overburden
             ! because rho may deviate significantly from rho_sw
             h_crit = config_drying_min_cell_height * (maxLevelCell(iCell) - minLevelCell(iCell) + 1)
-            ssh_crit = bottomDepth(iCell) - h_crit
+            ssh_crit = bottomDepth(iCell) - h_crit + config_land_ice_overburden_height
             landIcePressureMax = gravity * rho_sw * ssh_crit
             landIcePressureApplied(iCell) = &
                min(landIcePressureMax, landIcePressure(iCell))
