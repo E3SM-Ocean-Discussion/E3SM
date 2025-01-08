@@ -1153,8 +1153,8 @@ contains
       if (thinFilmViscOn) then
          thinFilmViscConstant = config_thin_film_viscosity_constant
          if (thinFilmRampOn) then
-            hMin = config_zero_drying_velocity_ramp_hmin
-            hMax = config_zero_drying_velocity_ramp_hmax
+            hMin = config_thin_film_viscosity_hmin
+            hMax = config_thin_film_viscosity_hmax
             hRampFactor = config_zero_drying_velocity_ramp_factor
          else
             hMin = config_drying_min_cell_height

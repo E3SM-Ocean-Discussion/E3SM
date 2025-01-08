@@ -1266,6 +1266,14 @@
 					description="Viscosity used in the thin film."
 					possible_values="Any positive real"
 		/>
+		<nml_option name="config_thin_film_viscosity_hmin" type="real" default_value="1e-3"
+					description="Minimum layer thickness at which viscosity is ramped toward the full value. Recommended value equal to config_drying_min_cell_height."
+					possible_values="Any positive real"
+		/>
+		<nml_option name="config_thin_film_viscosity_hmax" type="real" default_value="2e-3"
+					description="Maximum layer thickness at which viscosity is first ramped toward the full value. Recommended value equal to 2 * config_drying_min_cell_height."
+					possible_values="Any positive real"
+		/>
 		<nml_option name="config_zero_drying_velocity_ramp" type="logical" default_value=".false."
 					description="If true, ramp velocities and tendencies to zero rather than applying a simple on/off switch."
 					possible_values=".true. or .false."
