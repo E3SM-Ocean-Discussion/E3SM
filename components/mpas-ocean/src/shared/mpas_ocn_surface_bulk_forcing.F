@@ -668,22 +668,24 @@ contains
                                                            - (snowFlux(iCell) + iceRunoffFlux(iCell)) &
                                                            * latent_heat_fusion_mks) * hflux_factor
 
-        ! Negative seaIceSalinityFlux is an extraction of salt from the ocean
-        ! So, we negate seaIceSalinityFlux when determining how much salt this flux needs.
-        requiredSalt = - seaIceSalinityFlux(iCell) * sflux_factor * dt / layerThickness(minLevelCell(iCell), iCell)
-        allowedSalt = min( 4.0_RKIND, tracerGroup(index_salinity_flux, minLevelCell(iCell), iCell) )
+        if (.not. config_use_brine_rejection_parameterization) then
+           ! Negative seaIceSalinityFlux is an extraction of salt from the ocean
+           ! So, we negate seaIceSalinityFlux when determining how much salt this flux needs.
+           requiredSalt = - seaIceSalinityFlux(iCell) * sflux_factor * dt / layerThickness(minLevelCell(iCell), iCell)
+           allowedSalt = min( 4.0_RKIND, tracerGroup(index_salinity_flux, minLevelCell(iCell), iCell) )
 
-        if ( allowedSalt < requiredSalt ) then
-           tracersSurfaceFluxRemoved(index_salinity_flux, iCell) = tracersSurfaceFluxRemoved(index_salinity_flux, iCell)  &
-                                                                 + ( 1 - allowedSalt / requiredSalt ) * seaIceSalinityFlux(iCell) &
-                                                                 * sflux_factor
+           if ( allowedSalt < requiredSalt ) then
+              tracersSurfaceFluxRemoved(index_salinity_flux, iCell) = tracersSurfaceFluxRemoved(index_salinity_flux, iCell)  &
+                                                                    + ( 1 - allowedSalt / requiredSalt ) * seaIceSalinityFlux(iCell) &
+                                                                    * sflux_factor
 
-           tracersSurfaceFlux(index_salinity_flux, iCell) = tracersSurfaceFlux(index_salinity_flux, iCell)  &
-                                                          + ( allowedSalt / requiredSalt ) * seaIceSalinityFlux(iCell) &
-                                                          * sflux_factor
-        else
-           tracersSurfaceFlux(index_salinity_flux, iCell) = tracersSurfaceFlux(index_salinity_flux, iCell)  &
+              tracersSurfaceFlux(index_salinity_flux, iCell) = tracersSurfaceFlux(index_salinity_flux, iCell)  &
+                                                             + ( allowedSalt / requiredSalt ) * seaIceSalinityFlux(iCell) &
+                                                             * sflux_factor
+           else
+              tracersSurfaceFlux(index_salinity_flux, iCell) = tracersSurfaceFlux(index_salinity_flux, iCell)  &
                                                           + seaIceSalinityFlux(iCell) * sflux_factor
+           end if
         end if
       end do
       !$omp end do
