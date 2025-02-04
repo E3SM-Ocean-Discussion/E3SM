@@ -1274,6 +1274,10 @@
 					description="If true, use take into account the ssh gradient across previously flux-limited edges in the wetting and drying algorithm"
 					possible_values=".true. or .false."
 		/>
+		<nml_option name="config_land_ice_overburden_height" type="real" default_value="0.0" units="m"
+					description="The amount of pressure overburden allowed in grounded regions. If ice must float at level of critical thickness, set equal to -1 * critical thickness"
+					possible_values="Any real"
+		/>
 	</nml_record>
 	<nml_record name="ocean_constants">
 		<nml_option name="config_density0" type="real" default_value="1026.0" units="kg m^-3"
