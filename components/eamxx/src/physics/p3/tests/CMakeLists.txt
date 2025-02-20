@@ -1,6 +1,7 @@
 include(ScreamUtils)
 
-set(NEED_LIBS p3 physics_share scream_share)
+add_subdirectory(infra)
+
 set(P3_TESTS_SRCS
     p3_tests.cpp
     p3_unit_tests.cpp
@@ -27,7 +28,6 @@ set(P3_TESTS_SRCS
     p3_ice_melting_unit_tests.cpp
     p3_evaporate_rain_unit_tests.cpp
     p3_ice_cldliq_wet_growth_unit_tests.cpp
-    p3_get_latent_heat_unit_tests.cpp
     p3_subgrid_variance_scaling_unit_tests.cpp
     p3_check_values_unit_tests.cpp
     p3_incloud_mixingratios_unit_tests.cpp
@@ -41,86 +41,78 @@ set(P3_TESTS_SRCS
     ) # P3_TESTS_SRCS
 
 if (SCREAM_DEBUG AND NOT SCREAM_TEST_SIZE STREQUAL "SHORT")
-  set (FORCE_RUN_DIFF_FAILS TRUE)
+  set (FORCE_RUN_DIFF_FAILS "WILL_FAIL")
 else ()
-  set (FORCE_RUN_DIFF_FAILS FALSE)
+  set (FORCE_RUN_DIFF_FAILS "")
 endif()
 
-# NOTE: tests inside this if statement won't be built in a baselines-only build
-if (NOT SCREAM_BASELINES_ONLY)
-  CreateUnitTest(p3_tests "${P3_TESTS_SRCS}" "${NEED_LIBS}"
-                 THREADS 1 ${SCREAM_TEST_MAX_THREADS} ${SCREAM_TEST_THREAD_INC}
-                 LABELS "p3;physics")
-
-  # Make sure that a diff in the two implementation triggers a failed test (in debug only)
-  CreateUnitTest (p3_tests_fail p3_rain_sed_unit_tests.cpp "${NEED_LIBS}"
-                 COMPILER_CXX_DEFS SCREAM_FORCE_RUN_DIFF
-                 THREADS 1 ${SCREAM_TEST_MAX_THREADS} ${SCREAM_TEST_THREAD_INC}
-                 PROPERTIES WILL_FAIL ${FORCE_RUN_DIFF_FAILS}
-                 LABELS "p3;physics;fail")
-endif()
-
+# All tests should understand the same baseline args
 if (SCREAM_ENABLE_BASELINE_TESTS)
-  set(BASELINE_FILE_ARG "-b ${SCREAM_TEST_DATA_DIR}/p3_run_and_cmp.baseline")
-
-  CreateUnitTestExec(p3_run_and_cmp "p3_run_and_cmp.cpp" "${NEED_LIBS}"
-                     EXCLUDE_MAIN_CPP)
-
-  CreateUnitTestFromExec(p3_run_and_cmp_cxx p3_run_and_cmp
-                 THREADS ${SCREAM_TEST_MAX_THREADS}
-                 EXE_ARGS "${BASELINE_FILE_ARG}"
-                 LABELS "p3;physics")
-
-  CreateUnitTestFromExec(p3_run_and_cmp_f90 p3_run_and_cmp
-                 THREADS ${SCREAM_TEST_MAX_THREADS}
-                 EXE_ARGS "-f ${BASELINE_FILE_ARG}"
-                 LABELS "p3;physics")
-
-  # Make sure that a diff from baselines triggers a failed test (in debug only)
-  CreateUnitTest(p3_run_and_cmp_cxx_fail "p3_run_and_cmp.cpp" "${NEED_LIBS}"
-                 COMPILER_CXX_DEFS SCREAM_FORCE_RUN_DIFF
-                 THREADS ${SCREAM_TEST_MAX_THREADS}
-                 EXE_ARGS "${BASELINE_FILE_ARG}"
-                 PROPERTIES WILL_FAIL ${FORCE_RUN_DIFF_FAILS}
-                 EXCLUDE_MAIN_CPP
-                 LABELS "p3;physics;fail")
-
-  #
-  # Use fake tests to generate shell commands to generate baselines
-  #
-  CreateUnitTestFromExec(p3_baseline_f90_fake p3_run_and_cmp
-    THREADS ${SCREAM_TEST_MAX_THREADS}
-    EXE_ARGS "-f -g ${BASELINE_FILE_ARG}"
-    PROPERTIES DISABLED True)
-
-  CreateUnitTestFromExec(p3_baseline_cxx_fake p3_run_and_cmp
-    THREADS ${SCREAM_TEST_MAX_THREADS}
-    EXE_ARGS "-g ${BASELINE_FILE_ARG}"
-    PROPERTIES DISABLED True)
-
-  if (SCREAM_TEST_MAX_THREADS GREATER 1)
-    get_test_property(p3_baseline_f90_fake_omp${SCREAM_TEST_MAX_THREADS} FULL_TEST_COMMAND P3_F90_GEN)
-    get_test_property(p3_baseline_cxx_fake_omp${SCREAM_TEST_MAX_THREADS} FULL_TEST_COMMAND P3_CXX_GEN)
+  if (SCREAM_ONLY_GENERATE_BASELINES)
+    set(BASELINE_FILE_ARG "-g -b ${SCREAM_BASELINES_DIR}/data")
+    # We don't want to do thread spreads when generating. That
+    # could cause race conditions in the file system.
+    set(P3_THREADS "${SCREAM_TEST_MAX_THREADS}")
   else()
-    get_test_property(p3_baseline_f90_fake FULL_TEST_COMMAND P3_F90_GEN)
-    get_test_property(p3_baseline_cxx_fake FULL_TEST_COMMAND P3_CXX_GEN)
+    set(BASELINE_FILE_ARG "-c -b ${SCREAM_BASELINES_DIR}/data")
+    set(P3_THREADS 1 ${SCREAM_TEST_MAX_THREADS} ${SCREAM_TEST_THREAD_INC})
   endif()
+else()
+  set(BASELINE_FILE_ARG "-n") # no baselines
+  set(P3_THREADS 1 ${SCREAM_TEST_MAX_THREADS} ${SCREAM_TEST_THREAD_INC})
+endif()
 
-  if (P3_F90_GEN STREQUAL "NOTFOUND")
-    message(FATAL_ERROR "Could not get FULL_TEST_COMMAND for p3_baseline fake test")
-  endif()
+CreateUnitTest(p3_tests "${P3_TESTS_SRCS}"
+  LIBS p3 p3_test_infra
+  EXE_ARGS "--args ${BASELINE_FILE_ARG}"
+  THREADS ${P3_THREADS}
+  LABELS "p3;physics;baseline_gen;baseline_cmp")
 
-  separate_arguments(P3_F90_GEN_ARGS UNIX_COMMAND "${P3_F90_GEN}")
-  separate_arguments(P3_CXX_GEN_ARGS UNIX_COMMAND "${P3_CXX_GEN}")
+# Make sure that a diff in the two implementation triggers a failed test (in debug only)
+# No need to run lots of different thread counts.
+if (SCREAM_ENABLE_BASELINE_TESTS)
+  CreateUnitTest (p3_tests_fail p3_rain_sed_unit_tests.cpp
+    LIBS p3 p3_test_infra
+    EXE_ARGS "--args ${BASELINE_FILE_ARG}"
+    COMPILER_CXX_DEFS SCREAM_FORCE_RUN_DIFF
+    LABELS "p3;physics;fail"
+    ${FORCE_RUN_DIFF_FAILS})
+endif()
 
-  add_custom_target(p3_baseline_f90
-    COMMAND ${CMAKE_COMMAND} -E env OMP_NUM_THREADS=${SCREAM_TEST_MAX_THREADS} ${P3_F90_GEN_ARGS})
+# If small kernels are ON, we don't need a separate executable to test them.
+# Also, we never want to generate baselines with this separate executable
+if (NOT SCREAM_P3_SMALL_KERNELS AND NOT SCREAM_ONLY_GENERATE_BASELINES)
+  # Note: Only the p3_main test does something different when
+  # small kernels are on. The SK dispatch routines are mostly trivial
+  # and it's not worth adding tons of test infrastructure to support
+  # BFB unit tests for these.
+  CreateUnitTest(p3_sk_tests "p3_main_unit_tests.cpp"
+    LIBS p3_sk p3_test_infra
+    EXE_ARGS "--args ${BASELINE_FILE_ARG}"
+    THREADS ${P3_THREADS}
+    LABELS "p3_sk;physics;baseline_cmp")
+endif()
 
-  add_custom_target(p3_baseline_cxx
-    COMMAND ${CMAKE_COMMAND} -E env OMP_NUM_THREADS=${SCREAM_TEST_MAX_THREADS} ${P3_CXX_GEN_ARGS})
+# Note: the baseline_gen label label is really only used if SCREAM_ONLY_GENERATE_BASELINES=ON, but no harm adding it
+CreateUnitTest(p3_run_and_cmp "p3_run_and_cmp.cpp"
+  LIBS p3 p3_test_infra
+  EXCLUDE_MAIN_CPP
+  THREADS ${SCREAM_TEST_MAX_THREADS}
+  EXE_ARGS "${BASELINE_FILE_ARG}"
+  LABELS "p3;physics;baseline_gen;baseline_cmp")
 
-  # By default, baselines should be created using all fortran (make baseline). If the user wants
-  # to use CXX to generate their baselines, they should use "make baseline_cxx".
-  add_dependencies(baseline     p3_baseline_f90)
-  add_dependencies(baseline_cxx p3_baseline_cxx)
+# This executable can be used to re-generate tables in ${SCREAM_DATA_DIR}
+add_executable(p3_tables_setup EXCLUDE_FROM_ALL p3_tables_setup.cpp)
+target_link_libraries(p3_tables_setup p3)
+
+# Make sure that a diff from baselines triggers a failed test (in debug only)
+if (SCREAM_ENABLE_BASELINE_TESTS)
+  CreateUnitTest(p3_run_and_cmp_fail "p3_run_and_cmp.cpp"
+    LIBS p3 p3_test_infra
+    COMPILER_CXX_DEFS SCREAM_FORCE_RUN_DIFF
+    THREADS ${SCREAM_TEST_MAX_THREADS}
+    EXE_ARGS "${BASELINE_FILE_ARG}"
+    LABELS "p3;physics;fail"
+    EXCLUDE_MAIN_CPP
+    ${FORCE_RUN_DIFF_FAILS})
 endif()

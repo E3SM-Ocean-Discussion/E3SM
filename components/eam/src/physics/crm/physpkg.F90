@@ -29,6 +29,7 @@ module physpkg
   use phys_control,            only: phys_do_flux_avg, phys_getopts
   use iop_data_mod,            only: single_column
   use cam_logfile,             only: iulog
+  use check_energy,            only: check_energy_set_print_additional_diagn
   implicit none
   private
 
@@ -509,7 +510,7 @@ subroutine phys_init( phys_state, phys_tend, pbuf2d, cam_out )
   use ref_pres,           only: pref_edge, pref_mid
   use cloud_rad_props,    only: cloud_rad_props_init
   use cam_control_mod,    only: nsrest  ! restart flag
-  use check_energy,       only: check_energy_init
+  use check_energy,       only: check_energy_init, print_additional_diagn
   use chemistry,          only: chem_init
   use prescribed_ozone,   only: prescribed_ozone_init
   use prescribed_ghg,     only: prescribed_ghg_init
@@ -548,6 +549,7 @@ subroutine phys_init( phys_state, phys_tend, pbuf2d, cam_out )
   use modal_aero_wateruptake,only: modal_aero_wateruptake_init
   use nucleate_ice_cam,      only: nucleate_ice_cam_init
   use hetfrz_classnuc_cam,   only: hetfrz_classnuc_cam_init
+  use prescribed_macv2,      only: macv2_rad_props_init
   !-----------------------------------------------------------------------------
   ! Input/output arguments
   !-----------------------------------------------------------------------------
@@ -589,7 +591,7 @@ subroutine phys_init( phys_state, phys_tend, pbuf2d, cam_out )
 
   call setup_moist_indices()
 
-  call check_energy_init()
+  call check_energy_init(phys_state)
 
   call tracers_init()
 
@@ -629,11 +631,14 @@ subroutine phys_init( phys_state, phys_tend, pbuf2d, cam_out )
   ! Initialize ocean data
   if (has_mam_mom) call init_ocean_data()
 
+  ! Initialize MACv2-SP aerosols
+  call macv2_rad_props_init()
+
   ! co2 cycle            
   if (co2_transport()) call co2_init()
   call co2_diags_init(phys_state)
 
-  call gw_init()
+  call gw_init(pbuf2d)
 
   call rayleigh_friction_init()
 
@@ -655,7 +660,7 @@ subroutine phys_init( phys_state, phys_tend, pbuf2d, cam_out )
   call nucleate_ice_cam_init(mincld, bulk_scale)
   call hetfrz_classnuc_cam_init(mincld)
 
-  call conv_water_init
+  call conv_water_init(pbuf2d)
 
   call crm_physics_init(phys_state, pbuf2d, species_class)
 
@@ -682,6 +687,9 @@ subroutine phys_init( phys_state, phys_tend, pbuf2d, cam_out )
   
  !BSINGH - addfld and adddefault calls for perturb growth testing    
   if(pergro_test_active)call add_fld_default_calls()
+
+  !disable additional diagn for crm
+  call check_energy_set_print_additional_diagn(.false.)
 
 end subroutine phys_init
 

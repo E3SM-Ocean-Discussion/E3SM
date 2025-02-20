@@ -396,11 +396,11 @@ gnu-cray:
 	"FFLAGS_OPT = -O3 -m64 -ffree-line-length-none -fconvert=big-endian -ffree-form -ffpe-summary=none $${EXTRA_FFLAGS}" \
 	"CFLAGS_OPT = -O3 -m64" \
 	"CXXFLAGS_OPT = -O3 -m64" \
-	"LDFLAGS_OPT = -O3 -m64" \
+	"LDFLAGS_OPT = -O3 -m64 $(GNU_CRAY_LDFLAGS)" \
 	"FFLAGS_DEBUG = -g -m64 -ffree-line-length-none -fconvert=big-endian -ffree-form -fbounds-check -fbacktrace -ffpe-trap=invalid,zero,overflow -ffpe-summary=none $${EXTRA_FFLAGS}" \
 	"CFLAGS_DEBUG = -g -m64" \
 	"CXXFLAGS_DEBUG = -g -m64" \
-	"LDFLAGS_DEBUG = -g -m64" \
+	"LDFLAGS_DEBUG = -g -m64 $(GNU_CRAY_LDFLAGS)" \
 	"FFLAGS_OMP = -fopenmp" \
 	"CFLAGS_OMP = -fopenmp" \
 	"BUILD_TARGET = $(@)" \
@@ -462,8 +462,8 @@ cray-cray:
 	"CFLAGS_DEBUG = -O0 -g" \
 	"CXXFLAGS_DEBUG = -O0 -g" \
 	"LDFLAGS_DEBUG = -O0 -g -Ktrap=divz,fp,inv,ovf" \
-	"FFLAGS_OMP = -h omp" \
-	"CFLAGS_OMP = -h omp" \
+	"FFLAGS_OMP = -homp -fopenmp" \
+	"CFLAGS_OMP = -homp -fopenmp" \
 	"PICFLAG = -f pic" \
 	"BUILD_TARGET = $(@)" \
 	"CORE = $(CORE)" \
@@ -630,6 +630,13 @@ ifeq "$(USE_SHTNS)" "true"
 	override CPPFLAGS += -DUSE_SHTNS
 endif
 
+ifneq "$(MOAB_PATH)" ""
+       CPPINCLUDES +=  -DHAVE_MOAB -I$(MOAB_PATH)/include
+       FCINCLUDES += -DHAVE_MOAB -I$(MOAB_PATH)/include
+       include $(MOAB_PATH)/lib/moab.make
+       LIBS +=  ${MOAB_LIBS_LINK} -lstdc++
+endif
+
 RM = rm -f
 CPP = cpp -P -traditional
 RANLIB = ranlib
@@ -775,6 +782,12 @@ ifeq "$(USE_PIO2)" "true"
 else # USE_PIO2 IF
 	PIO_MESSAGE="Using the PIO 1.x library."
 endif # USE_PIO2 IF
+
+ifneq "$(MOAB_PATH)" ""
+       MOAB_MESSAGE="Using MOAB library"
+else # 
+       MOAB_MESSAGE="Not using MOAB library"
+endif 
 
 ifdef TIMER_LIB
 ifeq "$(TIMER_LIB)" "tau"
@@ -1098,6 +1111,9 @@ ifeq "$(USE_CUBLAS)" "true"
 endif
 ifeq "$(USE_GPUAWARE)" "true"
    @echo $(GPUAWARE_MESSAGE)
+endif
+ifeq "$(USE_MOAB)" "true"
+	@echo $(MOAB_MESSAGE)
 endif
 	@echo "*******************************************************************************"
 clean:

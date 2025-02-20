@@ -15,6 +15,7 @@ using namespace scream;
 
 constexpr int packsize = SCREAM_SMALL_PACK_SIZE;
 using         Pack     = ekat::Pack<Real,packsize>;
+using stratts_t = std::map<std::string,std::string>;
 
 Real set_pressure(const Real p_top, const Real p_bot, const int nlevs, const int level);
 
@@ -53,10 +54,11 @@ TEST_CASE("io_remap_test","io_remap_test")
 
 
   print (" -> Test Setup ...\n",io_comm);
-  MPI_Fint fcomm = MPI_Comm_c2f(io_comm.mpi_comm());  // MPI communicator group used for I/O.  In our simple test we use MPI_COMM_WORLD, however a subset could be used.
-  scorpio::eam_init_pio_subsystem(fcomm);   // Gather the initial PIO subsystem data creater by component coupler
+  scorpio::init_subsystem(io_comm);
   const int ncols_src = 64*io_comm.size();
   const int nlevs_src = 2*packsize + 1;
+  const int dt = 10;
+
   // Construct a timestamp
   util::TimeStamp t0 ({2000,1,1},{0,0,0});
   // Setup for target levels.
@@ -72,7 +74,7 @@ TEST_CASE("io_remap_test","io_remap_test")
   auto field_manager = get_test_fm(grid, false);
   field_manager->init_fields_time_stamp(t0);
   print (" -> Test Setup ... done\n",io_comm);
-  
+
   // Create remap data for both vertical and horizontal remapping
   // The strategy for remapping will be to map every 2 subsequent
   // columns to a single column. So we assume that `ncols_src` is
@@ -80,7 +82,8 @@ TEST_CASE("io_remap_test","io_remap_test")
   print (" -> Create remap file ... \n",io_comm);
   const int ncols_tgt_l = ncols_src_l/2;
   const int ncols_tgt = ncols_src/2;
-  std::vector<Real> col, row, S;
+  std::vector<int> col, row;
+  std::vector<Real> S;
   const Real wgt = 0.4;
   for (int ii=0; ii<ncols_tgt_l; ii++) {
     const int src_col = 2*ii + ncols_src_l*io_comm.rank();
@@ -91,45 +94,37 @@ TEST_CASE("io_remap_test","io_remap_test")
     S.push_back(wgt);
     S.push_back(1.0-wgt);
   }
-  std::vector<std::int64_t> dofs_cols (ncols_src_l);
-  std::iota(dofs_cols.begin(),dofs_cols.end(),io_comm.rank()*ncols_src_l);
   // For vertical remapping we will prokject onto a set of equally
   // spaced pressure levels from p_top to b_bot that is nearly half
   // the number of source columns.
-  std::vector<std::int64_t> dofs_levs(nlevs_tgt);
-  std::iota(dofs_levs.begin(),dofs_levs.end(),0);
   std::vector<Real> p_tgt;
   for (int ii=0; ii<nlevs_tgt; ++ii) {
     p_tgt.push_back(set_pressure(p_top, p_bot, nlevs_tgt, ii));
-  }  
+  }
 
   // Write remap data to file
   const std::string remap_filename = "remap_weights_np"+std::to_string(io_comm.size())+".nc";
   scorpio::register_file(remap_filename, scorpio::FileMode::Write);
 
-  scorpio::register_dimension(remap_filename,"n_a",  "n_a",    ncols_src, true);
-  scorpio::register_dimension(remap_filename,"n_b",  "n_b",    ncols_tgt, true);
-  scorpio::register_dimension(remap_filename,"n_s",  "n_s",    ncols_src, true);
-  scorpio::register_dimension(remap_filename,"nlevs", "nlevs", nlevs_tgt, false);
+  scorpio::define_dim(remap_filename,"n_a",ncols_src);
+  scorpio::define_dim(remap_filename,"n_b",ncols_tgt);
+  scorpio::define_dim(remap_filename,"n_s",ncols_src);
+  scorpio::define_dim(remap_filename,"lev",nlevs_tgt);
 
-  scorpio::register_variable(remap_filename,"col","col","none",{"n_s"},"real","int","int-nnz");
-  scorpio::register_variable(remap_filename,"row","row","none",{"n_s"},"real","int","int-nnz");
-  scorpio::register_variable(remap_filename,"S","S","none",{"n_s"},"real","real","Real-nnz");
-  scorpio::register_variable(remap_filename,"p_levs","p_levs","none",{"nlevs"},"real","real","Real-nlevs");
+  scorpio::define_var(remap_filename,"col",   {"n_s"},"int");
+  scorpio::define_var(remap_filename,"row",   {"n_s"},"int");
+  scorpio::define_var(remap_filename,"S",     {"n_s"},"real");
+  scorpio::define_var(remap_filename,"p_levs",{"lev"},"real");
 
-  scorpio::set_dof(remap_filename,"col",dofs_cols.size(),dofs_cols.data());
-  scorpio::set_dof(remap_filename,"row",dofs_cols.size(),dofs_cols.data());
-  scorpio::set_dof(remap_filename,"S",  dofs_cols.size(),dofs_cols.data());
-  scorpio::set_dof(remap_filename,"p_levs",dofs_levs.size(),dofs_levs.data()); 
-  
-  scorpio::eam_pio_enddef(remap_filename);
+  scorpio::set_dim_decomp(remap_filename,"n_s",io_comm.rank()*ncols_src_l,ncols_src_l);
+  scorpio::enddef(remap_filename);
 
-  scorpio::grid_write_data_array(remap_filename,"row",row.data(),ncols_src);
-  scorpio::grid_write_data_array(remap_filename,"col",col.data(),ncols_src);
-  scorpio::grid_write_data_array(remap_filename,"S",    S.data(),ncols_src);
-  scorpio::grid_write_data_array(remap_filename,"p_levs",p_tgt.data(),nlevs_tgt);
+  scorpio::write_var(remap_filename,"row",   row.data());
+  scorpio::write_var(remap_filename,"col",   col.data());
+  scorpio::write_var(remap_filename,"S",     S.data());
+  scorpio::write_var(remap_filename,"p_levs",p_tgt.data());
 
-  scorpio::eam_pio_closefile(remap_filename);
+  scorpio::release_file(remap_filename);
   print (" -> Create remap file ... done\n",io_comm);
 
   /*
@@ -137,12 +132,12 @@ TEST_CASE("io_remap_test","io_remap_test")
    * We want to test cases where some values may be masked, to accomplish
    * this we let the pressure profile at each column be a linear progression
    * between p_top to p_surf where p_surf is defined as:
-   * 
+   *
    *            /  p_bot                        for |x| > 4
    *   p_surf = |  0.5*(p_top+p_bot)            for |x| < 2
    *            \  p_bot - (-sign(x)*m + b)     otherwise, where m = (p_top+p_bot)/4.0 and b = p_top+p_bot
-   * 
-   *            
+   *
+   *
    *                             ----
    *                            /    \
    *                           /      \
@@ -185,7 +180,7 @@ TEST_CASE("io_remap_test","io_remap_test")
     pi_v(ii,0) = set_pressure(p_top, p_surf(ii), nlevs_src+1, 0);
     for (int jj=0; jj<nlevs_src; jj++) {
       pi_v(ii,jj+1) = set_pressure(p_top, p_surf(ii), nlevs_src+1, jj+1);
-      pm_v(ii,jj)   = 0.5*(pi_v(ii,jj)+pi_v(ii,jj+1)); 
+      pm_v(ii,jj)   = 0.5*(pi_v(ii,jj)+pi_v(ii,jj+1));
     }
   }
   pm_f.sync_to_dev();
@@ -222,8 +217,8 @@ TEST_CASE("io_remap_test","io_remap_test")
         Vi_v(ii,cc,jj+1) = calculate_output(pi_v(ii,jj+1),ii,cc+1);
       }
     }
-  } 
-   
+  }
+
   Yf_f.sync_to_dev();
   Ym_f.sync_to_dev();
   Yi_f.sync_to_dev();
@@ -239,42 +234,56 @@ TEST_CASE("io_remap_test","io_remap_test")
 
   print ("    -> source data ... \n",io_comm);
   auto source_remap_control = set_output_params("remap_source",remap_filename,p_ref,false,false);
-  om_source.setup(io_comm,source_remap_control,field_manager,gm,t0,t0,false);
+  om_source.initialize(io_comm,source_remap_control,t0,false);
+  om_source.setup(field_manager,gm);
   io_comm.barrier();
-  om_source.run(t0);
+  om_source.init_timestep(t0,dt);
+  om_source.run(t0+dt);
+  om_source.finalize();
   print ("    -> source data ... done\n",io_comm);
 
   print ("    -> vertical remap ... \n",io_comm);
   auto vert_remap_control = set_output_params("remap_vertical",remap_filename,p_ref,true,false);
-  om_vert.setup(io_comm,vert_remap_control,field_manager,gm,t0,t0,false);
+  om_vert.initialize(io_comm,vert_remap_control,t0,false);
+  om_vert.setup(field_manager,gm);
   io_comm.barrier();
-  om_vert.run(t0);
+  om_vert.init_timestep(t0,dt);
+  om_vert.run(t0+dt);
+  om_vert.finalize();
   print ("    -> vertical remap ... done\n",io_comm);
 
   print ("    -> horizontal remap ... \n",io_comm);
   auto horiz_remap_control = set_output_params("remap_horizontal",remap_filename,p_ref,false,true);
-  om_horiz.setup(io_comm,horiz_remap_control,field_manager,gm,t0,t0,false);
+  om_horiz.initialize(io_comm,horiz_remap_control,t0,false);
+  om_horiz.setup(field_manager,gm);
   io_comm.barrier();
-  om_horiz.run(t0);
+  om_horiz.init_timestep(t0,dt);
+  om_horiz.run(t0+dt);
+  om_horiz.finalize();
   print ("    -> horizontal remap ... done\n",io_comm);
 
   print ("    -> vertical-horizontal remap ... \n",io_comm);
   auto vert_horiz_remap_control = set_output_params("remap_vertical_horizontal",remap_filename,p_ref,true,true);
-  om_vert_horiz.setup(io_comm,vert_horiz_remap_control,field_manager,gm,t0,t0,false);
+  om_vert_horiz.initialize(io_comm,vert_horiz_remap_control,t0,false);
+  om_vert_horiz.setup(field_manager,gm);
   io_comm.barrier();
-  om_vert_horiz.run(t0);
+  om_vert_horiz.init_timestep(t0,dt);
+  om_vert_horiz.run(t0+dt);
+  om_vert_horiz.finalize();
   print ("    -> vertical-horizontal remap ... done\n",io_comm);
   print (" -> Create output ... done\n",io_comm);
 
 
   // Confirm that remapped fields are correct.
   print (" -> Test Remapped Output ... \n",io_comm);
+  std::vector<std::string> fnames = {"Y_flat","Y_mid","Y_int","V_mid","V_int"};
+
   // ------------------------------------------------------------------------------------------------------
   //                                    ---  Vertical Remapping ---
   {
     // Note, the vertical remapper defaults to a mask value of std numeric limits scaled by 0.1;
     const float mask_val = vert_remap_control.isParameter("Fill Value")
-                         ? vert_remap_control.get<double>("Fill Value") : DEFAULT_FILL_VALUE;
+                         ? vert_remap_control.get<double>("Fill Value") : constants::DefaultFillValue<float>().value;
     print ("    -> vertical remap ... \n",io_comm);
     auto gm_vert   = get_test_gm(io_comm,ncols_src,nlevs_tgt);
     auto grid_vert = gm_vert->get_grid("Point Grid");
@@ -282,6 +291,20 @@ TEST_CASE("io_remap_test","io_remap_test")
     auto vert_in   = set_input_params("remap_vertical",io_comm,t0.to_string(),p_ref);
     AtmosphereInput test_input(vert_in,fm_vert);
     test_input.read_variables();
+
+    // Check the "test" metadata, which should match the field name
+    // Note: the FieldAtPressureLevel diag should get the attribute from its input field,
+    //       so the valuf for "Y_int"_at_XPa should be "Y_int"
+    std::string att_val;
+    const auto& filename = vert_in.get<std::string>("Filename");
+    for (auto& fname : fnames) {
+      att_val = scorpio::get_attribute<std::string>(filename,fname,"test");
+      REQUIRE (att_val==fname);
+    }
+    std::string f_at_lev_name = "Y_int_at_" + std::to_string(p_ref) + "Pa";
+    att_val = scorpio::get_attribute<std::string>(filename,f_at_lev_name,"test");
+    REQUIRE (att_val=="Y_int");
+
     test_input.finalize();
 
     // Test vertically remapped output.
@@ -292,7 +315,7 @@ TEST_CASE("io_remap_test","io_remap_test")
     //
     // NOTE: For scorpio_output.cpp the mask value for vertical remapping is std::numeric_limits<Real>::max()/10.0
     const auto& Yf_f_vert = fm_vert->get_field("Y_flat");
-    const auto& Ys_f_vert = fm_vert->get_field("Y_int@"+std::to_string(p_ref)+"Pa");
+    const auto& Ys_f_vert = fm_vert->get_field("Y_int_at_"+std::to_string(p_ref)+"Pa");
     const auto& Ym_f_vert = fm_vert->get_field("Y_mid");
     const auto& Yi_f_vert = fm_vert->get_field("Y_int");
     const auto& Vm_f_vert = fm_vert->get_field("V_mid");
@@ -309,12 +332,12 @@ TEST_CASE("io_remap_test","io_remap_test")
       const bool ref_masked = (p_ref>pi_v(ii,nlevs_src) || p_ref<pi_v(ii,0));
       const Real test_val = ref_masked ? mask_val : calculate_output(p_ref,ii,0);
       REQUIRE(approx(Ys_v_vert(ii),test_val));
-  
+
       REQUIRE(approx(Yf_v_vert(ii), Yf_v(ii)));
       for (int jj=0; jj<nlevs_tgt; jj++) {
         auto p_jj = p_tgt[jj];
-        const bool mid_masked = (p_jj>pm_v(ii,nlevs_src-1) || p_jj<pm_v(ii,0)); 
-        const bool int_masked = (p_jj>pi_v(ii,nlevs_src)   || p_jj<pi_v(ii,0)); 
+        const bool mid_masked = (p_jj>pm_v(ii,nlevs_src-1) || p_jj<pm_v(ii,0));
+        const bool int_masked = (p_jj>pi_v(ii,nlevs_src)   || p_jj<pi_v(ii,0));
         REQUIRE(approx(Ym_v_vert(ii,jj),(mid_masked ? mask_val : calculate_output(p_jj,ii,0))));
         REQUIRE(approx(Yi_v_vert(ii,jj),(int_masked ? mask_val : calculate_output(p_jj,ii,0))));
         for (int cc=0; cc<2; cc++) {
@@ -330,7 +353,7 @@ TEST_CASE("io_remap_test","io_remap_test")
   {
     // Note, the vertical remapper defaults to a mask value of std numeric limits scaled by 0.1;
     const float mask_val = horiz_remap_control.isParameter("Fill Value")
-                         ? horiz_remap_control.get<double>("Fill Value") : DEFAULT_FILL_VALUE;
+                         ? horiz_remap_control.get<double>("Fill Value") : constants::DefaultFillValue<float>().value;
     print ("    -> horizontal remap ... \n",io_comm);
     auto gm_horiz   = get_test_gm(io_comm,ncols_tgt,nlevs_src);
     auto grid_horiz = gm_horiz->get_grid("Point Grid");
@@ -338,16 +361,29 @@ TEST_CASE("io_remap_test","io_remap_test")
     auto horiz_in   = set_input_params("remap_horizontal",io_comm,t0.to_string(),p_ref);
     AtmosphereInput test_input(horiz_in,fm_horiz);
     test_input.read_variables();
+
+    // Check the "test" metadata, which should match the field name
+    // Note: the FieldAtPressureLevel diag should get the attribute from its input field,
+    //       so the valuf for "Y_int"_at_XPa should be "Y_int"
+    std::string att_val;
+    const auto& filename = horiz_in.get<std::string>("Filename");
+    for (auto& fname : fnames) {
+      att_val = scorpio::get_attribute<std::string>(filename,fname,"test");
+      REQUIRE (att_val==fname);
+    }
+    std::string f_at_lev_name = "Y_int_at_" + std::to_string(p_ref) + "Pa";
+    att_val = scorpio::get_attribute<std::string>(filename,f_at_lev_name,"test");
+    REQUIRE (att_val=="Y_int");
     test_input.finalize();
 
     // Test horizontally remapped output.
     // The remap we are testing is rather simple, each pair of subsequent columns are remapped to a single
     // column using `wgt` and `1-wgt` respectively.
     //
-    // Note: For horizontal remapping we added the variable Y_min@XPa to check that this diagnostic does
+    // Note: For horizontal remapping we added the variable Y_min_at_XPa to check that this diagnostic does
     // provide some masking, since it applies vertical remapping.
     const auto& Yf_f_horiz = fm_horiz->get_field("Y_flat");
-    const auto& Ys_f_horiz = fm_horiz->get_field("Y_int@"+std::to_string(p_ref)+"Pa");
+    const auto& Ys_f_horiz = fm_horiz->get_field("Y_int_at_"+std::to_string(p_ref)+"Pa");
     const auto& Ym_f_horiz = fm_horiz->get_field("Y_mid");
     const auto& Yi_f_horiz = fm_horiz->get_field("Y_int");
     const auto& Vm_f_horiz = fm_horiz->get_field("V_mid");
@@ -384,7 +420,7 @@ TEST_CASE("io_remap_test","io_remap_test")
         found = true;
         Ys_exp += calculate_output(p_ref,col1,0)*wgt;
         Ys_wgt += wgt;
-      } 
+      }
       if (p_ref<=pi_v(col2,nlevs_src) && p_ref>=pi_v(col2,0)) {
         found = true;
         Ys_exp += calculate_output(p_ref,col2,0)*(1.0-wgt);
@@ -403,7 +439,7 @@ TEST_CASE("io_remap_test","io_remap_test")
   //                                ---  Vertical + Horizontal Remapping ---
   {
     const float mask_val = vert_horiz_remap_control.isParameter("Fill Value")
-                         ? vert_horiz_remap_control.get<double>("Fill Value") : DEFAULT_FILL_VALUE;
+                         ? vert_horiz_remap_control.get<double>("Fill Value") : constants::DefaultFillValue<float>().value;
     print ("    -> vertical + horizontal remap ... \n",io_comm);
     auto gm_vh   = get_test_gm(io_comm,ncols_tgt,nlevs_tgt);
     auto grid_vh = gm_vh->get_grid("Point Grid");
@@ -411,18 +447,31 @@ TEST_CASE("io_remap_test","io_remap_test")
     auto vh_in   = set_input_params("remap_vertical_horizontal",io_comm,t0.to_string(),p_ref);
     AtmosphereInput test_input(vh_in,fm_vh);
     test_input.read_variables();
+
+    // Check the "test" metadata, which should match the field name
+    // Note: the FieldAtPressureLevel diag should get the attribute from its input field,
+    //       so the valuf for "Y_int"_at_XPa should be "Y_int"
+    std::string att_val;
+    const auto& filename = vh_in.get<std::string>("Filename");
+    for (auto& fname : fnames) {
+      att_val = scorpio::get_attribute<std::string>(filename,fname,"test");
+      REQUIRE (att_val==fname);
+    }
+    std::string f_at_lev_name = "Y_int_at_" + std::to_string(p_ref) + "Pa";
+    att_val = scorpio::get_attribute<std::string>(filename,f_at_lev_name,"test");
+    REQUIRE (att_val=="Y_int");
     test_input.finalize();
 
     // Test vertically + horizontally remapped output.
     // This test is a combination of the vertical test and horizontal test above.
     // There should be maksing in the vertical in all locations where the target pressure
-    // is lower higher than the surface pressure, just like in the vertical test.  This should
+    // is lower/higher than the min/max of the surface pressure, just like in the vertical test.  This should
     // also translate to more masking in the horizontal reamapping.  So we must check for potential
-    // masking for all variables rather than just the Y_int@XPa variable for the horizontal interpolation.
+    // masking for all variables rather than just the Y_int_at_XPa variable for the horizontal interpolation.
     //
-    // NOTE: For scorpio_output.cpp the mask value for vertical remapping is std::numeric_limits<Real>::max()/10.0 
+    // NOTE: For scorpio_output.cpp the mask value for vertical remapping is std::numeric_limits<Real>::max()/10.0
     const auto& Yf_f_vh = fm_vh->get_field("Y_flat");
-    const auto& Ys_f_vh = fm_vh->get_field("Y_int@"+std::to_string(p_ref)+"Pa");
+    const auto& Ys_f_vh = fm_vh->get_field("Y_int_at_"+std::to_string(p_ref)+"Pa");
     const auto& Ym_f_vh = fm_vh->get_field("Y_mid");
     const auto& Yi_f_vh = fm_vh->get_field("Y_int");
     const auto& Vm_f_vh = fm_vh->get_field("V_mid");
@@ -459,7 +508,7 @@ TEST_CASE("io_remap_test","io_remap_test")
           // This point is completely masked out, assign masked value
           test_int = mask_val;
         }
-        REQUIRE(approx(Ym_v_vh(ii,jj), test_mid)); 
+        REQUIRE(approx(Ym_v_vh(ii,jj), test_mid));
         REQUIRE(approx(Yi_v_vh(ii,jj), test_int));
         for (int cc=0; cc<2; cc++) {
           if (mid_mask_1 + mid_mask_2 > 0.0) {
@@ -475,7 +524,7 @@ TEST_CASE("io_remap_test","io_remap_test")
             test_int = mask_val;
           }
           REQUIRE(approx(Vm_v_vh(ii,cc,jj), test_mid));
-          REQUIRE(approx(Vi_v_vh(ii,cc,jj), test_int)); 
+          REQUIRE(approx(Vi_v_vh(ii,cc,jj), test_int));
         }
       }
       // For the pressured sliced variable we expect it to match the solution from horizontal mapping only so we use the same syntax.
@@ -486,7 +535,7 @@ TEST_CASE("io_remap_test","io_remap_test")
         found = true;
         Ys_exp += calculate_output(p_ref,col1,0)*wgt;
         Ys_wgt += wgt;
-      } 
+      }
       if (p_ref<=pi_v(col2,nlevs_src) && p_ref>=pi_v(col2,0)) {
         found = true;
         Ys_exp += calculate_output(p_ref,col2,0)*(1.0-wgt);
@@ -502,9 +551,9 @@ TEST_CASE("io_remap_test","io_remap_test")
     print ("    -> vertical + horizontal remap ... done\n",io_comm);
   }
   // ------------------------------------------------------------------------------------------------------
-  // All Done 
+  // All Done
   print (" -> Test Remapped Output ... done\n",io_comm);
-  scorpio::eam_pio_finalize();
+  scorpio::finalize_subsystem();
 
 }
 /*==========================================================================================================*/
@@ -524,10 +573,7 @@ Real calculate_output(const Real pressure, const int col, const int cmp)
 /*==========================================================================================================*/
 std::shared_ptr<GridsManager> get_test_gm(const ekat::Comm& io_comm, const Int num_gcols, const Int num_levs)
 {
-  ekat::ParameterList gm_params;
-  gm_params.set("number_of_global_columns",num_gcols);
-  gm_params.set("number_of_vertical_levels",num_levs);
-  auto gm = create_mesh_free_grids_manager(io_comm,gm_params);
+  auto gm = create_mesh_free_grids_manager(io_comm,0,0,num_levs,num_gcols);
   gm->build_grids();
   return gm;
 }
@@ -584,7 +630,7 @@ std::shared_ptr<FieldManager> get_test_fm(std::shared_ptr<const AbstractGrid> gr
   fm->register_field(FR{fid_Vm,"output",Pack::n});
   fm->register_field(FR{fid_Vi,"output",Pack::n});
   if (p_ref>=0) {
-    FieldIdentifier fid_di("Y_int@"+std::to_string(p_ref)+"Pa", FL{tag_h,dims_h},m,gn);
+    FieldIdentifier fid_di("Y_int_at_"+std::to_string(p_ref)+"Pa", FL{tag_h,dims_h},m,gn);
     fm->register_field(FR{fid_di,"output"});
   }
   fm->registration_ends();
@@ -599,7 +645,13 @@ std::shared_ptr<FieldManager> get_test_fm(std::shared_ptr<const AbstractGrid> gr
   auto f_Vm = fm->get_field(fid_Vm);
   auto f_Vi = fm->get_field(fid_Vi);
 
-  // Update timestamp
+  // Set some string to be written to file as attribute to the variables
+  for (const std::string fname : {"Y_flat","Y_mid","Y_int","V_mid","V_int"}) {
+    auto& f = fm->get_field(fname);
+    auto& str_atts = f.get_header().get_extra_data<stratts_t>("io: string attributes");
+    str_atts["test"] = fname;
+  }
+ // Update timestamp
   util::TimeStamp time ({2000,1,1},{0,0,0});
   fm->init_fields_time_stamp(time);
 
@@ -613,7 +665,7 @@ std::shared_ptr<FieldManager> get_test_fm(std::shared_ptr<const AbstractGrid> gr
   f_Vm.sync_to_dev();
   f_Vi.sync_to_dev();
   if (p_ref>=0) {
-    auto f_di = fm->get_field("Y_int@"+std::to_string(p_ref)+"Pa");
+    auto f_di = fm->get_field("Y_int_at_"+std::to_string(p_ref)+"Pa");
     f_di.sync_to_dev();
   }
 
@@ -623,36 +675,35 @@ std::shared_ptr<FieldManager> get_test_fm(std::shared_ptr<const AbstractGrid> gr
 ekat::ParameterList set_output_params(const std::string& name, const std::string& remap_filename, const int p_ref, const bool vert_remap, const bool horiz_remap)
 {
   using vos_type = std::vector<std::string>;
-  ekat::ParameterList output_yaml;
+  ekat::ParameterList params;
 
-  output_yaml.set<std::string>("filename_prefix",name);
-  output_yaml.set<std::string>("Averaging Type","Instant");
-  output_yaml.set<int>("Max Snapshots Per File",1);
-  output_yaml.set<std::string>("Floating Point Precision","real");
-  auto& oc = output_yaml.sublist("output_control");
-  oc.set<bool>("MPI Ranks in Filename",true);
+  params.set<std::string>("filename_prefix",name);
+  params.set<std::string>("Averaging Type","Instant");
+  params.set<int>("Max Snapshots Per File",1);
+  params.set<std::string>("Floating Point Precision","real");
+  auto& oc = params.sublist("output_control");
   oc.set<int>("Frequency",1);
   oc.set<std::string>("frequency_units","nsteps");
 
   vos_type fields_out = {"Y_flat", "Y_mid", "Y_int", "V_mid", "V_int"};
   if (p_ref>=0) {
-    fields_out.push_back("Y_int@"+std::to_string(p_ref)+"Pa");
+    fields_out.push_back("Y_int_at_"+std::to_string(p_ref)+"Pa");
   }
   if (!vert_remap && !horiz_remap) {
     fields_out.push_back("p_surf");
     fields_out.push_back("p_mid");
     fields_out.push_back("p_int");
   }
-  output_yaml.set<vos_type>("Field Names",fields_out);
+  params.set<vos_type>("Field Names",fields_out);
 
   if (vert_remap) {
-    output_yaml.set<std::string>("vertical_remap_file",remap_filename); // TODO, make this work for general np=?
-  } 
+    params.set<std::string>("vertical_remap_file",remap_filename); // TODO, make this work for general np=?
+  }
   if (horiz_remap) {
-    output_yaml.set<std::string>("horiz_remap_file",remap_filename); // TODO, make this work for general np=?
-  } 
- 
-  return output_yaml; 
+    params.set<std::string>("horiz_remap_file",remap_filename); // TODO, make this work for general np=?
+  }
+
+  return params;
 }
 /*==========================================================================================================*/
 ekat::ParameterList set_input_params(const std::string& name, ekat::Comm& comm, const std::string& tstamp, const int p_ref)
@@ -663,12 +714,12 @@ ekat::ParameterList set_input_params(const std::string& name, ekat::Comm& comm, 
   in_params.set<std::string>("Filename",filename);
   vos_type fields_in =  {"Y_flat", "Y_mid", "Y_int", "V_mid", "V_int"};
   if (p_ref>=0) {
-    fields_in.push_back("Y_int@"+std::to_string(p_ref)+"Pa");
+    fields_in.push_back("Y_int_at_"+std::to_string(p_ref)+"Pa");
   }
 
   in_params.set<vos_type>("Field Names", fields_in);
   in_params.set<std::string>("Floating Point Precision","real");
-  return in_params; 
+  return in_params;
 }
 /*==========================================================================================================*/
 

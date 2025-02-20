@@ -29,8 +29,16 @@ module docn_comp_mod
   use docn_shr_mod   , only: rest_file      ! namelist input
   use docn_shr_mod   , only: rest_file_strm ! namelist input
   use docn_shr_mod   , only: sst_constant_value ! namelist input
+  use docn_shr_mod   , only: RSO_relax_tau      ! namelist input for relaxed slab ocean (RSO)
+  use docn_shr_mod   , only: RSO_fixed_MLD      ! namelist input for relaxed slab ocean (RSO)
   use docn_shr_mod   , only: nullstr
 
+#ifdef HAVE_MOAB
+!   character(1024)         :: domain_file        ! file containing domain info (set my input)
+  use seq_comm_mct,     only: mpoid  ! iMOAB pid for ocean mesh on component pes
+
+  use iso_c_binding
+#endif
 
   ! !PUBLIC TYPES:
   implicit none
@@ -63,7 +71,9 @@ module docn_comp_mod
 
   integer(IN)   :: kt,ks,ku,kv,kdhdx,kdhdy,kq,kswp  ! field indices
   integer(IN)   :: kswnet,klwup,klwdn,ksen,klat,kmelth,ksnow,krofi
-  integer(IN)   :: kh,kqbot
+  integer(IN)   :: kh,kqbot,kfraz
+  integer(IN)   :: k10uu           ! index for u10
+  integer(IN)   :: kRSO_bckgrd_sst ! index for background SST (relaxed slab ocean)
   integer(IN)   :: index_lat, index_lon
   integer(IN)   :: kmask, kfrac ! frac and mask field indices of docn domain
   integer(IN)   :: ksomask      ! So_omask field index
@@ -75,6 +85,10 @@ module docn_comp_mod
   integer(IN), pointer   :: imask(:)
   real(R8), pointer      :: xc(:), yc(:) ! arryas of model latitudes and longitudes
 
+#ifdef HAVE_MOAB
+  integer ::    mdpoid ! data: ocean local component
+#endif
+
   !--------------------------------------------------------------------------
   integer(IN)     , parameter :: ktrans = 8
   character(12)   , parameter :: avifld(1:ktrans) = &
@@ -83,12 +97,24 @@ module docn_comp_mod
   character(12)   , parameter  :: avofld(1:ktrans) = &
        (/ "So_t        ","So_u        ","So_v        ","So_dhdx     ",&
           "So_dhdy     ","So_s        ","strm_h      ","strm_qbot   "/)
-  character(len=*), parameter :: flds_strm = 'strm_h:strm_qbot'
+  character(len=*),parameter :: flds_strm = 'strm_h:strm_qbot:So_t'
   !--------------------------------------------------------------------------
 
   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 CONTAINS
   !~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+#ifdef HAVE_MOAB
+  SUBROUTINE errorout(ierr, message)
+  integer ierr
+  character*(*) message
+  if (ierr.ne.0) then
+    print *, message
+    call exit (1)
+  end if
+  return
+  end subroutine
+#endif
 
   !===============================================================================
   subroutine docn_comp_init(Eclock, x2o, o2x, &
@@ -100,6 +126,13 @@ CONTAINS
     ! !DESCRIPTION: initialize docn model
     use pio        , only : iosystem_desc_t
     use shr_pio_mod, only : shr_pio_getiosys, shr_pio_getiotype
+#ifdef HAVE_MOAB
+#include "moab/MOABConfig.h"
+    use iMOAB, only: iMOAB_DefineTagStorage, iMOAB_GetDoubleTagStorage, &
+                     iMOAB_SetIntTagStorage, iMOAB_SetDoubleTagStorage, &
+                     iMOAB_ResolveSharedEntities, iMOAB_CreateVertices, &
+                     iMOAB_GetMeshInfo, iMOAB_UpdateMeshInfo
+#endif
     implicit none
 
     ! !INPUT/OUTPUT PARAMETERS:
@@ -139,6 +172,15 @@ CONTAINS
     logical       :: write_restart=.false.
     type(iosystem_desc_t), pointer :: ocn_pio_subsystem
 
+#ifdef HAVE_MOAB
+    character*400  tagname
+    real(R8) latv, lonv
+    integer iv, tagindex
+    real(R8), allocatable, target :: data(:)
+    integer(IN), pointer :: idata(:)   ! temporary
+    real(r8), dimension(:), allocatable :: moab_vert_coords  ! temporary
+#endif
+
     !--- formats ---
     character(*), parameter :: F00   = "('(docn_comp_init) ',8a)"
     character(*), parameter :: F0L   = "('(docn_comp_init) ',a, l2)"
@@ -147,7 +189,7 @@ CONTAINS
     character(*), parameter :: F03   = "('(docn_comp_init) ',a,i8,a)"
     character(*), parameter :: F04   = "('(docn_comp_init) ',2a,2i8,'s')"
     character(*), parameter :: F05   = "('(docn_comp_init) ',a,2f10.4)"
-    character(*), parameter :: F06   = "('(docn_comp_init) ',a,f10.4)"
+    character(*), parameter :: F06   = "('(docn_comp_init) ',a,5i8)"
     character(*), parameter :: F90   = "('(docn_comp_init) ',73('='))"
     character(*), parameter :: F91   = "('(docn_comp_init) ',73('-'))"
     character(*), parameter :: subName = "(docn_comp_init) "
@@ -243,7 +285,8 @@ CONTAINS
     kdhdx = mct_aVect_indexRA(o2x,'So_dhdx')
     kdhdy = mct_aVect_indexRA(o2x,'So_dhdy')
     kswp  = mct_aVect_indexRA(o2x,'So_fswpen', perrwith='quiet')
-    kq    = mct_aVect_indexRA(o2x,'Fioo_q')
+    kq    = mct_aVect_indexRA(o2x,'Fioo_q') ! ocn freezing melting potential
+    kfraz = mct_aVect_indexRA(o2x,'Fioo_frazil') ! ocn frazil
 
     call mct_aVect_init(x2o, rList=seq_flds_x2o_fields, lsize=lsize)
     call mct_aVect_zero(x2o)
@@ -256,12 +299,14 @@ CONTAINS
     klwdn  = mct_aVect_indexRA(x2o,'Faxa_lwdn')
     ksnow  = mct_aVect_indexRA(x2o,'Faxa_snow')
     kmelth = mct_aVect_indexRA(x2o,'Fioi_melth')
+    k10uu  = mct_aVect_indexRA(x2o,'So_duu10n')
 
     call mct_aVect_init(avstrm, rList=flds_strm, lsize=lsize)
     call mct_aVect_zero(avstrm)
 
     kh    = mct_aVect_indexRA(avstrm,'strm_h')
     kqbot = mct_aVect_indexRA(avstrm,'strm_qbot')
+    kRSO_bckgrd_sst = mct_aVect_indexRA(avstrm,'So_t')
 
     allocate(somtp(lsize))
     allocate(tfreeze(lsize))
@@ -279,13 +324,6 @@ CONTAINS
     kmask = mct_aVect_indexRA(ggrid%data,'mask')
     imask(:) = nint(ggrid%data%rAttr(kmask,:))
 
-    kfrac = mct_aVect_indexRA(ggrid%data,'frac')
-
-    ksomask = mct_aVect_indexRA(o2x,'So_omask', perrwith='quiet')
-    if (ksomask /= 0) then
-       o2x%rAttr(ksomask, :) = ggrid%data%rAttr(kfrac,:)
-    end if
-
     index_lon = mct_aVect_indexRA(ggrid%data,'lon')
     xc(:) = ggrid%data%rAttr(index_lon,:)
 
@@ -294,6 +332,115 @@ CONTAINS
 
     call t_stopf('docn_initmctavs')
 
+#ifdef HAVE_MOAB
+
+   allocate(moab_vert_coords(lsize*3))
+   do iv = 1, lsize
+      lonv = xc(iv) * SHR_CONST_PI/180.
+      latv = yc(iv) * SHR_CONST_PI/180.
+      moab_vert_coords(3*iv-2)=COS(latv)*COS(lonv)
+      moab_vert_coords(3*iv-1)=COS(latv)*SIN(lonv)
+      moab_vert_coords(3*iv  )=SIN(latv)
+   enddo
+
+   ! create the vertices with coordinates from MCT domain
+   ierr = iMOAB_CreateVertices(mpoid, lsize*3, 3, moab_vert_coords)
+   if (ierr .ne. 0)  &
+      call shr_sys_abort('Error: fail to create MOAB vertices in land model')
+
+   tagname='GLOBAL_ID'//C_NULL_CHAR
+   ierr = iMOAB_DefineTagStorage(mpoid, tagname, &
+                                 0, & ! dense, integer
+                                 1, & ! number of components
+                                 tagindex )
+   if (ierr .ne. 0)  &
+      call shr_sys_abort('Error: fail to retrieve GLOBAL_ID tag ')
+
+   ! get list of global IDs for Dofs
+   call mct_gsMap_orderedPoints(gsMap, my_task, idata)
+
+   ierr = iMOAB_SetIntTagStorage ( mpoid, tagname, lsize, &
+                                    0, & ! vertex type
+                                    idata)
+   if (ierr .ne. 0)  &
+      call shr_sys_abort('Error: fail to set GLOBAL_ID tag ')
+
+   ierr = iMOAB_ResolveSharedEntities( mpoid, lsize, idata );
+   if (ierr .ne. 0)  &
+      call shr_sys_abort('Error: fail to resolve shared entities')
+
+   deallocate(moab_vert_coords)
+   deallocate(idata)
+
+   ierr = iMOAB_UpdateMeshInfo( mpoid )
+   if (ierr .ne. 0)  &
+      call shr_sys_abort('Error: fail to update mesh info ')
+
+   allocate(data(lsize))
+   ierr = iMOAB_DefineTagStorage( mpoid, "area:aream:frac:mask"//C_NULL_CHAR, &
+                                     1, & ! dense, double
+                                     1, & ! number of components
+                                     tagindex )
+   if (ierr > 0 )  &
+      call errorout(ierr, 'Error: fail to create tag: area:aream:frac:mask' )
+
+   data(:) = ggrid%data%rAttr(mct_aVect_indexRA(ggrid%data,'area'),:)
+   tagname='area'//C_NULL_CHAR
+   ierr = iMOAB_SetDoubleTagStorage ( mpoid, tagname, lsize, &
+                                      0, & ! set data on vertices
+                                      data)
+   if (ierr > 0 )  &
+      call errorout(ierr, 'Error: fail to get area tag ')
+
+   ! set the same data for aream (model area) as area
+   ! data(:) = ggrid%data%rAttr(mct_aVect_indexRA(ggrid%data,'aream'),:)
+   tagname='aream'//C_NULL_CHAR
+   ierr = iMOAB_SetDoubleTagStorage ( mpoid, tagname, lsize, &
+                                      0, & ! set data on vertices
+                                      data)
+   if (ierr > 0 )  &
+      call errorout(ierr, 'Error: fail to set aream tag ')
+
+   data(:) = ggrid%data%rAttr(kmask,:)
+   tagname='mask'//C_NULL_CHAR
+   ierr = iMOAB_SetDoubleTagStorage ( mpoid, tagname, lsize, &
+                                      0, & ! set data on vertices
+                                      data)
+   if (ierr > 0 )  &
+      call errorout(ierr, 'Error: fail to set mask tag ')
+
+   data(:) = ggrid%data%rAttr(kfrac,:)
+   tagname='frac'//C_NULL_CHAR
+   ierr = iMOAB_SetDoubleTagStorage ( mpoid, tagname, lsize, &
+                                      0, & ! set data on vertices
+                                      data)
+   if (ierr > 0 )  &
+      call errorout(ierr, 'Error: fail to set frac tag ')
+
+   deallocate(data)
+
+   ! define tags
+   ierr = iMOAB_DefineTagStorage( mpoid, trim(seq_flds_x2o_fields)//C_NULL_CHAR, &
+                                     1, & ! dense, double
+                                     1, & ! number of components
+                                     tagindex )
+   if (ierr > 0 )  &
+      call errorout(ierr, 'Error: fail to create seq_flds_x2o_fields tags ')
+
+   ierr = iMOAB_DefineTagStorage( mpoid, trim(seq_flds_o2x_fields)//C_NULL_CHAR, &
+                                     1, & ! dense, double
+                                     1, & ! number of components
+                                     tagindex )
+   if (ierr > 0 )  &
+      call errorout(ierr, 'Error: fail to create seq_flds_o2x_fields tags ')
+
+   ierr = iMOAB_DefineTagStorage( mpoid, trim(flds_strm)//C_NULL_CHAR, &
+                                     1, & ! dense, double
+                                     1, & ! number of components
+                                     tagindex )
+   if (ierr > 0 )  &
+      call errorout(ierr, 'Error: fail to create flds_strm tags ')
+#endif
     !----------------------------------------------------------------------------
     ! Read restart
     !----------------------------------------------------------------------------
@@ -332,14 +479,17 @@ CONTAINS
        call shr_mpi_bcast(exists,mpicom,'exists')
        call shr_mpi_bcast(exists1,mpicom,'exists1')
 
-       if (trim(datamode) == 'SOM' .or. trim(datamode) == 'SOM_AQUAP') then
-       if (exists1) then
-          if (my_task == master_task) write(logunit,F00) ' reading ',trim(rest_file)
-          call shr_pcdf_readwrite('read',SDOCN%pio_subsystem, SDOCN%io_type, &
-               trim(rest_file), mpicom, gsmap=gsmap, rf1=somtp, rf1n='somtp', io_format=SDOCN%io_format)
-       else
-          if (my_task == master_task) write(logunit,F00) ' file not found, skipping ',trim(rest_file)
-       endif
+       if (     trim(datamode) == 'SOM' &       ! Traditional slab ocean
+           .or. trim(datamode) == 'RSO' &       ! Relaxed slab ocean
+           .or. trim(datamode) == 'SOM_AQUAP' & ! Aquaplanet slab ocean
+          ) then
+          if (exists1) then
+             if (my_task == master_task) write(logunit,F00) ' reading ',trim(rest_file)
+             call shr_pcdf_readwrite('read',SDOCN%pio_subsystem, SDOCN%io_type, &
+                  trim(rest_file), mpicom, gsmap=gsmap, rf1=somtp, rf1n='somtp', io_format=SDOCN%io_format)
+          else
+             if (my_task == master_task) write(logunit,F00) ' file not found, skipping ',trim(rest_file)
+          endif
        endif
 
        if (exists) then
@@ -379,14 +529,19 @@ CONTAINS
 
   end subroutine docn_comp_init
 
-  !===============================================================================
-
   subroutine docn_comp_run(EClock, x2o, o2x, &
        SDOCN, gsmap, ggrid, mpicom, compid, my_task, master_task, &
        inst_suffix, logunit, read_restart, write_restart, &
        target_ymd, target_tod, case_name)
 
     ! !DESCRIPTION:  run method for docn model
+#ifdef HAVE_MOAB
+    use iMOAB, only: iMOAB_GetMeshInfo, &
+                     iMOAB_SetDoubleTagStorage, &
+                     iMOAB_WriteMesh
+    use seq_flds_mod, only: moab_set_tag_from_av
+#endif
+
     implicit none
 
     ! !INPUT/OUTPUT PARAMETERS:
@@ -417,11 +572,35 @@ CONTAINS
     integer(IN)   :: idt                   ! integer timestep
     real(R8)      :: dt                    ! timestep
     integer(IN)   :: nu                    ! unit number
-    real(R8)      :: hn                    ! h field
+    real(R8)      :: hn                    ! h field - mixed layer depth (MLD)
+    ! relaxed slab ocean mode variables
+    real(R8)      :: RSO_bckgrd_sst        ! background SST 
+    real(R8)      :: RSO_X_cool            ! logistics function weight
+    real(R8)      :: u10                   ! 10 m wind
+    ! relaxed slab ocean fixed parameters
+    integer,  parameter :: RSO_slab_option = 0                  ! Option for setting RSO_X_cool
+    real(R8), parameter :: RSO_R_cool      = 11.75_r8/86400._r8 ! base cooling rate [K/s]
+    real(R8), parameter :: RSO_Tdeep       = 271.0_r8           ! deep water temperature [K]
+    real(R8), parameter :: RSO_dT_o        = 27.0_r8            ! scaling temperature gradient
+    real(R8), parameter :: RSO_h_o         = 30.0_r8            ! scaling mixed layer depth
+
     character(len=18) :: date_str
     character(len=CL) :: local_case_name
     real(R8), parameter :: &
          swp = 0.67_R8*(exp((-1._R8*shr_const_zsrflyr) /1.0_R8)) + 0.33_R8*exp((-1._R8*shr_const_zsrflyr)/17.0_R8)
+
+#ifdef HAVE_MOAB
+    integer :: ierr     ! error code
+    integer :: kgg
+    character*100  tagname
+    integer tagindex
+    real(R8), allocatable, target :: data(:)
+#ifdef MOABDEBUG
+    integer  :: cur_docn_stepno
+    character*100 outfile, wopts, lnum
+#endif
+
+#endif
 
     character(*), parameter :: F00   = "('(docn_comp_run) ',8a)"
     character(*), parameter :: F01   = "('(docn_comp_run) ',a, i7,2x,i5,2x,i5,2x,d21.14)"
@@ -462,6 +641,8 @@ CONTAINS
        o2x%rAttr(kdhdx,n) = 0.0_R8
        o2x%rAttr(kdhdy,n) = 0.0_R8
        o2x%rAttr(kq   ,n) = 0.0_R8
+! make sure frazil is 0. MPAS-seaice will still use it.
+       o2x%rAttr(kfraz,n) = 0.0_R8
        if (kswp /= 0) then
           o2x%rAttr(kswp ,n) = swp
        end if
@@ -486,6 +667,8 @@ CONTAINS
     ! Determine data model behavior based on the mode
     !-------------------------------------------------
 
+    if (my_task .EQ. master_task) &
+         write(logunit,*) "DOCN datamode case = ", trim(datamode)
     call t_startf('docn_datamode')
     select case (trim(datamode))
 
@@ -608,6 +791,65 @@ CONTAINS
           enddo
        endif   ! firstcall
 
+    ! Relaxed Slab Ocean based on Zarzycki(2016)
+    ! Zarzycki, C. M., 2016: Tropical Cyclone Intensity Errors Associated with Lack of Two-Way Ocean Coupling in High-Resolution Global Simulations. J. Climate, 29, 8589–8610.
+    ! https://journals.ametsoc.org/view/journals/clim/29/23/jcli-d-16-0273.1.xml
+    case('RSO')
+      lsize = mct_avect_lsize(o2x)
+      do n = 1,SDOCN%nstreams
+        call shr_dmodel_translateAV(SDOCN%avs(n),avstrm,avifld,avofld,rearr)
+      enddo
+      if (firstcall) then
+        do n = 1,lsize
+          if (.not. read_restart) then
+            somtp(n) = o2x%rAttr(kt,n) + TkFrz
+          endif
+          o2x%rAttr(kt,n) = somtp(n)
+          o2x%rAttr(kq,n) = 0.0_R8
+        enddo
+      else   ! firstcall
+        tfreeze = shr_frz_freezetemp(o2x%rAttr(ks,:)) + TkFrz
+        do n = 1,lsize
+          if (imask(n) /= 0) then
+            !*******************************************************************
+            if (RSO_fixed_MLD>=0) then
+              hn = RSO_fixed_MLD
+            else
+              hn = avstrm%rAttr(kh,n)
+            endif
+            ! Get "background" temperature for relaxation
+            RSO_bckgrd_sst = avstrm%rAttr(kRSO_bckgrd_sst,n) + TkFrz
+            u10 = SQRT(x2o%rAttr(k10uu,n))
+            !*******************************************************************
+            ! Calculate scaling function - see Eq 3 in Zarzycki (2016)
+            if (RSO_slab_option==0) RSO_X_cool = 1._r8/(1._r8+EXP(-0.5_r8*(u10-30._r8)) )                      ! SLAB1
+            if (RSO_slab_option==1) RSO_X_cool =(1._r8/(1._r8+EXP(-0.2_r8*(u10-30._r8)) ))*(u10*2.4_r8/80._r8) ! SLAB2
+            if (RSO_slab_option==2) RSO_X_cool = 0.0_r8                                                        ! THERMO
+            !*******************************************************************
+            ! compute new ocean surface temperature
+            o2x%rAttr(kt,n) = somtp(n) &
+                              ! Thermodynamic terms
+                              +( x2o%rAttr(kswnet,n)        & ! shortwave net
+                                +x2o%rAttr(klwup ,n)        & ! longwave up
+                                +x2o%rAttr(klwdn ,n)        & ! longwave down
+                                +x2o%rAttr(ksen  ,n)        & ! sfc sensible heat flux
+                                +x2o%rAttr(klat  ,n)        & ! sfc latent heat flux
+                                -x2o%rAttr(ksnow ,n)*latice & ! latent heat from snow
+                                -x2o%rAttr(krofi ,n)*latice & ! latent heat from runoff
+                              ) * dt/(cpsw*rhosw*hn) & 
+                              - RSO_X_cool*RSO_R_cool*((somtp(n)-RSO_Tdeep)/RSO_dT_o)*(RSO_h_o/hn)*dt & ! Turb mixing
+                              + (1_r8/RSO_relax_tau)*(RSO_bckgrd_sst - somtp(n))*dt ! Newtonian Relaxation
+            !*******************************************************************
+            ! Ignore ice formed or melt potential
+            o2x%rAttr(kq,n) = 0.0
+            ! Cap SSTs to freezing
+            o2x%rAttr(kt,n) = max( TkFrzSw, o2x%rAttr(kt,n) )
+            ! Save temperature to send back to coupler          
+            somtp(n) = o2x%rAttr(kt,n)
+          endif ! imask /= 0
+        enddo ! lsize
+      endif ! firstcall
+
     case('SOM_AQUAP')
        lsize = mct_avect_lsize(o2x)
        do n = 1,SDOCN%nstreams
@@ -647,10 +889,72 @@ CONTAINS
 
     call t_stopf('docn_datamode')
 
+#ifdef HAVE_MOAB
+
+   allocate(data(lsize))
+   data(:) = 0.0
+
+   ! set dense double tags on vertices of the temporary DOCN app
+   ! first set o2x data
+   call moab_set_tag_from_av('So_t'//C_NULL_CHAR, o2x, kt, mpoid, data, lsize) 
+
+   call moab_set_tag_from_av('So_s'//C_NULL_CHAR, o2x, ks, mpoid, data, lsize)
+
+   call moab_set_tag_from_av( 'So_u'//C_NULL_CHAR, o2x, ku, mpoid, data, lsize)
+
+   call moab_set_tag_from_av( 'So_v'//C_NULL_CHAR, o2x, kv, mpoid, data, lsize)
+
+   call moab_set_tag_from_av( 'So_dhdx'//C_NULL_CHAR, o2x, kdhdx, mpoid, data, lsize)
+
+   call moab_set_tag_from_av( 'So_dhdy'//C_NULL_CHAR, o2x, kdhdy, mpoid, data, lsize)
+
+   call moab_set_tag_from_av( 'Fioo_q'//C_NULL_CHAR, o2x, kq, mpoid, data, lsize)
+
+   call moab_set_tag_from_av( 'Fioo_frazil'//C_NULL_CHAR, o2x, kq, mpoid, data, lsize)
+
+   if (kswp /= 0) then
+      call moab_set_tag_from_av( 'So_fswpen'//C_NULL_CHAR, o2x, kswp, mpoid, data, lsize)
+   endif
+
+   ! next set x2o data
+   call moab_set_tag_from_av( 'Foxx_swnet'//C_NULL_CHAR, x2o, kswnet, mpoid, data, lsize)
+
+   call moab_set_tag_from_av( 'Foxx_lwup'//C_NULL_CHAR, x2o, klwup, mpoid, data, lsize)
+
+   call moab_set_tag_from_av( 'Foxx_sen'//C_NULL_CHAR, x2o, ksen, mpoid, data, lsize)
+
+   call moab_set_tag_from_av( 'Foxx_lat'//C_NULL_CHAR, x2o, klat, mpoid, data, lsize)
+
+   call moab_set_tag_from_av( 'Foxx_rofi'//C_NULL_CHAR, x2o, krofi, mpoid, data, lsize)
+
+   call moab_set_tag_from_av( 'Faxa_lwdn'//C_NULL_CHAR, x2o, klwdn, mpoid, data, lsize)
+
+   call moab_set_tag_from_av( 'Faxa_snow'//C_NULL_CHAR, x2o, ksnow, mpoid, data, lsize)
+
+   call moab_set_tag_from_av( 'Fioi_melth'//C_NULL_CHAR, x2o, kmelth, mpoid, data, lsize)
+
+   ! next set avstrm data
+   call moab_set_tag_from_av( 'strm_h'//C_NULL_CHAR, avstrm, kh, mpoid, data, lsize)
+
+   call moab_set_tag_from_av( 'strm_qbot'//C_NULL_CHAR, avstrm, kqbot, mpoid, data, lsize)
+
+
+#ifdef MOABDEBUG
+    call seq_timemgr_EClockGetData( EClock, stepno=cur_docn_stepno )
+    write(lnum,"(I0.2)")cur_docn_stepno
+    outfile = 'docn_comp_run_'//trim(lnum)//'.h5m'//C_NULL_CHAR
+    wopts   = 'PARALLEL=WRITE_PART'//C_NULL_CHAR
+    ierr = iMOAB_WriteMesh(mpoid, outfile, wopts)
+    if (ierr > 0 )  then
+       write(logunit,*) 'Failed to write ocean component state '
+    endif
+#endif
+
+#endif
+
     !----------------------------------------------------------
     ! Debug output
     !----------------------------------------------------------
-
     if (dbug > 0 .and. my_task == master_task) then
        do n = 1,lsize
           write(logunit,F01)'import: ymd,tod,n,Foxx_swnet = ', target_ymd, target_tod, n, x2o%rattr(kswnet,n)
@@ -692,7 +996,10 @@ CONTAINS
           close(nu)
           call shr_file_freeUnit(nu)
        endif
-       if (trim(datamode) == 'SOM' .or. trim(datamode) == 'SOM_AQUAP') then
+       if (     trim(datamode) == 'SOM' &       ! Traditional slab ocean
+           .or. trim(datamode) == 'RSO' &       ! Relaxed slab ocean
+           .or. trim(datamode) == 'SOM_AQUAP' & ! Aquaplanet slab ocean
+          ) then
           if (my_task == master_task) write(logunit,F04) ' writing ',trim(rest_file),target_ymd,target_tod
           call shr_pcdf_readwrite('write', SDOCN%pio_subsystem, SDOCN%io_type,&
                trim(rest_file), mpicom, gsmap, clobber=.true., rf1=somtp,rf1n='somtp')
@@ -764,6 +1071,7 @@ CONTAINS
     integer  :: i
     real(r8) :: tmp, tmp1, pi
     real(r8) :: rlon(lsize), rlat(lsize)
+    real(r8) :: mean_SST, delta_SST
 
     real(r8), parameter :: pio180 = SHR_CONST_PI/180._r8
 
@@ -793,8 +1101,8 @@ CONTAINS
 
     ! Control
 
-    if (sst_option < 1 .or. sst_option > 10) then
-       call shr_sys_abort ('prescribed_sst: ERROR: sst_option must be between 1 and 10')
+    if (sst_option < 1 .or. sst_option > 15) then
+       call shr_sys_abort ('prescribed_sst: ERROR: sst_option must be between 1 and 15')
     end if
 
     if (sst_option == 1 .or. sst_option == 6 .or. sst_option == 7 .or. sst_option == 8) then
@@ -953,6 +1261,20 @@ CONTAINS
           end if
        end do
     end if
+
+    !-------------------------------------------------------------------------------
+    ! RCEMIP phase 2 - Mock-Walker
+    if (sst_option>=11 .and. sst_option<=15) then
+      if (sst_option==11) then; mean_SST = 295 - TkFrz; delta_SST = 1.250; end if ! MW_295dT1p25
+      if (sst_option==12) then; mean_SST = 300 - TkFrz; delta_SST = 0.625; end if ! MW_300dT0p625
+      if (sst_option==13) then; mean_SST = 300 - TkFrz; delta_SST = 1.250; end if ! MW_300dT1p25
+      if (sst_option==14) then; mean_SST = 300 - TkFrz; delta_SST = 2.500; end if ! MW_300dT2p5
+      if (sst_option==15) then; mean_SST = 305 - TkFrz; delta_SST = 1.250; end if ! MW_305dT1p25
+      do i = 1, lsize
+        sst(i) = mean_SST + (delta_SST/2) * cos( rlat(i) * 360/54 )
+      end do
+    end if
+    !-------------------------------------------------------------------------------
 
   end subroutine prescribed_sst
 

@@ -64,7 +64,7 @@ module ocn_vmix_cvmix
    type(cvmix_shear_params_type)  :: cvmix_shear_params
    type(cvmix_tidal_params_type)  :: cvmix_tidal_params
 
-   logical :: cvmixOn, cvmixConvectionOn, cvmixKPPOn
+   logical :: lnonzero_surf_nonlocal, cvmixOn, cvmixConvectionOn, cvmixKPPOn
    real (kind=RKIND) :: backgroundVisc, backgroundDiff
 
    integer :: cvmixBackgroundChoice        ! user choice of cvmix background scheme
@@ -141,6 +141,9 @@ contains
       integer, dimension(:), pointer :: &
         maxLevelCell, minLevelCell, nEdgesOnCell, maxLevelEdgeTop, minLevelEdgeBot
 
+      integer, dimension(:), pointer :: landIceMask
+      integer :: landIceMaskValue
+
       real (kind=RKIND), dimension(:), pointer :: &
         latCell, lonCell, bottomDepth, fCell, &
         ssh, dcEdge, dvEdge, areaCell, iceFraction, &
@@ -159,12 +162,13 @@ contains
       integer, dimension(:), allocatable :: surfaceAverageIndex
 
       real (kind=RKIND) :: x, bulkRichardsonNumberStop, sfc_layer_depth
-      real (kind=RKIND) :: normalVelocityAv, delU2, areaSum, blTemp
+      real (kind=RKIND) :: normalVelocityAv, delU2, areaSum, blTemp,tangentialVelocityAv
       real (kind=RKIND) :: sigma
       real (kind=RKIND), dimension(:), allocatable :: Nsqr_iface, turbulentScalarVelocityScale, &
                                                       deltaVelocitySquared, normalVelocitySum, &
                                                       potentialDensitySum, RiTemp,              &
-                                                      layerThicknessSum, layerThicknessEdgeSum
+                                                      layerThicknessSum, layerThicknessEdgeSum, &
+                                                      tangentialVelocitySum
       real (kind=RKIND), dimension(:), allocatable, target :: RiSmoothed, BVFSmoothed, OBLDepths, interfaceForcings
       logical :: bulkRichardsonFlag
 
@@ -240,6 +244,7 @@ contains
       ! set pointers for fields related to ocean forcing state
       !
       call mpas_pool_get_array(forcingPool, 'iceFraction', iceFraction)
+      call mpas_pool_get_array(forcingPool, 'landIceMask', landIceMask)
       call mpas_pool_get_array(forcingPool, 'windSpeed10m', windSpeed10m)
       call mpas_pool_get_array(forcingPool, 'windStressZonal', windStressZonal)
       call mpas_pool_get_array(forcingPool, 'windStressMeridional', windStressMeridional)
@@ -308,6 +313,7 @@ contains
       allocate(RiTemp(nVertLevels+1))
 
       allocate(normalVelocitySum(nVertLevels))
+      allocate(tangentialVelocitySum(nVertLevels))
       allocate(potentialDensitySum(nVertLevels))
       allocate(surfaceAverageIndex(nVertLevels))
       allocate(deltaVelocitySquared(nVertLevels))
@@ -333,17 +339,18 @@ contains
 !      !$omp private(k, RiSmoothed, RiTemp, nsmooth, BVFSmoothed, alphaAngle, &
 !      !$omp         langmuirEnhancementFactor, bulkRichardsonNumberStop, bulkRichardsonFlag, &
 !      !$omp         topIndex, kIndexOBL, deltaVelocitySquared, sigma, OBLDepths, interfaceForcings, &
-!      !$omp         surfaceAverageIndex, sfc_layer_depth, kav, i, iEdge, &
+!      !$omp         surfaceAverageIndex, sfc_layer_depth, kav, i, iEdge, tangentialVelocitySum, &
 !      !$omp         normalVelocitySum, layerThicknessEdgeSum, normalVelocityAv, delU2, potentialDensitySum, &
-!      !$omp         layerThicknessSum, blTemp, zonalWavenumberCoeff, meridionalWavenumberCoeff) &
+!      !$omp         layerThicknessSum, blTemp, zonalWavenumberCoeff, meridionalWavenumberCoeff, &
+!      !$omp         tangentialVelocityAv) &
 !      !$omp firstprivate(cvmix_variables, Nsqr_iface, turbulentScalarVelocityScale)
       do iCell = 1, nCells
 
          ! specify geometry/location
          cvmix_variables % SeaSurfaceHeight = ssh(iCell)
          cvmix_variables % Coriolis = fCell(iCell)
-         cvmix_variables % lat = latCell(iCell) * 180.0_RKIND / 3.14_RKIND
-         cvmix_variables % lon = lonCell(iCell) * 180.0_RKIND / 3.14_RKIND
+         cvmix_variables % lat = latCell(iCell) * 180.0_RKIND / pi
+         cvmix_variables % lon = lonCell(iCell) * 180.0_RKIND / pi
 
          ! fill vertical position of column
          ! CVMix assume top of ocean is at z=0, so building all z-coordinate data based on layerThickness
@@ -476,18 +483,25 @@ contains
               Nsqr_iface(k:maxLevelCell(iCell)+1) = Nsqr_iface(k-1)
 
               ! compute Langmuir number and Langmuir enhancement factor
-              if (config_cvmix_kpp_use_theory_wave .and. iceFraction(iCell) .lt. 0.05_RKIND) then
-                 langmuirNumber(iCell) =  sqrt(surfaceFrictionVelocity(iCell) / ( &
+              if (associated(landIceMask)) then
+                  landIceMaskValue = landIceMask(iCell)
+              else
+                  landIceMaskValue = 0
+              endif
+
+              if ( landIceMaskValue .eq. 0 .and. iceFraction(iCell) .lt. 0.05_RKIND) then
+                 if (config_cvmix_kpp_use_theory_wave) then
+                    langmuirNumber(iCell) =  sqrt(surfaceFrictionVelocity(iCell) / ( &
                          cvmix_kpp_ustokes_SL_model(windSpeed10m(iCell), &
                                                     boundaryLayerDepth(iCell), &
                                                     cvmix_global_params)+1e-15_RKIND) )
-                 langmuirEnhancementFactor =  &
+                    langmuirEnhancementFactor =  &
                          cvmix_kpp_EFactor_model(windSpeed10m(iCell), &
                                                  surfaceFrictionVelocity(iCell), &
                                                  boundaryLayerDepth(iCell), &
                                                  cvmix_global_params)
-              else if (config_cvmix_kpp_use_active_wave .and. iceFraction(iCell) .lt. 0.05_RKIND) then
-                 call ocn_stokes_drift_langmuir_number(windStressZonal(iCell), &
+                 else if (config_cvmix_kpp_use_active_wave) then
+                    call ocn_stokes_drift_langmuir_number(windStressZonal(iCell), &
                                                        windStressMeridional(iCell), &
                                                        surfaceFrictionVelocity(iCell), &
                                                        significantWaveHeight(iCell), &
@@ -496,9 +510,10 @@ contains
                                                        stokesDriftMeridionalWavenumber(:,iCell), &
                                                        alphaAngle, &
                                                        langmuirNumber(iCell))
-                 call ocn_stokes_drift_kpp_enhancement_factor(alphaAngle, &
+                    call ocn_stokes_drift_kpp_enhancement_factor(alphaAngle, &
                                                               langmuirNumber(iCell), &
                                                               langmuirEnhancementFactor)
+                 endif
               else
                  ! arbitrarily large Langmuir number
                  langmuirNumber(iCell) = 1.e10_RKIND
@@ -552,22 +567,29 @@ contains
               do i = 1, nEdgesOnCell(iCell)
                  iEdge = edgesOnCell(i, iCell)
 
-                 deltaVelocitySquared(1:minLevelCell(iCell)) = 0.0_RKIND
+                 deltaVelocitySquared(1:minLevelEdgeBot(iEdge)) = 0.0_RKIND
 
-                 normalVelocitySum(minLevelCell(iCell)) = normalVelocity(minLevelCell(iCell), iEdge)* &
-                                                          layerThickEdgeMean(minLevelCell(iCell),iEdge)
-                 layerThicknessEdgeSum(minLevelCell(iCell)) = layerThickEdgeMean(minLevelCell(iCell),iEdge)
+                 normalVelocitySum(minLevelEdgeBot(iEdge)) = normalVelocity(minLevelEdgeBot(iEdge), iEdge)* &
+                                                          layerThickEdgeMean(minLevelEdgeBot(iEdge),iEdge)
+                 tangentialVelocitySum(minLevelEdgeBot(iEdge)) = tangentialVelocity(minLevelEdgeBot(iEdge),iEdge)* &
+                                                          layerThickEdgeMean(minLevelEdgeBot(iEdge),iEdge)
+                 layerThicknessEdgeSum(minLevelEdgeBot(iEdge)) = layerThickEdgeMean(minLevelEdgeBot(iEdge),iEdge)
 
-                 do kIndexOBL = minLevelCell(iCell)+1, maxLevelCell(iCell)
+                 do kIndexOBL = minLevelEdgeBot(iEdge)+1, maxLevelEdgeTop(iEdge)
                     normalVelocitySum(kIndexOBL) = normalVelocitySum(kIndexOBL-1) + &
                                       layerThickEdgeMean(kIndexOBL, iEdge)*normalVelocity(kIndexOBL, iEdge)
+                    tangentialVelocitySum(kIndexOBL) = tangentialVelocitySum(kIndexOBL-1) + &
+                                      layerThickEdgeMean(kIndexOBL, iEdge)*tangentialVelocity(kIndexOBL, iEdge)
                     layerThicknessEdgeSum(kIndexOBL) = layerThicknessEdgeSum(kIndexOBL-1) + layerThickEdgeMean(kIndexOBL, iEdge)
                  end do
 
-                 do kIndexOBL = minLevelCell(iCell), maxLevelCell(iCell)
+                 do kIndexOBL = minLevelEdgeBot(iEdge), maxLevelEdgeTop(iEdge)
                     normalVelocityAv = normalVelocitySum(surfaceAverageIndex(kIndexOBL )) / &
                         layerThicknessEdgeSum(surfaceAverageIndex(kIndexOBL))
-                    delU2 = ( normalVelocityAv - normalVelocity(kIndexOBL, iEdge) )**2
+                    tangentialVelocityAv = tangentialVelocitySum(surfaceAverageIndex(kIndexOBL)) / &
+                        layerThicknessEdgeSum(surfaceAverageIndex(kIndexOBL))
+                    delU2 = (normalVelocityAv - normalVelocity(kIndexOBL, iEdge))**2 + &
+                            (tangentialVelocityAv - tangentialVelocity(kIndexOBL, iEdge))**2
                     deltaVelocitySquared(kIndexOBL) = deltaVelocitySquared(kIndexOBL) + edgeAreaFractionOfCell(i,iCell) * delU2
                  end do
               end do
@@ -584,7 +606,7 @@ contains
               do kIndexOBL = minLevelCell(iCell), maxLevelCell(iCell)
                 ! !compute shear contribution assuming BLdepth is cell bottom
                 !Note that the factor of two is from averaging dot products to cell centers on a C-grid
-                bulkRichardsonNumberShear(kIndexOBL,iCell) = max(2.0_RKIND*deltaVelocitySquared(kIndexOBL), 1.0e-15_RKIND)
+                bulkRichardsonNumberShear(kIndexOBL,iCell) = max(deltaVelocitySquared(kIndexOBL), 1.0e-15_RKIND)
 
                 bulkRichardsonNumberBuoy(kIndexOBL,iCell) = gravity * (potentialDensity(kIndexOBL, iCell) &
                                   - potentialDensitySum(surfaceAverageIndex(kIndexOBL)) &
@@ -668,14 +690,21 @@ contains
                           OBL_depth = boundaryLayerDepth(iCell) )
 
             ! update Langmuir enhancement factor
-            if (config_cvmix_kpp_use_theory_wave .and. iceFraction(iCell) .lt. 0.05_RKIND) then
-               langmuirEnhancementFactor =  &
+            if (associated(landIceMask)) then
+                  landIceMaskValue = landIceMask(iCell)
+            else
+                  landIceMaskValue = 0
+            endif
+
+            if (landIceMaskValue .eq. 0 .and. iceFraction(iCell) .lt. 0.05_RKIND) then
+               if (config_cvmix_kpp_use_theory_wave) then
+                  langmuirEnhancementFactor =  &
                        cvmix_kpp_EFactor_model(windSpeed10m(iCell), &
                                                surfaceFrictionVelocity(iCell), &
                                                boundaryLayerDepth(iCell), &
                                                cvmix_global_params)
-            else if (config_cvmix_kpp_use_active_wave .and. iceFraction(iCell) .lt. 0.05_RKIND) then
-                 call ocn_stokes_drift_langmuir_number(windStressZonal(iCell), &
+               else if (config_cvmix_kpp_use_active_wave) then
+                  call ocn_stokes_drift_langmuir_number(windStressZonal(iCell), &
                                                        windStressMeridional(iCell), &
                                                        surfaceFrictionVelocity(iCell), &
                                                        significantWaveHeight(iCell), &
@@ -684,13 +713,13 @@ contains
                                                        stokesDriftMeridionalWavenumber(:,iCell), &
                                                        alphaAngle, &
                                                        langmuirNumber(iCell))
-                 call ocn_stokes_drift_kpp_enhancement_factor(alphaAngle, &
-                                                              langmuirNumber(iCell), &
-                                                              langmuirEnhancementFactor)
+                  call ocn_stokes_drift_kpp_enhancement_factor(alphaAngle, &
+                                                       langmuirNumber(iCell), &
+                                                       langmuirEnhancementFactor)
+               endif
             else
                langmuirEnhancementFactor = 1.0_RKIND
-            end if
-
+            endif
 !           call mpas_timer_start('cvmix coeffs kpp', .false.)
             call cvmix_coeffs_kpp(                                              &
                           Mdiff_out = cvmix_variables % Mdiff_iface(minLevelCell(iCell):maxLevelCell(iCell)+1),       &
@@ -832,6 +861,7 @@ contains
       deallocate(RiTemp)
       deallocate(BVFSmoothed)
       deallocate(normalVelocitySum)
+      deallocate(tangentialVelocitySum)
       deallocate(potentialDensitySum)
       deallocate(surfaceAverageIndex)
       deallocate(deltaVelocitySquared)
@@ -1031,18 +1061,21 @@ contains
       ! initialize KPP boundary layer scheme
       !
       if (config_use_cvmix_kpp) then
-        if(config_cvmix_kpp_matching.eq."MatchBoth") then
-           call mpas_log_write( &
-              "Use of option MatchBoth is discouraged, use SimpleShapes instead", &
-               MPAS_LOG_WARN)
-        elseif(.not. config_cvmix_kpp_matching.eq."SimpleShapes") then
+        if(.not. config_cvmix_kpp_matching.eq."SimpleShapes" .and. &
+           .not. config_cvmix_kpp_matching.eq."MatchBoth" .and. &
+           .not. config_cvmix_kpp_matching.eq."ParabolicNonLocal") then
            call mpas_log_write( &
               "Unknown value for config_cvmix_kpp_matching., supported values are:" // &
-              "         SimpleShapes or MatchBoth", &
+              "         SimpleShapes or MatchBoth or ParabolicNonLocal", &
               MPAS_LOG_CRIT)
            err = 1
            return
         endif
+
+        lnonzero_surf_nonlocal = .false.
+        if(config_cvmix_kpp_matching .eq."ParabolicNonLocal") then
+           lnonzero_surf_nonlocal = .true.
+        end if
 
         if (trim(config_cvmix_kpp_langmuir_mixing_opt) .ne. "NONE" .and. &
             trim(config_cvmix_kpp_langmuir_mixing_opt) .ne. "LWF16" .and. &
@@ -1070,13 +1103,15 @@ contains
         call cvmix_init_kpp ( &
                ri_crit = config_cvmix_kpp_criticalBulkRichardsonNumber, &
                interp_type = config_cvmix_kpp_interpolationOMLType, &
-               interp_type2 = config_cvmix_kpp_interpolationOMLType, &
+               interp_type2 = 'LMD94', &
                lEkman = config_cvmix_kpp_EkmanOBL, &
                lMonOb = config_cvmix_kpp_MonObOBL, &
                MatchTechnique = config_cvmix_kpp_matching, &
                surf_layer_ext = config_cvmix_kpp_surface_layer_extent, &
                langmuir_mixing_str = config_cvmix_kpp_langmuir_mixing_opt, &
                langmuir_entrainment_str = config_cvmix_kpp_langmuir_entrainment_opt, &
+               lnoDGat1 = .true., &
+               lnonzero_surf_nonlocal = lnonzero_surf_nonlocal, &
                lenhanced_diff = config_cvmix_kpp_use_enhanced_diff)
       endif
 

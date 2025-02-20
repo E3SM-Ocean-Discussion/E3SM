@@ -25,7 +25,7 @@ module radiation
       get_sw_spectral_boundaries, &
       rrtmg_to_rrtmgp_swbands
    use cam_history_support, only: add_hist_coord
-   use physconst, only: cpair, cappa, stebol
+   use physconst, only: cpair, cappa, gravit
 
    ! RRTMGP gas optics object to store coefficient information. This is imported
    ! here so that we can make the k_dist objects module data and only load them
@@ -768,6 +768,18 @@ contains
             call addfld('FLNTC'//diag(icall),   horiz_only, 'A', 'W/m2', &
                         'Clearsky net longwave flux at top of model',    &
                         sampling_seq='rad_lwsw', flag_xyfill=.true.)
+            call addfld('FLUTOA'//diag(icall), horiz_only,  'A', 'W/m2', &
+                        'Upwelling longwave flux at top of atmosphere', &
+                        sampling_seq='rad_lwsw', flag_xyfill=.true.)
+            call addfld('FLNTOA'//diag(icall), horiz_only,  'A',  'W/m2', &
+                        'Net longwave flux at top of atmosphere', &
+                        sampling_seq='rad_lwsw', flag_xyfill=.true.)
+            call addfld('FLUTOAC'//diag(icall), horiz_only, 'A',  'W/m2', &
+                        'Clearsky upwelling longwave flux at top of atmosphere', &
+                        sampling_seq='rad_lwsw', flag_xyfill=.true.)
+            call addfld('FLNTOAC'//diag(icall), horiz_only, 'A',  'W/m2', &
+                        'Clearsky net longwave flux at top of atmosphere', &
+                        sampling_seq='rad_lwsw', flag_xyfill=.true.)
             call addfld('LWCF'//diag(icall),    horiz_only, 'A', 'W/m2', &
                         'Longwave cloud forcing',                        &
                         sampling_seq='rad_lwsw', flag_xyfill=.true.)
@@ -900,6 +912,8 @@ contains
                      'Snow in-cloud extinction visible sw optical depth', &
                      sampling_seq='rad_lwsw', flag_xyfill=.true.)
       endif
+
+
 
    end subroutine radiation_init
 
@@ -1103,7 +1117,7 @@ contains
 
       ! For running CFMIP Observation Simulator Package (COSP)
       use cospsimulator_intr, only: docosp, cospsimulator_intr_run, cosp_nradsteps
-
+      
       ! ---------------------------------------------------------------------------
       ! Arguments
       ! ---------------------------------------------------------------------------
@@ -1274,6 +1288,8 @@ contains
       ! Loop variables
       integer :: icol, ilay, iday
 
+
+      
       !----------------------------------------------------------------------
 
       ! Copy state so we can use CAM routines with arrays replaced with data
@@ -1371,13 +1387,16 @@ contains
                aer_tau_bnd_lw = 0
                if (do_aerosol_rad) then
                   if (radiation_do('sw')) then
+                     
                      call t_startf('rad_aerosol_optics_sw')
                      call set_aerosol_optics_sw( &
                           icall, dt, state, pbuf, night_indices(1:nnight), is_cmip6_volc, &
                           aer_tau_bnd_sw, aer_ssa_bnd_sw, aer_asm_bnd_sw,  &
                           clear_rh=clear_rh)
                      ! Now reorder bands to be consistent with RRTMGP
+                     
                      ! TODO: fix the input files themselves!
+                     ! Note that MACv2 may need changing too if the input files are reordered!
                      do icol = 1,size(aer_tau_bnd_sw,1)
                         do ilay = 1,size(aer_tau_bnd_sw,2)
                            aer_tau_bnd_sw(icol,ilay,:) = reordered(aer_tau_bnd_sw(icol,ilay,:), rrtmg_to_rrtmgp_swbands)
@@ -1386,6 +1405,9 @@ contains
                         end do
                      end do
                      call t_stopf('rad_aerosol_optics_sw')
+
+                     
+                     
                   end if ! radiation_do('sw')
                   if (radiation_do('lw')) then
                      call t_startf('rad_aerosol_optics_lw')
@@ -2484,6 +2506,7 @@ contains
       ! Working arrays
       real(r8), dimension(pcols,pver+1) :: flux_up, flux_dn, flux_net
       integer :: ncol
+      integer :: ktop_rad = 1
 
       ncol = state%ncol
 
@@ -2520,6 +2543,12 @@ contains
       call outfld('FLNSC'//diag(icall), -flux_clr%flux_net(1:ncol,kbot+1), ncol, state%lchnk)
       call outfld('FLUTC'//diag(icall), flux_clr%flux_up(1:ncol,ktop), ncol, state%lchnk)
       call outfld('FLDSC'//diag(icall), flux_clr%flux_dn(1:ncol,kbot+1), ncol, state%lchnk)
+
+      ! TOA fluxes (above model top, use index to rad top)
+      call outfld('FLUTOA'//diag(icall), flux_all%flux_up(1:ncol,ktop_rad), ncol, state%lchnk)
+      call outfld('FLNTOA'//diag(icall), flux_all%flux_net(1:ncol,ktop_rad), ncol, state%lchnk)
+      call outfld('FLUTOAC'//diag(icall), flux_clr%flux_up(1:ncol,ktop_rad), ncol, state%lchnk)
+      call outfld('FLNTOAC'//diag(icall), flux_clr%flux_net(1:ncol,ktop_rad), ncol, state%lchnk)
 
       ! Calculate and output the cloud radiative effect (LWCF in history)
       cloud_radiative_effect(1:ncol) = flux_all%flux_net(1:ncol,ktop) - flux_clr%flux_net(1:ncol,ktop)
@@ -2623,7 +2652,6 @@ contains
       use cam_abortutils, only: endrun
       real(r8), pointer :: pbuf(:)
       integer :: err, idx
-      logical :: use_MMF
       character(len=16) :: MMF_microphysics_scheme
 
       idx = pbuf_get_index('CLDFSNOW', errcode=err)
@@ -2634,9 +2662,11 @@ contains
       end if
 
       ! Reset to false if using MMF with 1-mom scheme
-      call phys_getopts(use_MMF_out           = use_MMF          )
       call phys_getopts(MMF_microphysics_scheme_out = MMF_microphysics_scheme)
-      if (use_MMF .and. (trim(MMF_microphysics_scheme) == 'sam1mom')) then
+      if (trim(MMF_microphysics_scheme) == 'sam1mom') then
+         do_snow_optics = .false.
+      end if
+      if (trim(MMF_microphysics_scheme) == 'p3') then
          do_snow_optics = .false.
       end if
 

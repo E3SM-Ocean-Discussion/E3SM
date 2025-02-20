@@ -16,6 +16,22 @@
 namespace scream {
 namespace util {
 
+bool is_leap_year (const int yy) {
+  if (use_leap_year()) {
+    if (yy%4==0) {
+      // Year is divisible by 4 (minimum requirement)
+      if (yy%100 != 0) {
+        // Not a centennial year => leap.
+        return true;
+      } else if ((yy/100)%4==0) {
+        // Centennial year, AND first 2 digids divisible by 4 => leap
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 int days_in_month (const int yy, const int mm) {
   EKAT_REQUIRE_MSG (mm>=1 && mm<=12,
       "Error! Month out of bounds. Did you call `days_in_month` with yy and mm swapped?\n");
@@ -23,25 +39,6 @@ int days_in_month (const int yy, const int mm) {
   constexpr int leap_days    [12] = {31,29,31,30,31,30,31,31,30,31,30,31};
   auto& arr = is_leap_year(yy) ? leap_days : nonleap_days;
   return arr[mm-1];
-}
-
-bool is_leap_year (const int yy) {
-#ifdef SCREAM_HAS_LEAP_YEAR
-  if (yy%4==0) {
-    // Year is divisible by 4 (minimum requirement)
-    if (yy%100 != 0) {
-      // Not a centennial year => leap.
-      return true;
-    } else if ((yy/100)%4==0) {
-      // Centennial year, AND first 2 digids divisible by 4 => leap
-      return true;
-    }
-  }
-#else
-  (void)yy;
-#endif
-  // Either leap year not enabled, or not a leap year at all
-  return false;
 }
 
 TimeStamp::TimeStamp()
@@ -138,17 +135,28 @@ double TimeStamp::frac_of_year_in_days () const {
   return doy;
 }
 
-void TimeStamp::set_num_steps (const int num_steps) {
-  EKAT_REQUIRE_MSG (m_num_steps==0,
-      "Error! Cannot reset m_num_steps once the count started.\n");
-  m_num_steps = num_steps;
+int TimeStamp::days_in_curr_month () const
+{
+  return days_in_month(m_date[0],m_date[1]);
+}
+
+int TimeStamp::days_in_curr_year () const
+{
+  return is_leap_year(m_date[0]) ? 366 : 365;
+}
+
+TimeStamp TimeStamp::curr_month_beg () const
+{
+  auto date = m_date;
+  date[2] = 1;
+  return TimeStamp (date,{0,0,0});
 }
 
 TimeStamp& TimeStamp::operator+=(const double seconds) {
   // Sanity checks
   // Note: (x-int(x)) only works for x small enough that can be stored in an int,
   //       but that should be the case here, for use cases in EAMxx.
-  EKAT_REQUIRE_MSG (seconds>0, "Error! Time must move forward.\n");
+  EKAT_REQUIRE_MSG (seconds>=0, "Error! Cannot rewind time.\n");
   EKAT_REQUIRE_MSG ((seconds-round(seconds))<std::numeric_limits<double>::epsilon()*10,
       "Error! Cannot update TimeStamp with non-integral number of seconds " << seconds << "\n");
 
@@ -164,30 +172,32 @@ TimeStamp& TimeStamp::operator+=(const double seconds) {
   auto& yy = m_date[0];
 
   ++m_num_steps;
-  sec += seconds;
+
+  constexpr auto spd = constants::seconds_per_day;
+  auto add_days = std::floor(seconds / spd);
+  auto add_secs = seconds - add_days*spd;
+
+  sec += add_secs;
+  dd  += add_days;
 
   // Carry over
   int carry;
   carry = sec / 60;
-  if (carry==0) {
-    return *this;
-  }
+  if (carry!=0) {
+    sec = sec % 60;
+    min += carry;
+    carry = min / 60;
+    if (carry!=0) {
+      min = min % 60;
+      hour += carry;
+      carry = hour / 24;
 
-  sec = sec % 60;
-  min += carry;
-  carry = min / 60;
-  if (carry==0) {
-    return *this;
+      if (carry!=0) {
+        hour = hour % 24;
+        dd += carry;
+      }
+    }
   }
-  min = min % 60;
-  hour += carry;
-  carry = hour / 24;
-
-  if (carry==0) {
-    return *this;
-  }
-  hour = hour % 24;
-  dd += carry;
 
   while (dd>days_in_month(yy,mm)) {
     dd -= days_in_month(yy,mm);
@@ -200,6 +210,10 @@ TimeStamp& TimeStamp::operator+=(const double seconds) {
   }
 
   return *this;
+}
+
+TimeStamp TimeStamp::clone (const int num_steps) {
+  return TimeStamp (get_date(),get_time(),num_steps>=0 ? num_steps : m_num_steps);
 }
 
 bool operator== (const TimeStamp& ts1, const TimeStamp& ts2) {

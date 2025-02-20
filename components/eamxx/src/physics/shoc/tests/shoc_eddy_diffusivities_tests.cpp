@@ -2,7 +2,7 @@
 
 #include "shoc_unit_tests_common.hpp"
 #include "shoc_functions.hpp"
-#include "shoc_functions_f90.hpp"
+#include "shoc_test_data.hpp"
 #include "physics/share/physics_constants.hpp"
 #include "share/scream_types.hpp"
 #include "share/util/scream_setup_random_test.hpp"
@@ -22,9 +22,9 @@ namespace shoc {
 namespace unit_test {
 
 template <typename D>
-struct UnitWrap::UnitTest<D>::TestShocEddyDiff {
+struct UnitWrap::UnitTest<D>::TestShocEddyDiff : public UnitWrap::UnitTest<D>::Base {
 
-  static void run_property()
+  void run_property()
   {
     static constexpr Int shcol    = 2;
     static constexpr Int nlev     = 1;
@@ -38,13 +38,13 @@ struct UnitWrap::UnitTest<D>::TestShocEddyDiff {
     //  be loaded up with a different test.
 
     // FIRST TEST
-    // Boundary layer regime test.  Input that have identical values
-    //  except for the Monin Obukhov length, in this case will be positive
-    //  and negative.  Test to make sure that the resulting diffusivites
-    //  are DIFFERENT
+    // Boundary layer regime test.  Input surface temperature with a value that is clearly
+    //  "running away" (i.e. a very low value).  This test verifies that the diffusivities
+    //  returned are different given that all other conditions are the same.  This is to very
+    //  that SHOC can repair a runaway surface temperature.
 
-    // Monin Obukov length [m]
-    static constexpr Real obklen_reg[shcol] = {-1, 1};
+    // Surface temperature [K]
+    static constexpr Real tabs[shcol] = {100, 250};
     // PBL depth [m]
     static constexpr Real pblh = 1000;
     // zt_grid [m]
@@ -69,7 +69,7 @@ struct UnitWrap::UnitTest<D>::TestShocEddyDiff {
     for(Int s = 0; s < shcol; ++s) {
       // Column only input
       SDS.pblh[s] = pblh;
-      SDS.obklen[s] = obklen_reg[s];
+      SDS.tabs[s] = tabs[s];
       for(Int n = 0; n < nlev; ++n) {
         const auto offset = n + s * nlev;
 
@@ -97,7 +97,7 @@ struct UnitWrap::UnitTest<D>::TestShocEddyDiff {
       }
     }
 
-    // Call the fortran implementation
+    // Call the C++ implementation
     eddy_diffusivities(SDS);
 
     // Check to make sure the answers in the columns are different
@@ -112,13 +112,13 @@ struct UnitWrap::UnitTest<D>::TestShocEddyDiff {
     }
 
     // SECOND TEST
-    // Stable boundary layer test.  Given Obukhov length,
+    // Runaway stable boundary layer test.  Given Obukhov length,
     //   verify that each regime behaves as expected when the relevant
     //   inputs are modified.  Column with larger mixing length and
     //   shear term should produce larger diffusivity values.
 
-    // Monin Obukov length [m]
-    static constexpr Real obklen_stab[shcol] = {1, 1};
+    // Surface temperature [K]
+    static constexpr Real tabs_stab[shcol] = {100, 100};
     // SHOC Mixing length [m]
     static constexpr Real shoc_mix_stab[shcol] = {100, 150};
     // Shear term [s-2]
@@ -139,7 +139,7 @@ struct UnitWrap::UnitTest<D>::TestShocEddyDiff {
     // Fill in test data on zt_grid.
     for(Int s = 0; s < shcol; ++s) {
       // Column only input
-      SDS.obklen[s] = obklen_stab[s];
+      SDS.tabs[s] = tabs_stab[s];
       for(Int n = 0; n < nlev; ++n) {
         const auto offset = n + s * nlev;
 
@@ -152,8 +152,8 @@ struct UnitWrap::UnitTest<D>::TestShocEddyDiff {
 
     // Check that the inputs make sense
     for(Int s = 0; s < shcol; ++s) {
-      // Make sure we are testing stable boundary layer
-      REQUIRE(SDS.obklen[s] > 0);
+      // Make sure we are testing a runaway stable boundary layer
+      REQUIRE(SDS.tabs[s] < 180);
       for (Int n = 0; n < nlev; ++n){
         const auto offset = n + s * nlev;
         // Should be greater than zero
@@ -164,7 +164,7 @@ struct UnitWrap::UnitTest<D>::TestShocEddyDiff {
       }
     }
 
-    // Call the fortran implementation
+    // Call the C++ implementation
     eddy_diffusivities(SDS);
 
     // Check to make sure the answers in the columns are larger
@@ -183,12 +183,12 @@ struct UnitWrap::UnitTest<D>::TestShocEddyDiff {
     }
 
     // THIRD TEST
-    // Unstable boundary layer test.  Given Obukhov length,
+    // Default boundary layer test.
     //   verify that each regime behaves as expected when the relevant
-    //   inputs are modified.
+    //   inputs are modified for the default definitions of diffusivities.
 
-    // Monin Obukov length [m]
-    static constexpr Real obklen_ustab[shcol] = {-1, -1};
+    // Surface temperature [K]
+    static constexpr Real tabs_ustab[shcol] = {300, 300};
     // SHOC Mixing length [m]
     static constexpr Real shoc_mix_ustab = 500;
     // Shear term [s-2]
@@ -209,7 +209,7 @@ struct UnitWrap::UnitTest<D>::TestShocEddyDiff {
     // Fill in test data on zt_grid.
     for(Int s = 0; s < shcol; ++s) {
       // Column only input
-      SDS.obklen[s] = obklen_ustab[s];
+      SDS.tabs[s] = tabs_ustab[s];
       for(Int n = 0; n < nlev; ++n) {
         const auto offset = n + s * nlev;
 
@@ -222,8 +222,8 @@ struct UnitWrap::UnitTest<D>::TestShocEddyDiff {
 
     // Check that the inputs make sense
     for(Int s = 0; s < shcol; ++s) {
-      // Make sure we are testing unstable boundary layer
-      REQUIRE(SDS.obklen[s] < 0);
+      // Make sure we are testing default boundary layer diffusivities
+      REQUIRE(SDS.tabs[s] > 220);
       for (Int n = 0; n < nlev; ++n){
         const auto offset = n + s * nlev;
         // Should be greater than zero
@@ -234,7 +234,7 @@ struct UnitWrap::UnitTest<D>::TestShocEddyDiff {
       }
     }
 
-    // Call the fortran implementation
+    // Call the C++ implementation
     eddy_diffusivities(SDS);
 
     // Check to make sure the diffusivities are smaller
@@ -253,11 +253,12 @@ struct UnitWrap::UnitTest<D>::TestShocEddyDiff {
     }
   }
 
-  static void run_bfb()
-  {
-    auto engine = setup_random_test();
 
-    EddyDiffusivitiesData f90_data[] = {
+  void run_bfb()
+  {
+    auto engine = Base::get_engine();
+
+    EddyDiffusivitiesData baseline_data[] = {
       EddyDiffusivitiesData(10, 71),
       EddyDiffusivitiesData(10, 12),
       EddyDiffusivitiesData(7,  16),
@@ -265,45 +266,49 @@ struct UnitWrap::UnitTest<D>::TestShocEddyDiff {
     };
 
     // Generate random input data
-    // Alternatively, you can use the f90_data construtors/initializer lists to hardcode data
-    for (auto& d : f90_data) {
+    // Alternatively, you can use the baseline_data construtors/initializer lists to hardcode data
+    for (auto& d : baseline_data) {
       d.randomize(engine);
     }
 
-    // Create copies of data for use by cxx. Needs to happen before fortran calls so that
+    // Create copies of data for use by cxx. Needs to happen before reads so that
     // inout data is in original state
     EddyDiffusivitiesData cxx_data[] = {
-      EddyDiffusivitiesData(f90_data[0]),
-      EddyDiffusivitiesData(f90_data[1]),
-      EddyDiffusivitiesData(f90_data[2]),
-      EddyDiffusivitiesData(f90_data[3]),
+      EddyDiffusivitiesData(baseline_data[0]),
+      EddyDiffusivitiesData(baseline_data[1]),
+      EddyDiffusivitiesData(baseline_data[2]),
+      EddyDiffusivitiesData(baseline_data[3]),
     };
 
     // Assume all data is in C layout
 
-    // Get data from fortran
-    for (auto& d : f90_data) {
-      // expects data in C layout
-      eddy_diffusivities(d);
+    // Read baseline data
+    if (this->m_baseline_action == COMPARE) {
+      for (auto& d : baseline_data) {
+        d.read(Base::m_fid);
+      }
     }
 
     // Get data from cxx
     for (auto& d : cxx_data) {
-      d.transpose<ekat::TransposeDirection::c2f>(); // _f expects data in fortran layout
-      eddy_diffusivities_f(d.nlev, d.shcol, d.obklen, d.pblh, d.zt_grid, d.shoc_mix, d.sterm_zt, d.isotropy, d.tke, d.tkh, d.tk);
-      d.transpose<ekat::TransposeDirection::f2c>(); // go back to C layout
+      eddy_diffusivities(d);
     }
 
     // Verify BFB results, all data should be in C layout
-    if (SCREAM_BFB_TESTING) {
-      static constexpr Int num_runs = sizeof(f90_data) / sizeof(EddyDiffusivitiesData);
+    if (SCREAM_BFB_TESTING && this->m_baseline_action == COMPARE) {
+      static constexpr Int num_runs = sizeof(baseline_data) / sizeof(EddyDiffusivitiesData);
       for (Int i = 0; i < num_runs; ++i) {
-        EddyDiffusivitiesData& d_f90 = f90_data[i];
+        EddyDiffusivitiesData& d_baseline = baseline_data[i];
         EddyDiffusivitiesData& d_cxx = cxx_data[i];
-        for (Int k = 0; k < d_f90.total(d_f90.tkh); ++k) {
-          REQUIRE(d_f90.tkh[k] == d_cxx.tkh[k]);
-          REQUIRE(d_f90.tk[k] == d_cxx.tk[k]);
+        for (Int k = 0; k < d_baseline.total(d_baseline.tkh); ++k) {
+          REQUIRE(d_baseline.tkh[k] == d_cxx.tkh[k]);
+          REQUIRE(d_baseline.tk[k] == d_cxx.tk[k]);
         }
+      }
+    } // SCREAM_BFB_TESTING
+    else if (this->m_baseline_action == GENERATE) {
+      for (auto& d : cxx_data) {
+        d.write(Base::m_fid);
       }
     }
   } // run_bfb
@@ -319,14 +324,14 @@ TEST_CASE("shoc_tke_eddy_diffusivities_property", "shoc")
 {
   using TestStruct = scream::shoc::unit_test::UnitWrap::UnitTest<scream::DefaultDevice>::TestShocEddyDiff;
 
-  TestStruct::run_property();
+  TestStruct().run_property();
 }
 
 TEST_CASE("shoc_tke_eddy_diffusivities_bfb", "shoc")
 {
   using TestStruct = scream::shoc::unit_test::UnitWrap::UnitTest<scream::DefaultDevice>::TestShocEddyDiff;
 
-  TestStruct::run_bfb();
+  TestStruct().run_bfb();
 }
 
 } // namespace

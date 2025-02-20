@@ -61,6 +61,11 @@ def buildnml(case, caseroot, compname):
 
     if not os.path.isdir(eamconf_dir): os.mkdir(eamconf_dir)
 
+    # Coupler and surface components now required to accept gustiness when EAM
+    # is used as the atmosphere model, unless SCREAM physics is used.
+    if not (atm_gustiness or "-DSCREAM" in cam_config_opts):
+        sys.exit("\n *** STOP: EAM requires ATM_SUPPLIES_GUSTINESS=TRUE. ***\n")
+
     #--------------------------------------------------------------------
     # Invoke eam configure - output will go in $CASEBUILD/eamconf
     #--------------------------------------------------------------------
@@ -92,6 +97,7 @@ def buildnml(case, caseroot, compname):
         comp = ""
         if comp_interface == "mct":  comp = "mct"
         if comp_interface == "esmf": comp = "esmf"
+        if comp_interface == "moab": comp = "moab"
 
         cam_lib_dirs = "-cosp_libdir {}/atm/obj/cosp".format(exeroot) if "cosp" in cam_config_opts else ""
 
@@ -191,7 +197,6 @@ def buildnml(case, caseroot, compname):
         if cam_branch_file: infile_text += " cam_branch_file = {} \n".format(cam_branch_file)
         if debug:           infile_text += " state_debug_checks = .true. \n"
         if linearize_pbl_winds: infile_text += " linearize_pbl_winds = .true. \n"
-        if atm_gustiness: infile_text += " export_gustiness = .true. \n"
 
         create_namelist_infile(case,
                                "{}/user_nl_eam{}".format(caseroot, inst_string),
@@ -227,29 +232,6 @@ def buildnml(case, caseroot, compname):
         if os.path.exists(rundir):
             safe_copy(os.path.join(eamconf_dir, "atm_in"), os.path.join(rundir, "atm_in{}".format(inst_string)))
             safe_copy(os.path.join(eamconf_dir, "drv_flds_in"), os.path.join(rundir, "drv_flds_in"))
-
-        # -----------------------------------------------------
-        # copy scream input data
-        # -----------------------------------------------------
-
-        with SharedArea():
-            scream_data_dir = os.path.join(case.get_value("SRCROOT"), "components/eamxx/data")
-            for item in os.listdir(scream_data_dir):
-                tgt_dir  = os.path.join(din_loc_root, "atm/cam/physprops")
-                tgt_path = os.path.join(tgt_dir, item)
-                if not os.path.isdir(tgt_dir):
-                    try:
-                        os.makedirs(tgt_dir)
-                    except OSError:
-                        pass # lost the race
-
-                try:
-                    fd = os.open(tgt_path, os.O_CREAT | os.O_EXCL)
-                    # If we get to this line, we won the race
-                    os.close(fd)
-                    safe_copy(os.path.join(scream_data_dir, item), tgt_path)
-                except OSError:
-                    pass # lost the race
 
 ###############################################################################
 def _main_func():

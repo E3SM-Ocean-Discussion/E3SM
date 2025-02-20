@@ -48,9 +48,11 @@ inline std::string e2str (const DataType data_type) {
     case DataType::IntType:    return "int";
     case DataType::FloatType:  return "float";
     case DataType::DoubleType: return "double";
+    case DataType::Invalid:    return "invalid";
     default:
       EKAT_ERROR_MSG("Error! Unsupported DataType value.\n");
   }
+  return "";
 }
 
 inline int get_type_size (const DataType data_type) {
@@ -61,6 +63,7 @@ inline int get_type_size (const DataType data_type) {
     default:
       EKAT_ERROR_MSG("Error! Unsupported DataType value.\n");
   }
+  return -1;
 }
 
 } // namespace scream

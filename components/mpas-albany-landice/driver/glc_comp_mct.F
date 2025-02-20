@@ -80,6 +80,8 @@ module glc_comp_mct
 
   integer :: glcLogUnit ! unit number for glc log
 
+  logical  :: ocn_c2_glctf           ! .true.  => ocn to glc thermal forcing coupling on
+
   ! MPAS Datatypes
   !type (dm_info), pointer :: dminfo
   type (core_type), pointer :: corelist => null()
@@ -181,7 +183,7 @@ contains
     logical :: streamsExists
     integer :: mesh_iotype
 
-    logical, pointer :: tempLogicalConfig
+    logical, pointer :: tempLogicalConfig, config_create_all_logs_in_e3sm
     character(len=StrKIND), pointer :: tempCharConfig
 
 
@@ -332,22 +334,6 @@ contains
        call mpas_dmpar_abort(domain % dminfo)
     end if
 
-    ! Set core specific options here
-    ! Disable output from all but the master task for E3SM!
-    ! (This overrides the default set by mpas_log_init based on MPAS_DEBUG setting.)
-    if (iam /= 0) then
-       domain % logInfo % outputLog % isActive = .false.
-    endif
-
-    ! After core has had a chance to modify log defaults, open the output log
-    call mpas_log_open(err=ierr)
-    if ( ierr /= 0 ) then
-       write(glcLogUnit,*) 'ERROR: log open failed for core ' // trim(domain % core % coreName)
-       call mpas_dmpar_abort(domain % dminfo)
-    end if
-    ! ===========
-
-
     ! ----------
     ! Process namelist and streams files
     ! ----------
@@ -360,6 +346,26 @@ contains
     if ( ierr /= 0 ) then
        call mpas_log_write('Namelist setup failed for core ' // trim(domain % core % coreName), MPAS_LOG_CRIT)
     end if
+
+    ! Set core specific options here
+    ! Disable output from all but the master task for E3SM!
+    ! (This overrides the default set by mpas_log_init based on MPAS_DEBUG setting.)
+    call mpas_pool_get_config(domain % configs, 'config_create_all_logs_in_e3sm', config_create_all_logs_in_e3sm)
+    if (config_create_all_logs_in_e3sm) then
+       domain % logInfo % outputLog % isActive = .true.
+    else
+       if (iam /= 0) then
+          domain % logInfo % outputLog % isActive = .false.
+       endif
+    endif
+
+    ! After core has had a chance to modify log defaults, open the output log
+    call mpas_log_open(err=ierr)
+    if ( ierr /= 0 ) then
+       write(glcLogUnit,*) 'ERROR: log open failed for core ' // trim(domain % core % coreName)
+       call mpas_dmpar_abort(domain % dminfo)
+    end if
+    ! ===========
 
     call mpas_framework_init_phase2(domain, io_system)
 
@@ -522,6 +528,9 @@ contains
     ! Determine coupling type (not currently needed by MALI)
     call seq_infodata_GetData(infodata, cpl_seq_option=cpl_seq_option)
 
+    ! Determine if ocn to glc thermal forcing coupling is on
+    call seq_infodata_GetData(infodata, ocn_c2_glctf=ocn_c2_glctf)
+
     ! Initialize the MALI core
     ierr = domain % core % core_init(domain, timeStamp)
     if ( ierr /= 0 ) then
@@ -553,6 +562,13 @@ contains
     call check_clocks_sync(domain % clock, Eclock, err_tmp)
     ierr = ior(ierr,err_tmp)
 
+    ! Reset the alarm for checking for force setting of the adaptive timestep interval
+    if (mpas_is_alarm_ringing(domain % clock, 'adaptiveTimestepForceInterval', ierr=err_tmp)) then
+       ierr = ior(ierr, err_tmp)
+       call mpas_reset_clock_alarm(domain % clock, 'adaptiveTimestepForceInterval', ierr=err_tmp)
+       ierr = ior(ierr, err_tmp)
+    endif
+    ierr = ior(ierr, err_tmp)
 
 !-----------------------------------------------------------------------
 !
@@ -679,6 +695,11 @@ contains
 !        call ocn_forcing_build_transmission_array(meshPool, statePool, forcingPool, ierr, 1)
 !        block_ptr => block_ptr % next
 !    end do
+
+! initialize ocean z-levels, if necessary
+! these are used for ocean thermal forcing coupling
+    call init_ocean_z_levels(domain, err_tmp)
+    ierr = ior(ierr,err_tmp)
 
 !-----------------------------------------------------------------------
 !
@@ -886,12 +907,23 @@ contains
          ! will allow that.
          ! Finally, set whence to latest_before so we have piecewise-constant forcing.
          ! Could add, e.g., linear interpolation later.
-! In coupled mode, we don't want to use forcing from a file - that should come from the coupler!
-!         call mpas_stream_mgr_read(stream_manager, whence=MPAS_STREAM_LATEST_BEFORE, ierr=err_tmp)
-!         err = ior(err, err_tmp)
-!         call mpas_stream_mgr_reset_alarms(stream_manager, direction=MPAS_STREAM_INPUT, ierr=err_tmp)
-!         err = ior(err, err_tmp)
 
+         ! NOTE: If any input ("forcing") files here contain fields that the coupler also passes, 
+         ! the input file versions here will clobber the fields passed from the coupler. 
+         
+         call mpas_stream_mgr_read(domain % streamManager, whence=MPAS_STREAM_LATEST_BEFORE, saveActualWhen = .true., ierr=err_tmp)
+         err = ior(err, err_tmp)
+         call mpas_stream_mgr_reset_alarms(domain % streamManager, direction=MPAS_STREAM_INPUT, ierr=err_tmp)
+         err = ior(err, err_tmp)
+
+         ! call analysis driver compute, restart, write subroutines
+         ! (note: alarms and timers are handled by the analysis member code)
+         call li_analysis_compute(domain, err_tmp)
+         err = ior(err, err_tmp)
+         call li_analysis_restart(domain, err_tmp)
+         err = ior(err, err_tmp)
+         call li_analysis_write(domain, err_tmp)
+         err = ior(err, err_tmp)
 
          ! ===
          ! === Write Output and/or Restart, if needed
@@ -1358,45 +1390,80 @@ contains
       message
 
    integer ::  &
-      i,n
+      i, n, iLev
 
    type (block_type), pointer :: block
 
    type (mpas_pool_type), pointer :: meshPool
    type (mpas_pool_type), pointer :: geometryPool
    type (mpas_pool_type), pointer :: thermalPool
+   type (mpas_pool_type), pointer :: extrapOceanDataPool
 
-   integer, pointer :: nCellsSolve
+   integer, pointer :: nCellsSolve, nISMIP6OceanLayers
 
    real (kind=RKIND), dimension(:), pointer :: sfcMassBal,&
                                                floatingBasalMassBal,&
                                                surfaceTemperature,&
                                                basalOceanHeatflx,&
-                                               OceanDensity
+                                               OceanDensity, &
+                                               ismip6_2dThermalForcing
+   real (kind=RKIND), dimension(:,:), pointer :: ismip6shelfMelt_3dThermalForcing
+   integer, dimension(:,:), pointer :: orig3dOceanMask
+   real(kind=RKIND), pointer :: config_ice_density
+   real(kind=RKIND), pointer :: config_invalid_value_TF
+   real(kind=RKIND) :: fractionalMaskVal
 
     errorCode = 0
+
+    call mpas_pool_get_config(domain % configs, 'config_ice_density', config_ice_density)
+    call mpas_pool_get_config(domain % configs, 'config_invalid_value_TF', config_invalid_value_TF)
 
     n = 0
     block => domain % blocklist
 
     do while (associated(block))
          call mpas_pool_get_subpool(block % structs, 'mesh', meshPool)
-         call mpas_pool_get_dimension(meshPool, 'nCellsSolve', nCellsSolve)
-
-         ! Get variables from pools
          call mpas_pool_get_subpool(block % structs, 'geometry', geometryPool)
          call mpas_pool_get_subpool(block % structs, 'thermal', thermalPool)
+         call mpas_pool_get_subpool(block % structs, 'extrapOceanData', extrapOceanDataPool)
 
+         ! Get dimensions
+         call mpas_pool_get_dimension(meshPool, 'nCellsSolve', nCellsSolve)
+         call mpas_pool_get_dimension(geometryPool, 'nISMIP6OceanLayers', nISMIP6OceanLayers)
+
+         ! Get variables from pools
          call mpas_pool_get_array(geometryPool, 'sfcMassBal', sfcMassBal)
          call mpas_pool_get_array(geometryPool, 'floatingBasalMassBal',floatingBasalMassBal)
          call mpas_pool_get_array(thermalPool, 'surfaceTemperature',surfaceTemperature)
+         call mpas_pool_get_array(geometryPool, 'ismip6_2dThermalForcing', ismip6_2dThermalForcing)
+         call mpas_pool_get_array(geometryPool, 'ismip6shelfMelt_3dThermalForcing', ismip6shelfMelt_3dThermalForcing)
+         call mpas_pool_get_array(extrapOceanDataPool, 'orig3dOceanMask', orig3dOceanMask)
 !         call mpas_pool_get_array(thermalPool, 'basalOceanHeatflx',basalOceanHeatflx)
          !call mpas_pool_get_array(geometryPool, 'OceanDensity',OceanDensity)
 
+         if (nISMIP6OceanLayers > 0) then
+            orig3dOceanMask(:,:) = 0
+            ismip6shelfMelt_3dThermalForcing(:,:) = 0.0_RKIND
+         endif
          do i = 1, nCellsSolve
             n = n + 1
             sfcMassBal(i) = x2g_g % rAttr(index_x2g_Flgl_qice, n)
             floatingBasalMassBal(i) = x2g_g % rAttr(index_x2g_Fogx_qiceli, n)
+            if (nISMIP6OceanLayers > 0) then
+               do iLev = 1, nISMIP6OceanLayers
+                  fractionalMaskVal = x2g_g % rAttr(index_x2g_So_tf3d_mask(iLev), n)
+                  if (fractionalMaskVal > 0.5_RKIND) then
+                     ! Only use MALI grid cells that have at least 50% overlap with MPAS-Ocean cells
+                     ! if valid, mark our integer mask as 1 and scale the TF value by the fractional mask
+                     orig3dOceanMask(iLev,i) = 1
+                     ismip6shelfMelt_3dThermalForcing(iLev, i) = x2g_g % rAttr(index_x2g_So_tf3d(iLev), n) / fractionalMaskVal
+                  else
+                     ! if not using, insert 0 in mask and bad val in TF field
+                     orig3dOceanMask(iLev,i) = 0
+                     ismip6shelfMelt_3dThermalForcing(iLev, i) = config_invalid_value_TF
+                  endif
+               enddo
+            endif
 !            surfaceTemperature(i) = x2g_g % rAttr(index_x2g_Sl_tsrf, n)
 !JW            basalOceanHeatflx(i) = x2g_g % rAttr(index_x2g_Fogo_qiceh, n)
 !            basalOceanHeatflx(i) = x2g_g % rAttr(index_x2g_Fogx_qicehi, n)
@@ -1428,6 +1495,8 @@ contains
    type (block_type), pointer :: block
 
    real (kind=RKIND), pointer :: config_sea_level
+   real (kind=RKIND), pointer :: config_ice_density
+   character(len=StrKIND), pointer :: config_basal_mass_bal_float
 
    type (mpas_pool_type), pointer :: meshPool
    type (mpas_pool_type), pointer :: geometryPool
@@ -1439,6 +1508,9 @@ contains
    real (kind=RKIND), dimension(:), pointer :: layerThicknessFractions
    real (kind=RKIND), dimension(:), pointer :: thickness
    real (kind=RKIND), dimension(:,:), pointer :: temperature
+   real (kind=RKIND), dimension(:), pointer :: faceMeltingThickness
+   real (kind=RKIND), dimension(:), pointer :: floatingBasalMassBalApplied
+   real (kind=RKIND), pointer :: deltat  !< time step (s)
    integer, dimension(:), pointer :: cellMask
    !-------------------------------------------------------------------
 
@@ -1448,6 +1520,8 @@ contains
     block => domain % blocklist
 
     call mpas_pool_get_config(domain % configs, 'config_sea_level', config_sea_level)
+    call mpas_pool_get_config(domain % configs, 'config_ice_density', config_ice_density)
+    call mpas_pool_get_config(domain % configs, 'config_basal_mass_bal_float', config_basal_mass_bal_float)
 
     do while (associated(block))
          call mpas_pool_get_subpool(block % structs, 'mesh', meshPool)
@@ -1458,22 +1532,35 @@ contains
          call mpas_pool_get_subpool(block % structs, 'geometry', geometryPool)
          call mpas_pool_get_subpool(block % structs, 'thermal',  thermalPool)
 
+         call mpas_pool_get_array(meshPool, 'deltat', deltat)
          call mpas_pool_get_array(geometryPool, 'upperSurface', upperSurface)
          call mpas_pool_get_array(meshPool, 'layerThicknessFractions', layerThicknessFractions)
          call mpas_pool_get_array(geometryPool, 'thickness', Thickness, timeLevel = 1)
          call mpas_pool_get_array(thermalPool, 'temperature', temperature)
+         call mpas_pool_get_array(geometryPool, 'faceMeltingThickness', faceMeltingThickness)
+         call mpas_pool_get_array(geometryPool, 'floatingBasalMassBalApplied', floatingBasalMassBalApplied)
 
          call mpas_pool_get_array(geometryPool, 'cellMask', cellMask)
 
          do i = 1, nCellsSolve
             n = n + 1
 
-            !call route_ice_runoff(0.0_RKIND, & !Recuperate runoff routing switch code (originally in glc_route_ice_runoff module in earlier code), and attach to ice calving flux once present...
+            ! NOTE: time averaging not implemented yet, so fluxes will not conserve mass between components!
+
+            ! Recuperate runoff routing switch code (originally in glc_route_ice_runoff module in earlier code), 
+            ! and attach to ice calving flux once present...
+            !call route_ice_runoff(0.0_RKIND, & 
             !                      rofi_to_ocn=Fogg_rofi, &
             !                      rofi_to_ice=Figg_rofi)
-            g2x_g % rAttr(index_g2x_Fogg_rofi,n)=0.0 !...and remove these placeholders
+            g2x_g % rAttr(index_g2x_Fogg_rofl,n)=0.0!...and remove these placeholders
             g2x_g % rAttr(index_g2x_Figg_rofi,n)=0.0 !...and remove these placeholders
-            g2x_g % rAttr(index_g2x_Fogg_rofl,n) = 0.0 !Attach to subglacial liquid flux once present
+            g2x_g % rAttr(index_g2x_Fogg_rofi,n) = faceMeltingThickness(i) * config_ice_density / deltat  ! units: kg/m2/s
+            if (trim(config_basal_mass_bal_float) == 'ismip6') then
+               ! if MALI is calculating ISMF, add that to rofl
+               ! In some configurations, ISMF will be calculated in coupler or MPAS-Ocean
+               g2x_g % rAttr(index_g2x_Fogg_rofi,n) = g2x_g % rAttr(index_g2x_Fogg_rofi,n) + &
+                  floatingBasalMassBalApplied(i)  ! units: kg/m2/s
+            endif
 
             g2x_g % rAttr(index_g2x_Sg_topo, n) = max(0.0, upperSurface(i)) !updated to avoid warning for values below sea level
             g2x_g % rAttr(index_g2x_Sg_tbot, n) = temperature(nVertlevels,i) - SHR_CONST_TKTRIP
@@ -1703,6 +1790,57 @@ contains
        ctime(7:8) = time(5:6)
 
     end subroutine datetime!}}}
+
+    subroutine init_ocean_z_levels(domain, err)
+       use glc_zocnclass_mod
+
+       implicit none
+       type (domain_type), pointer, intent(inout) :: domain
+       integer, intent(out) :: err
+
+       ! local vars
+       type (block_type), pointer :: block_ptr
+       type (mpas_pool_type), pointer :: geometryPool
+       integer, pointer :: nISMIP6OceanLayers
+       real (kind=RKIND), dimension(:), pointer :: ismip6shelfMelt_zOcean
+       real (kind=RKIND), dimension(:,:), pointer :: ismip6shelfMelt_zBndsOcean
+       integer :: cpl_num_zocn, iLev
+
+       err = 0
+
+       block_ptr => domain % blocklist
+       do while(associated(block_ptr))
+          call mpas_pool_get_subpool(block_ptr % structs, 'geometry', geometryPool)
+          call mpas_pool_get_dimension(geometryPool, 'nISMIP6OceanLayers', nISMIP6OceanLayers)
+          if (nISMIP6OceanLayers > 0) then
+             call mpas_pool_get_array(geometryPool, 'ismip6shelfMelt_zOcean', ismip6shelfMelt_zOcean)
+             call mpas_pool_get_array(geometryPool, 'ismip6shelfMelt_zBndsOcean', ismip6shelfMelt_zBndsOcean)
+
+             cpl_num_zocn = glc_get_num_zocn_classes()
+
+             ! check that the num z-levels in the coupler matches what MALI was told to use
+             if (nISMIP6OceanLayers /= cpl_num_zocn) then
+                call mpas_log_write("nISMIP6OceanLayers=$i does not match glc_get_num_zocn_classes=$i", &
+                                    MPAS_LOG_ERR, intArgs=(/nISMIP6OceanLayers, cpl_num_zocn/))
+                err = ior(err, 1)
+             endif
+
+             ismip6shelfMelt_zOcean = glc_get_zlevels()
+             ismip6shelfMelt_zBndsOcean = glc_get_zocnclass_bounds()
+
+             call mpas_log_write("Using $i levels for ismip6shelfMelt_zOcean", intArgs=(/nISMIP6OceanLayers/))
+             do iLev = 1, nISMIP6OceanLayers
+                call mpas_log_write("-- z-level $i: upper=$r, mid=$r, lower=$r", intArgs=(/iLev/), &
+                     realArgs=(/ismip6shelfMelt_zBndsOcean(1,iLev), &
+                                ismip6shelfMelt_zOcean(iLev), &
+                                ismip6shelfMelt_zBndsOcean(2,iLev)/))
+             enddo
+          endif
+
+          block_ptr => block_ptr % next
+       end do
+    end subroutine init_ocean_z_levels
+
 
 end module glc_comp_mct
 

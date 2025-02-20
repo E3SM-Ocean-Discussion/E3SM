@@ -11,6 +11,9 @@
 #include <list>
 #include <algorithm>
 #include <map>
+#include <iostream>
+#include <fstream>
+#include <sstream>
 
 namespace scream {
 
@@ -23,6 +26,15 @@ enum MemoryUnits {
   MiB,
   GiB
 };
+
+template<typename VT>
+typename VT::HostMirror
+cmvdc (const VT& v)
+{
+  auto vh = Kokkos::create_mirror_view(v);
+  Kokkos::deep_copy(vh,v);
+  return vh;
+}
 
 // Gets current memory (RAM) usage by current process.
 long long get_mem_usage (const MemoryUnits u);
@@ -329,6 +341,107 @@ Int compare (const std::string& label, const Scalar* a,
 
   return nerr1 + nerr2;
 }
+
+inline void
+check_mpi_call (int err, const std::string& context) {
+  EKAT_REQUIRE_MSG (err==MPI_SUCCESS,
+      "Error! MPI operation encountered an error.\n"
+      "  - err code: " + std::to_string(err) + "\n"
+      "  - context: " + context + "\n");
+}
+
+// Find the full filename list from patterns
+std::vector<std::string> filename_glob(const std::vector<std::string>& patterns);
+
+// Use globloc for each filename pattern
+std::vector<std::string> globloc(const std::string& pattern);
+
+constexpr int eamxx_swbands() {
+  // This function returns the total number of SW bands in RRTMGP,
+  return 14;
+}
+
+constexpr int eamxx_vis_swband_idx() {
+  // This function returns the index of the visible SW band in RRTMGP,
+  // which currently (as of 2024-04-23) is supposed to be 10.
+  // This index is used in the AODVis diagnostic, and should ideally
+  // be shared across interested processes for further diagnostics.
+  // This index (10) corresponds to the band that has wavelength 550 nm.
+  return 10;
+}
+
+struct DefaultMetadata {
+  // struct to store default metadata for variables output
+  // See the io_metadata folder for the file of interest
+
+  // Default string to fill in missing metadata
+  std::string fill_str = "MISSING";
+
+  std::map<std::string, std::string> name_2_standardname, name_2_longname;
+
+  DefaultMetadata() {
+    // Ensure to resolve the path to the io_metadata.csv file
+    std::string fpath     = __FILE__;
+    std::string directory = fpath.substr(0, fpath.find_last_of("/\\"));
+    std::string csv_path  = directory + "/io_metadata/io_metadata.csv";
+    read_csv_file_to_maps(csv_path, name_2_standardname, name_2_longname);
+  }
+
+  std::string get_standardname(const std::string &name) const {
+    auto it = name_2_standardname.find(name);
+    if(it != name_2_standardname.end()) {
+      return it->second;
+    } else {
+      return fill_str;
+    }
+  }
+
+  std::string get_longname(const std::string &name) const {
+    auto it = name_2_longname.find(name);
+    if(it != name_2_longname.end()) {
+      return it->second;
+    } else {
+      return fill_str;
+    }
+  }
+
+  void read_csv_file_to_maps(
+      const std::string &filename,
+      std::map<std::string, std::string> &name_2_standardname,
+      std::map<std::string, std::string> &name_2_longname) {
+    std::ifstream file(filename);
+    EKAT_REQUIRE_MSG(file.is_open(), "Could not open the file: " + filename);
+
+    std::string line;
+    bool isFirstLine = true;
+    while(std::getline(file, line)) {
+      // Skip empty lines
+      if(line.empty()) {
+        continue;
+      }
+
+      std::stringstream ss(line);
+      std::string column1, column2, column3;
+      std::getline(ss, column1, ',');
+      std::getline(ss, column2, ',');
+      std::getline(ss, column3, ',');
+
+      if(isFirstLine) {
+        // Sanity check: the first line contains the required headers
+        EKAT_REQUIRE_MSG(column1 == "variable" && column2 == "standard_name" && column3 == "long_name",
+            "CSV file does not contain the required headers: variable, standard_name, long_name. Found: "
+            + column1 + ", " + column2 + ", and " + column3 + " respectively in file " + filename);
+        isFirstLine = false;
+        continue;
+      }
+
+      // Store the values to the maps, if they are not empty
+      name_2_standardname[column1] = column2.empty() ? fill_str : column2;
+      name_2_longname[column1]     = column3.empty() ? fill_str : column3;
+    }
+    file.close();
+  }
+};
 
 } // namespace scream
 

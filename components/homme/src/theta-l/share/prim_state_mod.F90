@@ -532,7 +532,7 @@ contains
     !
     !   All of these transport terms are at time-tstep = (time1+time2)/2
     !   Vertical transport terms
-#if defined(ENERGY_DIAGNOSTICS) && !defined (HOMMEXX_ENABLE_GPU)
+#if defined(ENERGY_DIAGNOSTICS) && !defined (HOMMEXX_ENABLE_GPU_F90)
     do ie=nets,nete
        tmp(:,:,ie) = elem(ie)%accum%KEu_horiz1
     enddo
@@ -704,7 +704,7 @@ contains
        write(iulog,'(3a25)') "**DYNAMICS**        J/m^2","   W/m^2","W/m^2    "
        if (ftype==4) &
             write(iulog,*) "NOTE:ftype=4 so d/dt and diss diagnostics include effects of forcing"
-#if defined(ENERGY_DIAGNOSTICS) && !defined (HOMMEXX_ENABLE_GPU)
+#if defined(ENERGY_DIAGNOSTICS) && !defined (HOMMEXX_ENABLE_GPU_F90)
        ! terms computed during prim_advance, if ENERGY_DIAGNOSTICS is enabled
        if (theta_hydrostatic_mode) then
           write(iulog,'(a,2e22.14)')'KEu h-adv,sum=0:',KEH1,KEH2
@@ -793,7 +793,7 @@ contains
           write(iulog,100) "(E-E0)/E0    ",(TOTE(2)-TOTE0)/TOTE0
           do q=1,qsize
              if(Qmass0(q)>0.0D0) then
-                write(iulog,'(a,E23.15,a,i1)') "(Q-Q0)/Q0 ",(Qmass(q,2)-Qmass0(q))/Qmass0(q),"   Q",q
+                write(iulog,'(a,E23.15,a,i2)') "(Q-Q0)/Q0 ",(Qmass(q,2)-Qmass0(q))/Qmass0(q),"   Q",q
              end if
           enddo
        endif

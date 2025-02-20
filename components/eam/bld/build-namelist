@@ -791,6 +791,8 @@ if ( (($chem ne 'none') && ($chem ne 'spa')) or ( $prog_species ) ){
       add_default($nl, 'clim_soilw_file' );
       add_default($nl, 'season_wes_file' );
     }
+
+    add_default($nl, 'lght_no_prd_factor' );
 }
 
 # Initial conditions
@@ -826,7 +828,12 @@ add_default($nl,'ieflx_opt');
 # Add other variables that are previously set in use_case but not previously set
 add_default($nl,'use_hetfrz_classnuc');
 add_default($nl,'hist_hetfrz_classnuc');
-add_default($nl,'gw_convect_hcf');
+add_default($nl,'gw_convect_hcf') if (get_default_value('gw_convect_hcf'));
+add_default($nl,'hdepth_scaling_factor') if (get_default_value('hdepth_scaling_factor'));
+add_default($nl,'gw_convect_hdepth_min') if (get_default_value('gw_convect_hdepth_min'));
+add_default($nl,'gw_convect_storm_speed_min') if (get_default_value('gw_convect_storm_speed_min'));
+add_default($nl,'gw_convect_plev_src_wind') if (get_default_value('gw_convect_plev_src_wind'));
+add_default($nl,'use_gw_convect_old', 'val'=>'.true.');
 add_default($nl,'linoz_psc_T');
 if ($cfg->get('microphys') =~ /^mg2/) {
     add_default($nl,'micro_mg_dcs_tdep');
@@ -876,6 +883,12 @@ if ($sim_year =~ /(\d+)-(\d+)/) {
 
 # Topography
 add_default($nl, 'bnd_topo', 'nofail'=>1);
+if (defined($defaults->get_value('pgrad_correction'))) {
+   add_default($nl, 'pgrad_correction', 'val' =>$nl->get_value('pgrad_correction'));
+}
+if (defined($defaults->get_value('hv_ref_profiles'))) {
+   add_default($nl, 'hv_ref_profiles', 'val' =>$nl->get_value('hv_ref_profiles'));
+}
 
 # Tropopause climatology
 add_default($nl, 'tropopause_climo_file');
@@ -883,6 +896,57 @@ add_default($nl, 'tropopause_climo_file');
 # Set default E90 based tropopause threshold, only if present in the default NML file
 if (defined($defaults->get_value('tropopause_e90_thrd'))) {
    add_default($nl, 'tropopause_e90_thrd', 'val' =>$nl->get_value('tropopause_e90_thrd'));
+}
+
+# Set default chemdyg vertical block indices
+if (defined($defaults->get_value('gaschmbudget_2D_L1_s'))) {
+   add_default($nl, 'gaschmbudget_2D_L1_s', 'val' =>$nl->get_value('gaschmbudget_2D_L1_s'));
+}
+if (defined($defaults->get_value('gaschmbudget_2D_L1_e'))) {
+   add_default($nl, 'gaschmbudget_2D_L1_e', 'val' =>$nl->get_value('gaschmbudget_2D_L1_e'));
+}
+if (defined($defaults->get_value('gaschmbudget_2D_L2_s'))) {
+   add_default($nl, 'gaschmbudget_2D_L2_s', 'val' =>$nl->get_value('gaschmbudget_2D_L2_s'));
+}
+if (defined($defaults->get_value('gaschmbudget_2D_L2_e'))) {
+   add_default($nl, 'gaschmbudget_2D_L2_e', 'val' =>$nl->get_value('gaschmbudget_2D_L2_e'));
+}
+if (defined($defaults->get_value('gaschmbudget_2D_L3_s'))) {
+   add_default($nl, 'gaschmbudget_2D_L3_s', 'val' =>$nl->get_value('gaschmbudget_2D_L3_s'));
+}
+if (defined($defaults->get_value('gaschmbudget_2D_L3_e'))) {
+   add_default($nl, 'gaschmbudget_2D_L3_e', 'val' =>$nl->get_value('gaschmbudget_2D_L3_e'));
+}
+if (defined($defaults->get_value('gaschmbudget_2D_L4_s'))) {
+   add_default($nl, 'gaschmbudget_2D_L4_s', 'val' =>$nl->get_value('gaschmbudget_2D_L4_s'));
+}
+if (defined($defaults->get_value('gaschmbudget_2D_L4_e'))) {
+   add_default($nl, 'gaschmbudget_2D_L4_e', 'val' =>$nl->get_value('gaschmbudget_2D_L4_e'));
+}
+
+if (defined($defaults->get_value('UCIgaschmbudget_2D_L1_s'))) {
+   add_default($nl, 'UCIgaschmbudget_2D_L1_s', 'val' =>$nl->get_value('UCIgaschmbudget_2D_L1_s'));
+}
+if (defined($defaults->get_value('UCIgaschmbudget_2D_L1_e'))) {
+   add_default($nl, 'UCIgaschmbudget_2D_L1_e', 'val' =>$nl->get_value('UCIgaschmbudget_2D_L1_e'));
+}
+if (defined($defaults->get_value('UCIgaschmbudget_2D_L2_s'))) {
+   add_default($nl, 'UCIgaschmbudget_2D_L2_s', 'val' =>$nl->get_value('UCIgaschmbudget_2D_L2_s'));
+}
+if (defined($defaults->get_value('UCIgaschmbudget_2D_L2_e'))) {
+   add_default($nl, 'UCIgaschmbudget_2D_L2_e', 'val' =>$nl->get_value('UCIgaschmbudget_2D_L2_e'));
+}
+if (defined($defaults->get_value('UCIgaschmbudget_2D_L3_s'))) {
+   add_default($nl, 'UCIgaschmbudget_2D_L3_s', 'val' =>$nl->get_value('UCIgaschmbudget_2D_L3_s'));
+}
+if (defined($defaults->get_value('UCIgaschmbudget_2D_L3_e'))) {
+   add_default($nl, 'UCIgaschmbudget_2D_L3_e', 'val' =>$nl->get_value('UCIgaschmbudget_2D_L3_e'));
+}
+if (defined($defaults->get_value('UCIgaschmbudget_2D_L4_s'))) {
+   add_default($nl, 'UCIgaschmbudget_2D_L4_s', 'val' =>$nl->get_value('UCIgaschmbudget_2D_L4_s'));
+}
+if (defined($defaults->get_value('UCIgaschmbudget_2D_L4_e'))) {
+   add_default($nl, 'UCIgaschmbudget_2D_L4_e', 'val' =>$nl->get_value('UCIgaschmbudget_2D_L4_e'));
 }
 
 # Solar irradiance
@@ -1130,7 +1194,7 @@ if ($aer_model eq 'mam' ) {
   if ($chem =~ /_mam4/) {$aero_modes = '4mode';}
   if ($chem =~ /_mam4_mom/) {$aero_modes = '4mode_mom';}
   if ($chem =~ /_mam4_resus_mom/) {$aero_modes = '4mode_mom';}
-  if ($chem =~ /_mam5_resus_mom/) {$aero_modes = '5mode';}
+  if ($chem =~ /_mam5/) {$aero_modes = '5mode';}
   if ($chem =~ /_mam7/) {$aero_modes = '7mode';}
   if ($chem =~ /_mam9/) {$aero_modes = '9mode';}
 
@@ -1705,13 +1769,9 @@ if ( !($phys eq 'ideal' or $phys eq 'adiabatic') ) {
 # Cloud optics; for MMF be specific about which optics package to use
 if ($rad_pkg eq 'rrtmg' or $rad_pkg eq 'rrtmgp') {
     if ($cfg->get('use_MMF')) {
-        if ($cfg->get('MMF_microphysics_scheme') eq 'sam1mom') {
-            add_default($nl, 'liqcldoptics', 'val' => 'slingo');
-            add_default($nl, 'icecldoptics', 'val' => 'ebertcurry');
-        } else {
-            add_default($nl, 'liqcldoptics', 'val' => 'gammadist');
-            add_default($nl, 'icecldoptics', 'val' => 'mitchell');
-        }
+        # NOTE: eventually we should switch PAM optics to gammadist+mitchell
+        add_default($nl, 'liqcldoptics', 'val' => 'slingo');
+        add_default($nl, 'icecldoptics', 'val' => 'ebertcurry');
     } else {
         add_default($nl, 'liqcldoptics');
         add_default($nl, 'icecldoptics');
@@ -3093,7 +3153,7 @@ if ($chem eq 'linoz_mam4_resus_mom' || $chem eq 'linoz_mam4_resus_mom_soag') {
     }
 }
 
-if ($chem eq 'superfast_mam4_resus_mom_soag' || $chem eq 'superfast_mam5_resus_mom_soag') {
+if ($chem eq 'superfast_mam4_resus_mom_soag' || $chem eq 'chemuci_linozv3_mam5_vbs') {
 
     # Surface emission datasets:
     my %species;
@@ -3758,10 +3818,8 @@ if ($shoc_sgs  =~ /$TRUE/io) {
    add_default($nl, 'shoc_lambda_thresh');
    add_default($nl, 'shoc_Ckh');
    add_default($nl, 'shoc_Ckm');
-   add_default($nl, 'shoc_Ckh_s_min');
-   add_default($nl, 'shoc_Ckm_s_min');
-   add_default($nl, 'shoc_Ckh_s_max');
-   add_default($nl, 'shoc_Ckm_s_max');
+   add_default($nl, 'shoc_Ckh_s');
+   add_default($nl, 'shoc_Ckm_s');
 }
 
 
@@ -3903,6 +3961,9 @@ if ($chem =~ /_mam/) {
 #Sea Salt aerosol emission scale factors
 add_default($nl, 'seasalt_emis_scale');
 
+#DMS emission scale factor
+add_default($nl, 'dms_emis_scale') if (get_default_value('dms_emis_scale')) ;
+
 # Turbulent Mountain Stress
 add_default($nl, 'do_tms');
 my $do_tms = $nl->get_value('do_tms');
@@ -3931,9 +3992,6 @@ if ( $linearize_pbl_winds =~ /$TRUE/io ) {
         die "$ProgName - ERROR: linearize_pbl_winds = .true. but linearization is not implemented for eddy_scheme=$eddy_scheme.\n";
     }
 }
-
-# Export gustiness to surface components.
-add_default($nl, 'export_gustiness');
 
 # Use Convective water in radiation
 add_default($nl, 'conv_water_in_rad');
@@ -4035,13 +4093,24 @@ if ($waccm_phys or $cfg->get('nlev') >= 60) {
     add_default($nl, 'use_gw_oro'    , 'val'=>'.true.');
     add_default($nl, 'use_gw_front'  , 'val'=>'.true.');
     add_default($nl, 'use_gw_convect', 'val'=>'.true.');
+    add_default($nl, 'use_od_ls', 'val'=>'.false.');
+    add_default($nl, 'use_od_bl', 'val'=>'.false.');
+    add_default($nl, 'use_od_ss', 'val'=>'.false.');
+    add_default($nl, 'use_od_fd', 'val'=>'.false.');
 } else {
     add_default($nl, 'use_gw_oro'    , 'val'=>'.true.');
     add_default($nl, 'use_gw_front'  , 'val'=>'.false.');
     add_default($nl, 'use_gw_convect', 'val'=>'.false.');
+    add_default($nl, 'use_od_ls', 'val'=>'.false.');
+    add_default($nl, 'use_od_bl', 'val'=>'.false.');
+    add_default($nl, 'use_od_ss', 'val'=>'.false.');
+    add_default($nl, 'use_od_fd', 'val'=>'.false.');
 }
 add_default($nl, 'pgwv', 'val'=>'32');
 add_default($nl, 'gw_dc','val'=>'2.5D0');
+add_default($nl, 'od_ls_ncleff' ,'val'=>'3.D0');
+add_default($nl, 'od_bl_ncd'    ,'val'=>'3.D0');
+add_default($nl, 'od_ss_sncleff','val'=>'1.D0');
 
 if ($nl->get_value('use_gw_oro') =~ /$TRUE/io) {
     add_default($nl, 'effgw_oro');

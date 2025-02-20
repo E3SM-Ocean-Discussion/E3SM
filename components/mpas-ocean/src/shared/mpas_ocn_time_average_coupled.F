@@ -25,6 +25,8 @@ module ocn_time_average_coupled
     use mpas_pool_routines
     use ocn_constants
     use ocn_config
+    use ocn_equation_of_state
+    use ocn_mesh
     use ocn_tracer_ecosys
     use ocn_tracer_DMS
     use ocn_tracer_MacroMolecules
@@ -53,7 +55,14 @@ module ocn_time_average_coupled
         real (kind=RKIND), dimension(:,:), pointer :: avgTracersSurfaceValue, avgSurfaceVelocity, avgSSHGradient, &
                                                       avgLandIceBoundaryLayerTracers, avgLandIceTracerTransferVelocities
 
-        real (kind=RKIND), dimension(:), pointer :: avgEffectiveDensityInLandIce, avgTotalFreshWaterTemperatureFlux
+        real (kind=RKIND), dimension(:), pointer :: avgEffectiveDensityInLandIce, avgTotalFreshWaterTemperatureFlux, &
+                                                    avgLandIceFreshwaterFlux, &
+                                                    avgRemovedRiverRunoffFlux, avgRemovedIceRunoffFlux, &
+                                                    avgLandIceHeatFlux, avgRemovedIceRunoffHeatFlux
+
+        real (kind=RKIND), dimension(:), pointer :: avgThermalForcingAtCritDepth
+        real (kind=RKIND), dimension(:,:), pointer :: avgThermalForcingAtZLevels
+        real (kind=RKIND), dimension(:,:), pointer :: avgThermalForcingAtZLevelsMask
 
         integer :: iCell
         integer, pointer :: nAccumulatedCoupled, nCells
@@ -115,6 +124,71 @@ module ocn_time_average_coupled
            !$omp end do
            !$omp end parallel
         end if
+
+        ! Set up polar fields if necessary
+        if(trim(config_land_ice_flux_mode)=='standalone' .or. trim(config_land_ice_flux_mode) == 'data') then
+           call mpas_pool_get_array(forcingPool, 'avgLandIceFreshwaterFlux', avgLandIceFreshwaterFlux)
+           call mpas_pool_get_array(forcingPool, 'avgLandIceHeatFlux', avgLandIceHeatFlux)
+
+           !$omp parallel
+           !$omp do schedule(runtime)
+           do iCell = 1, nCells
+              avgLandIceFreshwaterFlux(iCell) = 0.0_RKIND
+              avgLandIceHeatFlux(iCell) = 0.0_RKIND
+           end do
+           !$omp end do
+           !$omp end parallel
+        end if
+
+        if(config_remove_ais_river_runoff) then
+           call mpas_pool_get_array(forcingPool, 'avgRemovedRiverRunoffFlux', avgRemovedRiverRunoffFlux)
+
+           !$omp parallel
+           !$omp do schedule(runtime)
+           do iCell = 1, nCells
+              avgRemovedRiverRunoffFlux(iCell) = 0.0_RKIND
+           end do
+           !$omp end do
+           !$omp end parallel
+        end if
+
+        if(config_remove_ais_ice_runoff) then
+           call mpas_pool_get_array(forcingPool, 'avgRemovedIceRunoffFlux', avgRemovedIceRunoffFlux)
+           call mpas_pool_get_array(forcingPool, 'avgRemovedIceRunoffHeatFlux', avgRemovedIceRunoffHeatFlux)
+
+           !$omp parallel
+           !$omp do schedule(runtime)
+           do iCell = 1, nCells
+              avgRemovedIceRunoffFlux(iCell) = 0.0_RKIND
+              avgRemovedIceRunoffHeatFlux(iCell) = 0.0_RKIND
+           end do
+           !$omp end do
+           !$omp end parallel
+        end if
+
+        if (trim(config_glc_thermal_forcing_coupling_mode) == '2d') then
+           call mpas_pool_get_array(forcingPool, 'avgThermalForcingAtCritDepth', avgThermalForcingAtCritDepth)
+
+           !$omp parallel
+           !$omp do schedule(runtime)
+           do iCell = 1, nCells
+              avgThermalForcingAtCritDepth(iCell) = 0.0_RKIND
+           end do
+           !$omp end do
+           !$omp end parallel
+        elseif (trim(config_glc_thermal_forcing_coupling_mode) == '3d') then
+           call mpas_pool_get_array(forcingPool, 'avgThermalForcingAtZLevels', avgThermalForcingAtZLevels)
+           call mpas_pool_get_array(forcingPool, 'avgThermalForcingAtZLevelsMask', avgThermalForcingAtZLevelsMask)
+
+           !$omp parallel
+           !$omp do schedule(runtime)
+           do iCell = 1, nCells
+              avgThermalForcingAtZLevels(:, iCell) = 0.0_RKIND
+              avgThermalForcingAtZLevelsMask(:, iCell) = 0.0_RKIND
+           end do
+           !$omp end do
+           !$omp end parallel
+        endif
 
         !  set up BGC coupling fields if necessary
         if (config_use_ecosysTracers) then
@@ -201,6 +275,9 @@ module ocn_time_average_coupled
 !
 !-----------------------------------------------------------------------
     subroutine ocn_time_average_coupled_accumulate(statePool, forcingPool, timeLevel)!{{{
+        use ocn_constants, only: &
+             latent_heat_fusion_mks
+
         type (mpas_pool_type), intent(in) :: statePool
         type (mpas_pool_type), intent(inout) :: forcingPool
         integer, intent(in) :: timeLevel
@@ -210,14 +287,28 @@ module ocn_time_average_coupled
         real (kind=RKIND), dimension(:,:), pointer :: avgSSHGradient
         integer :: iCell
         integer, pointer :: index_temperaturePtr, index_SSHzonalPtr, &
-                 index_SSHmeridionalPtr, nAccumulatedCoupled, nCells
+                 index_SSHmeridionalPtr, nAccumulatedCoupled, nCells, nVertLevels, nGlcZLevels
         integer :: index_temperature, index_SSHzonal, index_SSHmeridional
         real (kind=RKIND), dimension(:,:), pointer :: &
                                                       avgLandIceBoundaryLayerTracers, avgLandIceTracerTransferVelocities
         real (kind=RKIND), dimension(:), pointer :: effectiveDensityInLandIce, avgEffectiveDensityInLandIce, &
-                                                    totalFreshWaterTemperatureFlux, avgTotalFreshWaterTemperatureFlux
+                                                    totalFreshWaterTemperatureFlux, avgTotalFreshWaterTemperatureFlux, &
+                                                    landIceFreshwaterFlux, avgLandIceFreshwaterFlux, &
+                                                    landIceHeatFlux, avgLandIceHeatFlux, &
+                                                    removedRiverRunoffFlux, avgRemovedRiverRunoffFlux, &
+                                                    removedIceRunoffFlux, avgRemovedIceRunoffFlux, &
+                                                    avgRemovedIceRunoffHeatFlux, &
+                                                    avgThermalForcingAtCritDepth
+        real (kind=RKIND), dimension(:,:), pointer :: avgThermalForcingAtZLevels
+        real (kind=RKIND), dimension(:,:), pointer :: avgThermalForcingAtZLevelsMask
+        real (kind=RKIND), dimension(:), pointer :: glcZLevels
 
         type (mpas_pool_type), pointer :: tracersPool
+
+        real (kind=RKIND), dimension(:,:,:), pointer :: activeTracers
+        integer, pointer :: indexTemperature, indexSalinity
+        integer :: iLevelCritDepth, iLevel, iLevelGlc
+        real (kind=RKIND) :: freezingTemp
 
         real (kind=RKIND), dimension(:,:,:), pointer :: &
            ecosysTracers,  &
@@ -254,6 +345,7 @@ module ocn_time_average_coupled
         call mpas_pool_get_array(forcingPool, 'avgTotalFreshWaterTemperatureFlux', avgTotalFreshWaterTemperatureFlux)
 
         call mpas_pool_get_dimension(forcingPool, 'nCells', nCells)
+        call mpas_pool_get_dimension(forcingPool, 'nVertLevels', nVertLevels)
         call mpas_pool_get_dimension(forcingPool, &
                                      'index_avgTemperatureSurfaceValue', &
                                       index_temperaturePtr)
@@ -297,6 +389,7 @@ module ocn_time_average_coupled
            call mpas_pool_get_array(forcingPool, 'avgLandIceTracerTransferVelocities', avgLandIceTracerTransferVelocities)
            call mpas_pool_get_array(forcingPool, 'avgEffectiveDensityInLandIce', avgEffectiveDensityInLandIce)
 
+
            !$omp parallel
            !$omp do schedule(runtime)
            do iCell = 1, nCells
@@ -310,6 +403,139 @@ module ocn_time_average_coupled
            !$omp end do
            !$omp end parallel
         end if
+
+        ! Accumulate polar fields if necessary
+        if(trim(config_land_ice_flux_mode) == 'standalone' .or. trim(config_land_ice_flux_mode) == 'data') then
+           call mpas_pool_get_array(forcingPool, 'avgLandIceFreshwaterFlux', avgLandIceFreshwaterFlux)
+           call mpas_pool_get_array(forcingPool, 'landIceFreshwaterFlux', landIceFreshwaterFlux)
+           call mpas_pool_get_array(forcingPool, 'avgLandIceHeatFlux', avgLandIceHeatFlux)
+           call mpas_pool_get_array(forcingPool, 'landIceHeatFlux', landIceHeatFlux)
+
+           !$omp parallel
+           !$omp do schedule(runtime)
+           do iCell = 1, nCells
+              avgLandIceFreshwaterFlux(iCell) = ( avgLandIceFreshwaterFlux(iCell) * nAccumulatedCoupled &
+                                              + landIceFreshwaterFlux(iCell) ) / ( nAccumulatedCoupled + 1)
+              avgLandIceHeatFlux(iCell) = ( avgLandIceHeatFlux(iCell) * nAccumulatedCoupled &
+                                        + landIceHeatFlux(iCell) ) / ( nAccumulatedCoupled + 1)
+           end do
+           !$omp end do
+           !$omp end parallel
+
+        end if
+
+        if (config_remove_ais_river_runoff) then
+           call mpas_pool_get_array(forcingPool, 'avgRemovedRiverRunoffFlux', avgRemovedRiverRunoffFlux)
+           call mpas_pool_get_array(forcingPool, 'removedRiverRunoffFlux', removedRiverRunoffFlux)
+
+           !$omp parallel
+           !$omp do schedule(runtime)
+           do iCell = 1, nCells
+              avgRemovedRiverRunoffFlux(iCell) = ( avgRemovedRiverRunoffFlux(iCell) * nAccumulatedCoupled &
+                                               + removedRiverRunoffFlux(iCell) ) / ( nAccumulatedCoupled + 1)
+           end do
+           !$omp end do
+           !$omp end parallel
+
+        end if
+
+        if (config_remove_ais_ice_runoff) then
+           call mpas_pool_get_array(forcingPool, 'avgRemovedIceRunoffFlux', avgRemovedIceRunoffFlux)
+           call mpas_pool_get_array(forcingPool, 'avgRemovedIceRunoffHeatFlux', avgRemovedIceRunoffHeatFlux)
+           call mpas_pool_get_array(forcingPool, 'removedIceRunoffFlux', removedIceRunoffFlux)
+
+           !$omp parallel
+           !$omp do schedule(runtime)
+           do iCell = 1, nCells
+              avgRemovedIceRunoffFlux(iCell) = ( avgRemovedIceRunoffFlux(iCell) * nAccumulatedCoupled &
+                                             + removedIceRunoffFlux(iCell) ) / ( nAccumulatedCoupled + 1)
+              avgRemovedIceRunoffHeatFlux(iCell) = ( avgRemovedIceRunoffHeatFlux(iCell) * nAccumulatedCoupled &
+                                             + removedIceRunoffFlux(iCell)*latent_heat_fusion_mks ) / ( nAccumulatedCoupled + 1)
+           end do
+           !$omp end do
+           !$omp end parallel
+
+        end if
+
+        if (trim(config_glc_thermal_forcing_coupling_mode) == '2d') then
+           call mpas_pool_get_array(forcingPool, 'avgThermalForcingAtCritDepth', avgThermalForcingAtCritDepth)
+           call mpas_pool_get_subpool(statePool, 'tracers', tracersPool)
+           call mpas_pool_get_array(tracersPool, 'activeTracers', activeTracers, 2)
+           call mpas_pool_get_dimension(tracersPool, 'index_temperature', indexTemperature)
+           call mpas_pool_get_dimension(tracersPool, 'index_salinity', indexSalinity)
+
+
+           ! find vertical level that is just above the critical depth reference level
+           ! this does not account for depression due to ice shelf cavities or sea ice
+           iLevelCritDepth = nVertLevels  ! default to deepest layer if we don't find the desired depth
+           do iLevel = 1, nVertLevels
+              if(refBottomDepth(iLevel) > config_2d_thermal_forcing_depth) then
+                 iLevelCritDepth = iLevel
+                 exit
+              end if
+           end do
+           !$omp parallel
+           !$omp do schedule(runtime)
+           ! calculate thermal forcing at identified level for each cell
+           do iCell = 1, nCells
+              ! ignore cells that are too shallow
+              if (iLevelCritDepth <= maxLevelCell(iCell)) then
+                 ! this uses the level shallower than the reference level.  could interpolate instead
+                 ! note: assuming no LandIce cavity, but we may want to support that
+                 freezingTemp = ocn_freezing_temperature(salinity=activeTracers(indexSalinity, iLevelCritDepth, iCell), &
+                    pressure=pressure(iLevelCritDepth, iCell),  inLandIceCavity=.false.)
+                 avgThermalForcingAtCritDepth(iCell) = ( avgThermalForcingAtCritDepth(iCell) * nAccumulatedCoupled &
+                    + activeTracers(indexTemperature, iLevelCritDepth, iCell) - freezingTemp ) / ( nAccumulatedCoupled + 1)
+               end if
+           end do
+           !$omp end do
+           !$omp end parallel
+        elseif (trim(config_glc_thermal_forcing_coupling_mode) == '3d') then
+           call mpas_pool_get_array(forcingPool, 'avgThermalForcingAtZLevels', avgThermalForcingAtZLevels)
+           call mpas_pool_get_array(forcingPool, 'avgThermalForcingAtZLevelsMask', avgThermalForcingAtZLevelsMask)
+           call mpas_pool_get_array(forcingPool, 'glcZLevels', glcZLevels)
+           call mpas_pool_get_subpool(statePool, 'tracers', tracersPool)
+           call mpas_pool_get_array(tracersPool, 'activeTracers', activeTracers, 2)
+           call mpas_pool_get_dimension(tracersPool, 'index_temperature', indexTemperature)
+           call mpas_pool_get_dimension(tracersPool, 'index_salinity', indexSalinity)
+           call mpas_pool_get_dimension(tracersPool, 'nGlcZLevels', nGlcZLevels)
+
+           !$omp parallel
+           !$omp do schedule(runtime)
+           do iLevelGlc = 1, nGlcZLevels
+              ! find vertical level that is just above the critical depth reference level
+              ! this does not account for depression due to ice shelf cavities or sea ice
+              iLevelCritDepth = nVertLevels  ! default to deepest layer if we don't find the desired depth
+              do iLevel = 1, nVertLevels
+                 if(refBottomDepth(iLevel) > glcZLevels(iLevelGlc)) then
+                    iLevelCritDepth = iLevel
+                    exit
+                 end if
+              end do
+              call mpas_log_write("iLevelGlc=$i, iLevelCritDepth=$i", intArgs=(/iLevelGlc, iLevelCritDepth/))
+              ! calculate thermal forcing at identified level for each cell
+              do iCell = 1, nCells
+                 ! ignore cells that are too shallow
+                 if (iLevelCritDepth <= maxLevelCell(iCell)) then
+                    ! this uses the level shallower than the reference level.  could interpolate instead
+                    ! note: assuming no LandIce cavity, but we may want to support that
+                    freezingTemp = ocn_freezing_temperature(salinity=activeTracers(indexSalinity, iLevelCritDepth, iCell), &
+                       pressure=pressure(iLevelCritDepth, iCell),  inLandIceCavity=.false.)
+                    avgThermalForcingAtZLevels(iLevelGlc, iCell) = ( avgThermalForcingAtZLevels(iLevelGlc, iCell) * nAccumulatedCoupled &
+                       + activeTracers(indexTemperature, iLevelCritDepth, iCell) - freezingTemp ) / ( nAccumulatedCoupled + 1)
+                    avgThermalForcingAtZLevelsMask(iLevelGlc, iCell) = ( avgThermalForcingAtZLevelsMask(iLevelGlc, iCell) * nAccumulatedCoupled &
+                       + 1.0_RKIND) / ( nAccumulatedCoupled + 1)
+                  else
+                    avgThermalForcingAtZLevels(iLevelGlc, iCell) = ( avgThermalForcingAtZLevels(iLevelGlc, iCell) * nAccumulatedCoupled &
+                       + 0.0_RKIND) / (nAccumulatedCoupled + 1)
+                    avgThermalForcingAtZLevelsMask(iLevelGlc, iCell) = ( avgThermalForcingAtZLevelsMask(iLevelGlc, iCell) * nAccumulatedCoupled &
+                       + 0.0_RKIND) / ( nAccumulatedCoupled + 1)
+                  end if
+              end do
+           enddo
+           !$omp end do
+           !$omp end parallel
+       endif
 
         !  accumulate BGC coupling fields if necessary
         if (config_use_ecosysTracers) then

@@ -158,7 +158,8 @@ logical :: pbuf_global_allocate       ! allocate all buffers as global (default:
 
 ! Conservation checks
 
-logical            :: print_energy_errors ! switch for diagnostic output from check_energy module
+logical            :: print_energy_errors    ! switch for diagnostic output from check_energy module
+logical            :: print_additional_diagn ! switch for more diagnostic output
 
 ! SCM Options
 logical  :: single_column
@@ -171,6 +172,7 @@ integer, parameter :: max_chars = 128
 character(len=max_chars) iopfile
 logical  :: scm_iop_srf_prop
 logical  :: iop_dosubsidence
+logical  :: iop_coriolis
 logical  :: iop_nudge_tq
 logical  :: iop_nudge_uv
 logical  :: scm_diurnal_avg
@@ -227,7 +229,7 @@ contains
    ! Some modules read their own namelist input.
    use spmd_utils,          only: spmd_utils_readnl
    use physconst,           only: physconst_readnl
-   use phys_control,        only: phys_ctl_readnl
+   use phys_control,        only: phys_ctl_readnl, set_additional_diagn_in_phys_control
    use wv_saturation,       only: wv_sat_readnl
    use ref_pres,            only: ref_pres_readnl
    use cam3_aero_data,      only: cam3_aero_data_readnl
@@ -244,6 +246,7 @@ contains
    use uwshcu,              only: uwshcu_readnl
    use pkg_cld_sediment,    only: cld_sediment_readnl
    use gw_drag,             only: gw_drag_readnl
+   use od_common,           only: oro_drag_readnl
    use qbo,                 only: qbo_readnl
    use iondrag,             only: iondrag_readnl
    use phys_debug_util,     only: phys_debug_readnl
@@ -273,11 +276,15 @@ contains
    use cam_diagnostics,     only: diag_readnl
    use nudging,             only: nudging_readnl
    use radheat,             only: radheat_readnl
+   use phys_grid_ctem,      only: phys_grid_ctem_readnl
 #if ( defined OFFLINE_DYN )
    use metdata,             only: metdata_readnl
 #endif
    use radiation,           only: radiation_readnl
    use conditional_diag,    only: cnd_diag_readnl
+#if defined(MMF_SAMXX) || defined(MMF_PAM)
+   use prescribed_macv2,    only: prescribed_macv2_readnl
+#endif
 
 !---------------------------Arguments-----------------------------------
 
@@ -328,12 +335,12 @@ contains
    namelist /cam_inparm/ pbuf_global_allocate
 
    ! conservation checks
-   namelist /cam_inparm/ print_energy_errors
+   namelist /cam_inparm/ print_energy_errors, print_additional_diagn
 
    ! IOP
     namelist /cam_inparm/ iopfile, scm_iop_srf_prop, iop_nudge_tq, iop_nudge_uv, &
                          iop_nudge_tq_low, iop_nudge_tq_high, iop_nudge_tscale, &
-                         scm_observed_aero, precip_off, &
+                         scm_observed_aero, precip_off, iop_coriolis, &
                          scm_zero_non_iop_tracers, iop_perturb_high, dp_crm, &
                          iop_dosubsidence, scm_zero_non_iop_tracers
 
@@ -366,13 +373,16 @@ contains
 
    ! conservation
    call check_energy_defaultopts( &
-      print_energy_errors_out = print_energy_errors )
+      print_energy_errors_out = print_energy_errors, &
+      print_additional_diagn_out  = print_additional_diagn )
 
    ! Set default options for single column or doubly periodic CRM mode
    if (present(single_column_in)) then
       call iop_default_opts(scmlat_out=scmlat,scmlon_out=scmlon, &
         single_column_out=single_column, &
         scm_iop_srf_prop_out=scm_iop_srf_prop,&
+        iop_dosubsidence_out=iop_dosubsidence, &
+        iop_coriolis_out=iop_coriolis, &
         iop_nudge_tq_out=iop_nudge_tq, &
         iop_nudge_uv_out=iop_nudge_uv, &
         iop_nudge_tq_low_out=iop_nudge_tq_low, &
@@ -380,7 +390,6 @@ contains
         iop_nudge_tscale_out=iop_nudge_tscale, &
         scm_observed_aero_out=scm_observed_aero, &
         precip_off_out=precip_off, &
-        iop_dosubsidence_out=iop_dosubsidence, &
         iop_perturb_high_out=iop_perturb_high, &
         scm_multcols_out=scm_multcols, &
         dp_crm_out=dp_crm, &
@@ -443,7 +452,10 @@ contains
 
    ! conservation
    call check_energy_setopts( &
-      print_energy_errors_in = print_energy_errors )
+      print_energy_errors_in = print_energy_errors, &
+      print_additional_diagn_in = print_additional_diagn )
+
+   call set_additional_diagn_in_phys_control(print_additional_diagn)
 
    ! Set runtime options for single column or doubly periodic CRM mode 
    if (present(single_column_in) .and. present(scmlon_in) .and. present(scmlat_in)) then 
@@ -455,7 +467,8 @@ contains
          call iop_setopts( scmlat_in=scmlat,scmlon_in=scmlon, &
                             iopfile_in=iopfile,single_column_in=single_column,&
                             scm_iop_srf_prop_in=scm_iop_srf_prop,&
-			    iop_dosubsidence_in=iop_dosubsidence,&
+                            iop_dosubsidence_in=iop_dosubsidence,&
+                            iop_coriolis_in=iop_coriolis,&
                             iop_nudge_tq_in=iop_nudge_tq, &
                             iop_nudge_uv_in=iop_nudge_uv, &
                             iop_nudge_tq_low_in=iop_nudge_tq_low, &
@@ -504,6 +517,7 @@ contains
    call uwshcu_readnl(nlfilename)
    call cld_sediment_readnl(nlfilename)
    call gw_drag_readnl(nlfilename)
+   call oro_drag_readnl(nlfilename)
    call qbo_readnl(nlfilename)
    call iondrag_readnl(nlfilename)
    call phys_debug_readnl(nlfilename)
@@ -529,6 +543,7 @@ contains
    call nudging_readnl(nlfilename)
    call radheat_readnl(nlfilename)
    call vd_readnl(nlfilename)
+   call phys_grid_ctem_readnl(nlfilename,dtime)
 #if ( defined OFFLINE_DYN )
    call metdata_readnl(nlfilename)
 #endif
@@ -536,6 +551,10 @@ contains
 
    ! Read radiation namelist
    call radiation_readnl(nlfilename, dtime_in=dtime)
+
+#if defined(MMF_SAMXX) || defined(MMF_PAM)
+   call prescribed_macv2_readnl(nlfilename)
+#endif
 
    ! Print cam_inparm input variables to standard output
    if (masterproc) then
@@ -670,7 +689,8 @@ subroutine distnl
    call mpibcast (pbuf_global_allocate, 1, mpilog, 0, mpicom)
 
    ! Conservation
-   call mpibcast (print_energy_errors, 1, mpilog, 0, mpicom)
+   call mpibcast (print_energy_errors,    1, mpilog, 0, mpicom)
+   call mpibcast (print_additional_diagn, 1, mpilog, 0, mpicom)
 
 end subroutine distnl
 #endif

@@ -115,7 +115,7 @@ MACRO(PREQX_KOKKOS_SETUP)
     ${TEST_SRC_DIR}/dcmip12_wrapper.F90
     ${TEST_SRC_DIR}/dcmip16_wrapper.F90
     ${TEST_SRC_DIR}/dcmip2012_test1_2_3.F90
-    ${TEST_SRC_DIR}/dcmip2012_test1_conv.F90
+    ${TEST_SRC_DIR}/dcmip2012_test1_conv_mod.F90
     ${TEST_SRC_DIR}/dcmip2012_test4.F90
     ${TEST_SRC_DIR}/dcmip2012_test5.F90
     ${TEST_SRC_DIR}/dcmip2016-baroclinic.F90
@@ -168,6 +168,8 @@ MACRO(PREQX_KOKKOS_SETUP)
     ${SRC_SHARE_DIR}/cxx/EulerStepFunctor.cpp
     ${SRC_SHARE_DIR}/cxx/ExecSpaceDefs.cpp
     ${SRC_SHARE_DIR}/cxx/FunctorsBuffersManager.cpp
+    ${SRC_SHARE_DIR}/cxx/GllFvRemap.cpp
+    ${SRC_SHARE_DIR}/cxx/GllFvRemapImpl.cpp
     ${SRC_SHARE_DIR}/cxx/Hommexx_Session.cpp
     ${SRC_SHARE_DIR}/cxx/HybridVCoord.cpp
     ${SRC_SHARE_DIR}/cxx/HyperviscosityFunctor.cpp

@@ -10,6 +10,7 @@
 #include "share/io/scorpio_input.hpp"
 #include "share/atm_process/ATMBufferManager.hpp"
 #include "share/atm_process/SCDataManager.hpp"
+#include "share/atm_process/IOPDataManager.hpp"
 
 #include "ekat/logging/ekat_logger.hpp"
 #include "ekat/mpi/ekat_comm.hpp"
@@ -65,10 +66,14 @@ public:
   void set_params (const ekat::ParameterList& params);
 
   // Init time stamps
-  void init_time_stamps (const util::TimeStamp& run_t0, const util::TimeStamp& case_t0);
+  // run_type: -1: deduce from run/case t0, 0: initial, 1: restart
+  void init_time_stamps (const util::TimeStamp& run_t0, const util::TimeStamp& case_t0, int run_type = -1);
 
   // Set AD params
   void init_scorpio (const int atm_id = 0);
+
+  // Setup IOPDataManager
+  void setup_iop_data_manager ();
 
   // Create atm processes, without initializing them
   void create_atm_processes ();
@@ -83,6 +88,9 @@ public:
   void setup_surface_coupling_data_manager(SurfaceCouplingTransferType transfer_type,
                                            const int num_cpl_fields, const int num_scream_fields,
                                            const int field_size, Real* data_ptr,
+#ifdef HAVE_MOAB
+                                           Real* data_ptr_moab,
+#endif
                                            char* names_ptr, int* cpl_indices_ptr, int* vec_comps_ptr,
                                            Real* constant_multiple_ptr, bool* do_transfer_during_init_ptr);
 
@@ -91,14 +99,31 @@ public:
   void setup_surface_coupling_processes() const;
 
   // Zero out precipitation flux
-  void reset_accummulated_fields();
+  void reset_accumulated_fields();
 
   // Create and add mass and energy conservation checks
   // and pass to m_atm_process_group.
   void setup_column_conservation_checks ();
 
+  // If TMS process exists, creates link to SHOC for applying
+  // tms' surface drag coefficient.
+  void setup_shoc_tms_links();
+
+  // Add column data to all pre/postcondition property checks
+  // for use in output.
+  void add_additional_column_data_to_property_checks ();
+
+  void set_provenance_data (std::string caseid = "",
+                            std::string rest_caseid = "",
+                            std::string hostname = "",
+                            std::string username = "",
+                            std::string versionid = "");
+
   // Load initial conditions for atm inputs
   void initialize_fields ();
+
+  // Create output managers
+  void create_output_managers ();
 
   // Initialie I/O structures for output
   void initialize_output_managers ();
@@ -136,7 +161,6 @@ public:
   // NOTE: if already finalized, this is a no-op
   void finalize ();
 
-  field_mgr_ptr get_ref_grid_field_mgr () const;
   field_mgr_ptr get_field_mgr (const std::string& grid_name) const;
 
   // Get atmosphere time stamp
@@ -161,21 +185,10 @@ protected:
   void set_initial_conditions ();
   void restart_model ();
 
-  // Read fields from a file when the names of the fields in
-  // EAMxx do not match exactly with the .nc file. Example is
-  // for topography data files, where GLL and PG2 grid have
-  // different naming conventions for phis.
-  void read_fields_from_file (const std::vector<std::string>& field_names_nc,
-                              const std::vector<std::string>& field_names_eamxx,
+  // Read fields from a file
+  void read_fields_from_file (const std::vector<Field>& fields,
                               const std::shared_ptr<const AbstractGrid>& grid,
-                              const std::string& file_name,
-                              const util::TimeStamp& t0);
-  // Read fields from a file when the names of the fields in
-  // EAMxx match with the .nc file.
-  void read_fields_from_file (const std::vector<std::string>& field_names,
-                              const std::shared_ptr<const AbstractGrid>& grid,
-                              const std::string& file_name,
-                              const util::TimeStamp& t0);
+                              const std::string& file_name);
   void register_groups ();
 
   std::map<std::string,field_mgr_ptr>       m_field_mgrs;
@@ -186,11 +199,14 @@ protected:
 
   ekat::ParameterList                       m_atm_params;
 
+  std::shared_ptr<OutputManager>            m_restart_output_manager;
   std::list<OutputManager>                  m_output_managers;
 
   std::shared_ptr<ATMBufferManager>         m_memory_buffer;
   std::shared_ptr<SCDataManager>            m_surface_coupling_import_data_manager;
   std::shared_ptr<SCDataManager>            m_surface_coupling_export_data_manager;
+
+  std::shared_ptr<IOPDataManager>           m_iop_data_manager;
 
   // This is the time stamp at the beginning of the time step.
   util::TimeStamp                           m_current_ts;
@@ -200,6 +216,7 @@ protected:
   // restarted runs, the latter is "older" than the former
   util::TimeStamp                           m_run_t0;
   util::TimeStamp                           m_case_t0;
+  RunType                                   m_run_type;
 
   // This is the comm containing all (and only) the processes assigned to the atmosphere
   ekat::Comm                                m_atm_comm;
@@ -219,6 +236,7 @@ protected:
   static constexpr int s_fields_inited  =  256;
   static constexpr int s_procs_inited   =  512;
   static constexpr int s_ts_inited      = 1024;
+  static constexpr int s_output_created = 2048;
 
   // Lazy version to ensure s_atm_inited & flag is true for every flag,
   // even if someone adds new flags later on
@@ -235,6 +253,8 @@ protected:
 
   // Current simulation casename
   std::string m_casename;
+  // maps grid name to a vector of its initialized fields
+  std::map<std::string, std::vector<std::string>> m_fields_inited;
 };
 
 }  // namespace control

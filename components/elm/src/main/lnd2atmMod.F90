@@ -9,9 +9,10 @@ module lnd2atmMod
   use shr_log_mod            , only : errMsg => shr_log_errMsg
   use abortutils             , only : endrun
   use shr_megan_mod        , only : shr_megan_mechcomps_n
+  use shr_fan_mod          , only : shr_fan_to_atm
   use elm_varpar           , only : numrad, ndst, nlevgrnd, nlevsno, nlevsoi !ndst = number of dust bins.
   use elm_varcon           , only : rair, grav, cpair, hfus, tfrz, spval
-  use elm_varctl           , only : iulog, use_c13, use_cn, use_lch4, use_voc, use_fates, use_atm_downscaling_to_topunit
+  use elm_varctl           , only : iulog, use_c13, use_cn, use_lch4, use_voc, use_fates, use_atm_downscaling_to_topunit, use_fan
   use elm_varctl           , only : use_lnd_rof_two_way
   use tracer_varcon        , only : is_active_betr_bgc
   use seq_drydep_mod   , only : n_drydep, drydep_method, DD_XLND
@@ -30,7 +31,7 @@ module lnd2atmMod
   use GridcellType         , only : grc_pp
   use TopounitDataType     , only : top_es, top_af                 ! To calculate t_rad at topounit level needed in downscaling
   use GridcellDataType     , only : grc_ef, grc_ws, grc_wf
-  use ColumnDataType       , only : col_ws, col_wf, col_cf, col_es
+  use ColumnDataType       , only : col_ws, col_wf, col_cf, col_es, col_nf
   use VegetationDataType   , only : veg_es, veg_ef, veg_ws, veg_wf
   use SoilHydrologyType    , only : soilhydrology_type 
   use SedFluxType          , only : sedflux_type
@@ -181,7 +182,9 @@ contains
       q_ref2m     => veg_ws%q_ref2m , &
       q_ref2m_grc => lnd2atm_vars%q_ref2m_grc      , &
       u10_elm_patch => frictionvel_vars%u10_elm_patch , &
+      u10_with_gusts_elm_patch => frictionvel_vars%u10_with_gusts_elm_patch, &
       u_ref10m_grc => lnd2atm_vars%u_ref10m_grc      , &
+      u_ref10m_with_gusts_grc => lnd2atm_vars%u_ref10m_with_gusts_grc      , &
       taux     => veg_ef%taux , &
       taux_grc => lnd2atm_vars%taux_grc      , &
       tauy     => veg_ef%tauy , &
@@ -221,6 +224,7 @@ contains
       qflx_qrgwl            => col_wf%qflx_qrgwl                   , &
       qflx_rofliq_qgwl_grc  => lnd2atm_vars%qflx_rofliq_qgwl_grc   , &
       qflx_snwcp_ice        => col_wf%qflx_snwcp_ice,  &
+      qflx_ice_runoff_xs    => col_wf%qflx_ice_runoff_xs,  &
       qflx_rofice_grc       => lnd2atm_vars%qflx_rofice_grc     ,  &
       endwb                 => col_ws%endwb , &
       tws                   => grc_ws%tws   , &
@@ -233,7 +237,8 @@ contains
       coszen_col       => surfalb_vars%coszen_col , &
       coszen_str       => lnd2atm_vars%coszen_str , &
       qflx_h2orof_drain     => col_wf%qflx_h2orof_drain , &
-      qflx_h2orof_drain_grc => lnd2atm_vars%qflx_h2orof_drain_grc &
+      qflx_h2orof_drain_grc => lnd2atm_vars%qflx_h2orof_drain_grc, &
+      nh3_total        => col_nf%nh3_total &
       )
     !----------------------------------------------------
     ! lnd -> atm
@@ -256,6 +261,11 @@ contains
     call p2g(bounds, &
          u10_elm_patch(bounds%begp:bounds%endp) , &
          u_ref10m_grc (bounds%begg:bounds%endg)     , &
+         p2c_scale_type=unity, c2l_scale_type= unity, l2g_scale_type=unity)
+
+    call p2g(bounds, &
+         u10_with_gusts_elm_patch(bounds%begp:bounds%endp) , &
+         u_ref10m_with_gusts_grc (bounds%begg:bounds%endg)     , &
          p2c_scale_type=unity, c2l_scale_type= unity, l2g_scale_type=unity)
 
     call p2g(bounds, &
@@ -359,6 +369,14 @@ contains
             c2l_scale_type= unity, l2g_scale_type=unity )
     end if
 
+    ! nh3 flux
+    if (shr_fan_to_atm) then
+       call c2g(bounds,     &
+            nh3_total (bounds%begc:bounds%endc), &
+            lnd2atm_vars%flux_nh3_grc  (bounds%begg:bounds%endg), &
+            c2l_scale_type= unity, l2g_scale_type=unity)
+    end if
+
     !----------------------------------------------------
     ! lnd -> rof
     !----------------------------------------------------
@@ -401,7 +419,8 @@ contains
          qflx_qrgwl          (bounds%begc:bounds%endc)         , &
          qflx_rofliq_qgwl_grc(bounds%begg:bounds%endg)    , &
          c2l_scale_type= urbanf, l2g_scale_type=unity )
-
+    
+    qflx_snwcp_ice(bounds%begc:bounds%endc) = qflx_snwcp_ice(bounds%begc:bounds%endc) + qflx_ice_runoff_xs(bounds%begc:bounds%endc) 
     call c2g( bounds, &
          qflx_snwcp_ice (bounds%begc:bounds%endc)     ,  &
          qflx_rofice_grc(bounds%begg:bounds%endg)     ,  &

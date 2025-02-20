@@ -2,7 +2,7 @@
 Utilities
 """
 
-import os, sys, re, signal, subprocess, site, time
+import os, sys, re, signal, subprocess, site, time, argparse
 from importlib import import_module
 from pathlib import Path
 
@@ -415,3 +415,14 @@ def ensure_yaml():   _ensure_pylib_impl("yaml", pip_libname="pyyaml",min_version
 def ensure_pylint(): _ensure_pylib_impl("pylint")
 def ensure_psutil(): _ensure_pylib_impl("psutil")
 def ensure_netcdf4(): _ensure_pylib_impl("netCDF4")
+
+###############################################################################
+class GoodFormatter(
+    argparse.ArgumentDefaultsHelpFormatter,
+    argparse.RawDescriptionHelpFormatter
+):
+###############################################################################
+    """
+    We want argument default info to be added but we also want to
+    preserve formatting in the description string.
+    """

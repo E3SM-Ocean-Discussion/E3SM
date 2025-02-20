@@ -106,6 +106,15 @@ module chemistry
   integer            :: ext_frc_fixed_ymd = 0
   integer            :: ext_frc_fixed_tod = 0
 
+  ! alternative type and cycle year for volcanic and other SO2 for controlling single forcing experiments
+  ! if NULL, same treatment as for the other species. 
+  ! Possible in the future to modify further and apply to volcanic sector of SO2 alone
+
+  character(len=24)  :: ext_frc_volc_type = 'NULL' !'NULL'|'CYCLICAL'|'SERIAL'|'INTERP_MISSING_MONTHS'
+  integer            :: ext_frc_volc_cycle_yr  = -1
+
+  real(r8)           :: dms_emis_scale = 1._r8
+
   ! fixed stratosphere
   
   character(len=shr_kind_cl) :: fstrat_file = 'fstrat_file'
@@ -512,7 +521,8 @@ end function chem_is
          depvel_lnd_file, clim_soilw_file, season_wes_file, drydep_srf_file, &
          srf_emis_type, srf_emis_cycle_yr, srf_emis_fixed_ymd, srf_emis_fixed_tod, srf_emis_specifier,  &
          fstrat_file, fstrat_list, fstrat_efold_list, &
-         ext_frc_specifier, ext_frc_type, ext_frc_cycle_yr, ext_frc_fixed_ymd, ext_frc_fixed_tod
+         ext_frc_specifier, ext_frc_type, ext_frc_cycle_yr, ext_frc_fixed_ymd, ext_frc_fixed_tod, &
+         ext_frc_volc_type, ext_frc_volc_cycle_yr, dms_emis_scale
 
     namelist /chem_inparm/ chem_rad_passive
 
@@ -686,7 +696,10 @@ end function chem_is
     call mpibcast (ext_frc_cycle_yr,  1,                               mpiint,  0, mpicom)
     call mpibcast (ext_frc_fixed_ymd, 1,                               mpiint,  0, mpicom)
     call mpibcast (ext_frc_fixed_tod, 1,                               mpiint,  0, mpicom)
+    call mpibcast (ext_frc_volc_type, len(ext_frc_volc_type),          mpichar, 0, mpicom)
+    call mpibcast (ext_frc_volc_cycle_yr,  1,                          mpiint,  0, mpicom)
 
+    call mpibcast (dms_emis_scale,    1,                               mpir8,   0, mpicom)
 
     ! fixed stratosphere
 
@@ -1029,6 +1042,8 @@ end function chem_is_active
        , ext_frc_cycle_yr &
        , ext_frc_fixed_ymd &
        , ext_frc_fixed_tod &
+       , ext_frc_volc_type &
+       , ext_frc_volc_cycle_yr &
        , xactive_prates &
        , exo_coldens_file &
        , tuv_xsect_file &
@@ -1145,7 +1160,7 @@ end function chem_is_active
     !-----------------------------------------------------------------------      
     !        ... Set surface emissions
     !-----------------------------------------------------------------------      
-    call set_srf_emissions( lchnk, ncol, sflx(:,:) )
+    call set_srf_emissions( lchnk, ncol, dms_emis_scale, sflx(:,:) )
 
     do m = 1,pcnst
        n = map2chm(m)
@@ -1570,44 +1585,43 @@ end function chem_is_active
            end if
            ! HHLEE 20210923
            if (history_gaschmbudget_2D_levels .or. history_chemdyg_summary) then
-             ftem_layers = 0.0_r8
-             gas_ac_layers = 0.0_r8
+                ftem_layers = 0.0_r8
+                gas_ac_layers = 0.0_r8
+             if( nstep /= 0 ) then
+                gas_ac_idx = pbuf_get_index(gas_ac_name(n))
+                call pbuf_get_field(pbuf, gas_ac_idx, gas_ac )
 
-             gas_ac_idx = pbuf_get_index(gas_ac_name(n))
-             call pbuf_get_field(pbuf, gas_ac_idx, gas_ac )
+                if (gaschmbudget_2D_L1_e .lt. gaschmbudget_2D_L1_s .or. gaschmbudget_2D_L2_e .lt. gaschmbudget_2D_L2_s .or. &
+                        gaschmbudget_2D_L3_e .lt. gaschmbudget_2D_L3_s .or. gaschmbudget_2D_L4_e .lt. gaschmbudget_2D_L4_s ) then
+                        call endrun('chem_readnl: ERROR 2D chem diags layers, layer ending index is less than starting index')
+                end if
 
-             if (gaschmbudget_2D_L1_e .lt. gaschmbudget_2D_L1_s .or. gaschmbudget_2D_L2_e .lt. gaschmbudget_2D_L2_s .or. &
-                 gaschmbudget_2D_L3_e .lt. gaschmbudget_2D_L3_s .or. gaschmbudget_2D_L4_e .lt. gaschmbudget_2D_L4_s ) then
-                   call endrun('chem_readnl: ERROR 2D chem diags layers, layer ending index is less than starting index')
-             end if
-
-             do k= gaschmbudget_2D_L1_s, gaschmbudget_2D_L1_e ! 0-90 hPa
-               ftem_layers(:ncol,1) = ftem_layers(:ncol,1) + ftem(:ncol,k)
-               gas_ac_layers(:ncol,1) = gas_ac_layers(:ncol,1) + gas_ac(:ncol,k)
-             end do
-             do k= gaschmbudget_2D_L2_s, gaschmbudget_2D_L2_e ! 90-300 hPa
-               ftem_layers(:ncol,2) = ftem_layers(:ncol,2) + ftem(:ncol,k)
-               gas_ac_layers(:ncol,2) = gas_ac_layers(:ncol,2) + gas_ac(:ncol,k)
-             end do
-             do k= gaschmbudget_2D_L3_s, gaschmbudget_2D_L3_e ! 300-850 hPa
-               ftem_layers(:ncol,3) = ftem_layers(:ncol,3) + ftem(:ncol,k)
-               gas_ac_layers(:ncol,3) = gas_ac_layers(:ncol,3) + gas_ac(:ncol,k)
-             end do
-             do k= gaschmbudget_2D_L4_s, gaschmbudget_2D_L4_e ! 850 hPa - surface
-               ftem_layers(:ncol,4) = ftem_layers(:ncol,4) + ftem(:ncol,k)
-               gas_ac_layers(:ncol,4) = gas_ac_layers(:ncol,4) + gas_ac(:ncol,k)
-             end do
+                do k= gaschmbudget_2D_L1_s, gaschmbudget_2D_L1_e ! 0-90 hPa
+                   ftem_layers(:ncol,1) = ftem_layers(:ncol,1) + ftem(:ncol,k)
+                   gas_ac_layers(:ncol,1) = gas_ac_layers(:ncol,1) + gas_ac(:ncol,k)
+                end do
+                do k= gaschmbudget_2D_L2_s, gaschmbudget_2D_L2_e ! 90-300 hPa
+                   ftem_layers(:ncol,2) = ftem_layers(:ncol,2) + ftem(:ncol,k)
+                   gas_ac_layers(:ncol,2) = gas_ac_layers(:ncol,2) + gas_ac(:ncol,k)
+                end do
+                do k= gaschmbudget_2D_L3_s, gaschmbudget_2D_L3_e ! 300-850 hPa
+                   ftem_layers(:ncol,3) = ftem_layers(:ncol,3) + ftem(:ncol,k)
+                   gas_ac_layers(:ncol,3) = gas_ac_layers(:ncol,3) + gas_ac(:ncol,k)
+                end do
+                do k= gaschmbudget_2D_L4_s, gaschmbudget_2D_L4_e ! 850 hPa - surface
+                   ftem_layers(:ncol,4) = ftem_layers(:ncol,4) + ftem(:ncol,k)
+                   gas_ac_layers(:ncol,4) = gas_ac_layers(:ncol,4) + gas_ac(:ncol,k)
+                end do
+             endif
              if (history_gaschmbudget_2D_levels ) then
-             call outfld(trim(solsym(n))//'_2DMSB_L1', ftem_layers(:ncol,1), pcols, lchnk)
-             call outfld(trim(solsym(n))//'_2DMSB_L2', ftem_layers(:ncol,2), pcols, lchnk)
-             call outfld(trim(solsym(n))//'_2DMSB_L3', ftem_layers(:ncol,3), pcols, lchnk)
-             call outfld(trim(solsym(n))//'_2DMSB_L4', ftem_layers(:ncol,4), pcols, lchnk)
+                call outfld(trim(solsym(n))//'_2DMSB_L1', ftem_layers(:ncol,1), pcols, lchnk)
+                call outfld(trim(solsym(n))//'_2DMSB_L2', ftem_layers(:ncol,2), pcols, lchnk)
+                call outfld(trim(solsym(n))//'_2DMSB_L3', ftem_layers(:ncol,3), pcols, lchnk)
+                call outfld(trim(solsym(n))//'_2DMSB_L4', ftem_layers(:ncol,4), pcols, lchnk)
              endif
 
-             if( nstep == 0 ) then
-                Diff_layers(:ncol,:) = 0.0_r8
-             else
-                Diff_layers(:ncol,:) = 0.0_r8
+             Diff_layers(:ncol,:) = 0.0_r8
+             if( nstep /= 0 ) then
                 Diff_layers(:ncol,1) = (ftem_layers(:ncol,1) - gas_ac_layers(:ncol,1))/dt
                 Diff_layers(:ncol,2) = (ftem_layers(:ncol,2) - gas_ac_layers(:ncol,2))/dt
                 Diff_layers(:ncol,3) = (ftem_layers(:ncol,3) - gas_ac_layers(:ncol,3))/dt
@@ -1625,18 +1639,18 @@ end function chem_is_active
                  trim(solsym(n))=='N2OLNZ' .or. trim(solsym(n))=='CH4LNZ') then
                 ftem_layers = 0.0_r8
                 gas_ac_layers = 0.0_r8
-                do k=1,pver
-                   ftem_layers(:ncol,1) = ftem_layers(:ncol,1) + ftem(:ncol,k) * tropFlagInt(:ncol,k)
-                   gas_ac_layers(:ncol,1) = gas_ac_layers(:ncol,1) + gas_ac(:ncol,k) * tropFlagInt(:ncol,k)
-                end do
-                if (history_gaschmbudget_2D_levels ) then
-                call outfld(trim(solsym(n))//'_2DMSB_trop', ftem_layers(:ncol,1), pcols, lchnk )
+                if( nstep /= 0 ) then
+                    do k=1,pver
+                       ftem_layers(:ncol,1) = ftem_layers(:ncol,1) + ftem(:ncol,k) * tropFlagInt(:ncol,k)
+                       gas_ac_layers(:ncol,1) = gas_ac_layers(:ncol,1) + gas_ac(:ncol,k) * tropFlagInt(:ncol,k)
+                    end do
                 endif
-
-                if( nstep == 0 ) then
-                   Diff_layers(:ncol,:) = 0.0_r8
-                else
-                   Diff_layers(:ncol,:) = 0.0_r8
+                if (history_gaschmbudget_2D_levels ) then
+                    call outfld(trim(solsym(n))//'_2DMSB_trop', ftem_layers(:ncol,1), pcols, lchnk )
+                endif
+                
+                Diff_layers(:ncol,:) = 0.0_r8
+                if( nstep /= 0 ) then
                    Diff_layers(:ncol,1) = (ftem_layers(:ncol,1) - gas_ac_layers(:ncol,1))/dt
                 end if
                         

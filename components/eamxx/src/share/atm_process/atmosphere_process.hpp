@@ -4,6 +4,7 @@
 #include "share/atm_process/atmosphere_process_utils.hpp"
 #include "share/atm_process/ATMBufferManager.hpp"
 #include "share/atm_process/SCDataManager.hpp"
+#include "share/atm_process/IOPDataManager.hpp"
 #include "share/field/field_identifier.hpp"
 #include "share/field/field_manager.hpp"
 #include "share/property_checks/property_check.hpp"
@@ -76,12 +77,13 @@ public:
   using ci_string = ekat::CaseInsensitiveString;
   using logger_t  = ekat::logger::LoggerBase;
   using LogLevel  = ekat::logger::LogLevel;
-  using any_ptr_t = std::shared_ptr<ekat::any>;
 
   template<typename T>
   using strmap_t = std::map<std::string,T>;
 
   using prop_check_ptr = std::shared_ptr<PropertyCheck>;
+
+  using iop_data_ptr = std::shared_ptr<control::IOPDataManager>;
 
   // Base constructor to set MPI communicator and params
   AtmosphereProcess (const ekat::Comm& comm, const ekat::ParameterList& params);
@@ -115,7 +117,7 @@ public:
   const ekat::Comm& get_comm () const { return m_comm; }
 
   // Return the parameter list
-  const ekat::ParameterList& get_params () const { return m_params; }
+  ekat::ParameterList& get_params () { return m_params; }
 
   // This method prepares the atm proc for computing the tendency of
   // output fields, as prescribed via parameter list
@@ -152,6 +154,20 @@ public:
   void run_precondition_checks () const;
   void run_postcondition_checks () const;
   void run_column_conservation_check () const;
+
+  // Returns pre/postcondition checks
+  std::list<std::pair<CheckFailHandling,prop_check_ptr>>
+  get_precondition_checks () {
+    return m_precondition_checks;
+  }
+  std::list<std::pair<CheckFailHandling,prop_check_ptr>>
+  get_postcondition_checks() {
+    return m_postcondition_checks;
+  }
+  std::pair<CheckFailHandling,prop_check_ptr>
+  get_column_conservation_check() {
+    return m_column_conservation_check;
+  }
 
 
   void init_step_tendencies ();
@@ -250,17 +266,28 @@ public:
   //  - these maps are: data_name -> ekat::any
   //  - the data_name is unique across the whole atm
   // The AD will take care of ensuring these are written/read to/from restart files.
-  const strmap_t<any_ptr_t>& get_restart_extra_data () const { return m_restart_extra_data; }
-        strmap_t<any_ptr_t>& get_restart_extra_data ()       { return m_restart_extra_data; }
+  const strmap_t<ekat::any>& get_restart_extra_data () const { return m_restart_extra_data; }
+        strmap_t<ekat::any>& get_restart_extra_data ()       { return m_restart_extra_data; }
 
   // Boolean that dictates whether or not the conservation checks are run for this process
   bool has_column_conservation_check () { return m_column_conservation_check_data.has_check; }
 
   // For internal diagnostics and debugging.
-  void print_global_state_hash(const std::string& label) const;
+  void print_global_state_hash(const std::string& label, const bool in = true,
+                               const bool out = true, const bool internal = true,
+                               const Real* mem = nullptr, const int nmem = 0) const;
   // For BFB tracking in production simulations.
   void print_fast_global_state_hash(const std::string& label) const;
-  
+
+  // Set IOP object
+  virtual void set_iop_data_manager(const iop_data_ptr& iop_data_manager) {
+    m_iop_data_manager = iop_data_manager;
+  }
+
+  std::shared_ptr<logger_t> get_logger () const {
+    return m_atm_logger;
+  }
+
 protected:
 
   // Sends a message to the atm log
@@ -270,6 +297,8 @@ protected:
   int get_subcycle_iter () const { return m_subcycle_iter; }
   bool do_update_time_stamp () const { return m_update_time_stamps; }
 
+  int get_internal_diagnostics_level () const { return m_internal_diagnostics_level; }
+
   // Derived classes can used these method, so that if we change how fields/groups
   // requirement are stored (e.g., change the std container), they don't need to change
   // their implementation.
@@ -278,6 +307,14 @@ protected:
   // no pack size vs single group and pack size.
 
   // Field requests
+  template<RequestType RT>
+  void add_field (const std::string& name, const std::string& grid_name,
+                  const std::list<std::string>& groups, const int ps = 1)
+  { add_field<RT>(FieldRequest(name,grid_name,groups,ps)); }
+  template<RequestType RT>
+  void add_field (const std::string& name, const std::string& grid_name, const int ps = 1)
+  { add_field<RT>(name,grid_name,{},ps);}
+
   template<RequestType RT>
   void add_field (const std::string& name, const FieldLayout& layout,
                   const ekat::units::Units& u, const std::string& grid_name,
@@ -312,6 +349,29 @@ protected:
   void add_field (const FieldIdentifier& fid, const std::list<std::string>& groups, const int ps)
   { add_field<RT>(FieldRequest(fid,groups,ps)); }
 
+  // Specialization for add_field to tracer group
+  template<RequestType RT>
+  void add_tracer (const std::string& name, std::shared_ptr<const AbstractGrid> grid,
+                   const ekat::units::Units& u, const int ps = 1)
+  { add_field<RT>(name, grid->get_3d_scalar_layout(true), u, grid->name(), "tracers", ps); }
+
+  // Group requests
+  template<RequestType RT>
+  void add_group (const std::string& name, const std::string& grid, const int ps, const Bundling b,
+                  const DerivationType t, const std::string& src_name, const std::string& src_grid,
+                  const std::list<std::string>& excl = {})
+  { add_group<RT>(GroupRequest(name,grid,ps,b,t,src_name,src_grid,excl)); }
+
+  template<RequestType RT>
+  void add_group (const std::string& name, const std::string& grid_name,
+                  const Bundling b = Bundling::NotNeeded)
+  { add_group<RT> (GroupRequest(name,grid_name,b)); }
+
+  template<RequestType RT>
+  void add_group (const std::string& name, const std::string& grid_name,
+                  const int pack_size, const Bundling b = Bundling::NotNeeded)
+  { add_group<RT> (GroupRequest(name,grid_name,pack_size,b)); }
+
   template<RequestType RT>
   void add_field (const FieldRequest& req)
   {
@@ -332,23 +392,6 @@ protected:
         break;
     }
   }
-
-  // Group requests
-  template<RequestType RT>
-  void add_group (const std::string& name, const std::string& grid, const int ps, const Bundling b,
-                  const DerivationType t, const std::string& src_name, const std::string& src_grid,
-                  const std::list<std::string>& excl = {})
-  { add_group<RT>(GroupRequest(name,grid,ps,b,t,src_name,src_grid,excl)); }
-
-  template<RequestType RT>
-  void add_group (const std::string& name, const std::string& grid_name,
-                  const Bundling b = Bundling::NotNeeded)
-  { add_group<RT> (GroupRequest(name,grid_name,b)); }
-
-  template<RequestType RT>
-  void add_group (const std::string& name, const std::string& grid_name,
-                  const int pack_size, const Bundling b = Bundling::NotNeeded)
-  { add_group<RT> (GroupRequest(name,grid_name,pack_size,b)); }
 
   template<RequestType RT>
   void add_group (const GroupRequest& req)
@@ -443,7 +486,7 @@ protected:
   std::shared_ptr<logger_t>  m_atm_logger;
 
   // Extra data needed for restart
-  strmap_t<any_ptr_t>  m_restart_extra_data;
+  strmap_t<ekat::any>  m_restart_extra_data;
 
   // Use at your own risk. Motivation: Free up device memory for a field that is
   // no longer used, such as a field read in the ICs used only to initialize
@@ -494,6 +537,7 @@ private:
   // Data structures necessary to compute tendencies of updated fields
   strmap_t<std::string>    m_tend_to_field;
   strmap_t<Field>          m_proc_tendencies;
+  strmap_t<Field>          m_start_of_step_fields;
 
   // These maps help to retrieve a field/group stored in the lists above. E.g.,
   //   auto ptr = m_field_in_pointers[field_name][grid_name];
@@ -546,6 +590,14 @@ private:
 
   // Log level for when property checks perform a repair
   ekat::logger::LogLevel  m_repair_log_level;
+
+  // Controls global hashing output for debugging non-BFBness.
+  int m_internal_diagnostics_level;
+
+protected:
+
+  // IOP object
+  iop_data_ptr m_iop_data_manager;
 };
 
 // ================= IMPLEMENTATION ================== //

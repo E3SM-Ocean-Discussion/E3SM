@@ -80,6 +80,8 @@ module ocn_vel_tidal_potential
       tidalConstituentAstronomical,   &!
       tidalConstituentNodalPhase       !
 
+   real (kind=RKIND), pointer :: forcingTimeIncrement
+
    real (kind=RKIND), dimension(:,:), pointer :: &
       latitudeFunction 
 
@@ -95,8 +97,8 @@ module ocn_vel_tidal_potential
    type(char_array), dimension(37) :: constituentList
    public :: char_array
 
-   ! Flag for ssh_sal
-   real(kind=RKIND) :: ssh_sal_on
+   ! Flag for pgf_sal
+   real(kind=RKIND) :: pgf_sal_on
 
 !***********************************************************************
 
@@ -162,7 +164,7 @@ contains
 #ifdef MPAS_OPENACC
          !$acc parallel loop &
          !$acc    present(cellsOnEdge, maxLevelEdgeTop, dcEdge, edgeMask, &
-         !$acc            tidalPotEta, ssh, surfacePressure, tend, ssh_sal) &
+         !$acc            tidalPotEta, ssh, surfacePressure, tend, pgf_sal) &
          !$acc    private(cell1, cell2, invdcEdge, potentialGrad, k, kMax)
 #else
          !$omp parallel do schedule(runtime) &
@@ -176,8 +178,8 @@ contains
 
             potentialGrad = - gravity*invdcEdge* &
                ( tidalPotEta(cell2) - tidalPotEta(cell1) &
-                + (1.0_RKIND - ssh_sal_on) * betaSelfAttrLoad * ( rho0gInv*(surfacePressure(cell2) - surfacePressure(cell1))) &
-                + ssh_sal_on * (ssh_sal(cell2) - ssh_sal(cell1)) )
+                + (1.0_RKIND - pgf_sal_on) * betaSelfAttrLoad * ( rho0gInv*(surfacePressure(cell2) - surfacePressure(cell1))) &
+                + pgf_sal_on * (pgf_sal(cell2) - pgf_sal(cell1)) )
 
             do k=1,kMax
                tend(k,iEdge) = tend(k,iEdge) - &
@@ -193,7 +195,7 @@ contains
 #ifdef MPAS_OPENACC
          !$acc parallel loop &
          !$acc    present(cellsOnEdge, maxLevelEdgeTop, dcEdge, edgeMask, &
-         !$acc            tidalPotEta, ssh, surfacePressure, tend, ssh_sal) &
+         !$acc            tidalPotEta, ssh, surfacePressure, tend, pgf_sal) &
          !$acc    private(cell1, cell2, invdcEdge, potentialGrad, k, kMax)
 #else
          !$omp parallel do schedule(runtime) &
@@ -207,9 +209,9 @@ contains
 
             potentialGrad = - gravity*invdcEdge* &
                (  tidalPotEta(cell2) - tidalPotEta(cell1) &
-                + (1.0_RKIND - ssh_sal_on) * betaSelfAttrLoad *( (ssh(cell2) - ssh(cell1)) &
-                                                         + rho0gInv*(surfacePressure(cell2) - surfacePressure(cell1))) &
-                + ssh_sal_on * (ssh_sal(cell2) - ssh_sal(cell1)) )
+               + (1.0_RKIND - pgf_sal_on) * betaSelfAttrLoad *( (ssh(cell2) - ssh(cell1)) & 
+                                                        + rho0gInv*(surfacePressure(cell2) - surfacePressure(cell1))) &
+               + pgf_sal_on * (pgf_sal(cell2) - pgf_sal(cell1)) )
 
             do k=1,kMax
                tend(k,iEdge) = tend(k,iEdge) - &
@@ -273,8 +275,8 @@ contains
       err = 0
       if (tidalPotentialOff) return
 
-      ramp = tanh((2.0_RKIND*daysSinceStartOfSim)/tidalPotRamp)
-      t = daysSinceStartOfSim*86400.0_RKIND
+      t = daysSinceStartOfSim*86400.0_RKIND + forcingTimeIncrement
+      ramp = tanh((2.0_RKIND*t/86400.0_RKIND)/tidalPotRamp)
 
       do iCell = 1, nCellsAll
          tidalPotEta(iCell) = 0.0_RKIND
@@ -282,7 +284,7 @@ contains
 
       !*** Compute eta by summing all constituent contributions
       do jCon = 1, nTidalConstituents
-         period = 2.0_RKIND*pii/tidalConstituentFrequency(jCon)
+         period = 2.0_RKIND*pi/tidalConstituentFrequency(jCon)
          nCycles = real(int(t/period),RKIND)
          targ = tidalConstituentFrequency(jCon)*(t - nCycles*period) + &
                 tidalConstituentNodalPhase(jCon) + &
@@ -366,9 +368,9 @@ contains
 
          tidalPotentialOff = .false.
          if (config_use_self_attraction_loading) then
-            ssh_sal_on = 1.0_RKIND
+            pgf_sal_on = 1.0_RKIND
          else
-            ssh_sal_on = 0.0_RKIND
+            pgf_sal_on = 0.0_RKIND
          endif
 
          betaSelfAttrLoad = config_self_attraction_and_loading_beta
@@ -416,6 +418,9 @@ contains
          call mpas_pool_get_array(forcingPool, &
                             'tidalPotentialLatitudeFunction', &
                             latitudeFunction)
+         call mpas_pool_get_array(forcingPool, &
+                            'forcingTimeIncrement', &
+                            forcingTimeIncrement)
 
          call mpas_set_time(refTime, &
                dateTimeString=config_tidal_potential_reference_time)
@@ -503,7 +508,8 @@ contains
             call mpas_log_write(' ')
          end do
 
-         if (config_time_integrator == 'LTS') then
+         if ( (config_time_integrator == 'LTS') & 
+              .or. (config_time_integrator == 'FB_LTS') ) then
             timeIntegratorLTS = .true.
          else
             timeIntegratorLTS = .false.
@@ -582,7 +588,7 @@ contains
       !h = 280.4661_RKIND + 0.98564736_RKIND*T;
       !p = 83.3535_RKIND + 0.11140353_RKIND*T;
       !N = 125.0445_RKIND - 0.05295377_RKIND*T;
-      !N = N*pii/180.0_RKIND
+      !N = N*pi/180.0_RKIND
       
       !! M2
           !tidalConstituentAstronomical(j) = 2.0_RKIND*h - 2.0_RKIND*s 
@@ -610,7 +616,7 @@ contains
           !tidalConstituentNodalAmplitude(j) = 1.009_RKIND + 0.187_RKIND*cos(N)
 
 
-      deg2rad = pii/180.0_RKIND
+      deg2rad = pi/180.0_RKIND
       T = adjust_angle(180.0_RKIND + real(refHour,RKIND)*(360.0_RKIND/24.0_RKIND))
 
       do j = 1,nTidalConstituents
@@ -741,8 +747,8 @@ contains
       real (kind=RKIND) :: deg2rad,rad2deg
       real (kind=RKIND) :: NRad,pRad,IRad,nuRad,xiRad,nupRad,nup2Rad
 
-      deg2rad = pii/180.0_RKIND
-      rad2deg = 180.0_RKIND/pii
+      deg2rad = pi/180.0_RKIND
+      rad2deg = 180.0_RKIND/pi
 
       x = int((real(year,RKIND)-1901.0_RKIND)/4.0_RKIND)
       yr = real(year,RKIND) - 1900.0_RKIND

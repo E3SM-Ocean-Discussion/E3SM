@@ -38,6 +38,7 @@ module ocn_diagnostics
    use ocn_mesh
    use ocn_surface_land_ice_fluxes
    use ocn_vertical_advection
+   use ocn_subgrid
 
    implicit none
    private
@@ -63,7 +64,7 @@ module ocn_diagnostics
              ocn_fuperp, &
              ocn_filter_btr_mode_tend_vel, &
              ocn_reconstruct_eddy_vectors, &
-             ocn_compute_kpp_input_fields, &
+             ocn_compute_mixing_input_fields, &
              ocn_validate_state, &
              ocn_build_log_filename, &
              ocn_diagnostics_init
@@ -181,7 +182,7 @@ contains
          call mpas_pool_get_array(forcingPool, 'landIceDraft', landIceDraft)
          call mpas_pool_get_array(forcingPool, 'landIceFloatingMask', landIceFloatingMask)
          call mpas_pool_get_array(forcingPool, 'landIceFraction', landIceFraction)
-         if (landIceFloatingMask(1) == -1) then
+         if (nCellsAll.gt.0 .AND. landIceFloatingMask(1) == -1) then
             call mpas_log_write('landIceFloatingMask contains the default value which likely indicates that this field is missing in the initial condition file (e.g. because it is meant for an older E3SM version).', &
                                 MPAS_LOG_CRIT)
          endif
@@ -217,6 +218,7 @@ contains
       !! tracersSurfaceValue calc                :: minLevelCell (mesh array)
       !! normalVelocitySurfaceLayer calc         :: minLevelEdgeBot (mesh array)
       !! surfaceFluxAttenuationCoefficientRunoff :: layerThickEdgeFlux (diagnostics array)
+      !! surfaceFluxAttenuationCoefficientSubglacialRunoff :: layerThickEdgeFlux (diagnostics array)
       !! ocn_diagnostic_solve_ssh                :: ssh, (not on device)
       !!                                            landIceDraft (not on device)
 
@@ -239,10 +241,19 @@ contains
 !     endif
 #endif
 
+      !
+      ! Z-coordinates
+      ! This section must be placed in the code before computing the density.
+      !
+      ! inputs : layerThickness
+      ! outputs : zMid, zTop, ssh)
+      call ocn_diagnostic_solve_z_coordinates(layerThickness, zMid, zTop, ssh)
+
       ! inputs: layerThickness, normalVelocity
       ! output: layerThickEdgeMean, layerThickEdgeDrag, layerThickEdgeFlux
       call ocn_diagnostic_solve_layerThicknessEdge(normalVelocity, &
-                                                   layerThickness, restingThickness)
+                                                   layerThickness, restingThickness, &
+                                                   ssh)
 
       ! inputs: normalVelocity
       ! outputs: relativeVorticity, circulation
@@ -337,13 +348,6 @@ contains
       call ocn_diagnostic_solve_surface_pressure(forcingPool, atmosphericPressure, &
                 seaIcePressure, surfacePressure)
 
-      !
-      ! Z-coordinates
-      ! This section must be placed in the code before computing the density.
-      !
-      ! inputs : layerThickness
-      ! outputs : zMid, zTop, ssh)
-      call ocn_diagnostic_solve_z_coordinates(layerThickness, zMid, zTop, ssh)
 
       !
       ! equation of state
@@ -454,6 +458,11 @@ contains
                 indexSurfaceLayerDepth, normalVelocitySurfaceLayer, &
                 sfcFlxAttCoeff, surfaceFluxAttenuationCoefficientRunoff)
 
+         if (trim(config_subglacial_runoff_mode) == 'data') then
+            ! outputs: surfaceFluxAttenuationCoefficientSubglacialRunoff
+            call ocn_diagnostic_solve_surfaceLayer_subglacialRunoff(surfaceFluxAttenuationCoefficientSubglacialRunoff)
+         end if
+
       end if ! full_compute
 
       !
@@ -519,6 +528,11 @@ contains
       !!                                            normalVelocitySurfaceLayer, (diagnostics array)
       !!                                            surfaceFluxAttenuationCoefficient, ????
       !!                                            surfaceFluxAttenuationCoefficientRunoff (diagnostics array)
+      !! surfaceFluxAttenuationCoefficientSubglacialRunoff :: tracersSurfaceLayerValue, (diagnostics array)
+      !!                                            indexSurfaceLayerDepth, (diagnostics array)
+      !!                                            normalVelocitySurfaceLayer, (diagnostics array)
+      !!                                            surfaceFluxAttenuationCoefficient, ????
+      !!                                            surfaceFluxAttenuationCoefficientSubglacialRunoff (diagnostics array)
       !! ocn_diagnostic_solve_ssh                :: pressureAdjustedSSH, (diagnostics array)
       !!                                            gradSSH (diagnostics array)
 
@@ -555,6 +569,10 @@ contains
 !        !$acc             normalVelocitySurfaceLayer, &
 !        !$acc             sfcFlxAttCoeff, &
 !        !$acc             surfaceFluxAttenuationCoefficientRunoff)
+!        if (trim(config_subglacial_runoff_mode) == 'data') then
+!        !$acc update host(surfaceFluxAttenuationCoefficientSubglacialRunoff)
+!        end if
+
 !     end if ! full_compute
 
 !     !$acc exit data delete (atmosphericPressure, seaIcePressure)
@@ -681,20 +699,19 @@ contains
 !
 !-----------------------------------------------------------------------
 
-   subroutine ocn_diagnostic_solve_wctEdge(btrVelocity, sshCell, &
-                         bottomDepthEdge, wctEdge)!{{{
+   subroutine ocn_diagnostic_solve_wctEdge(btrVelocity, deltaSSH, &
+                         baroclinicThickness, wctEdge)!{{{
 
       !-----------------------------------------------------------------
       ! input variables
       !-----------------------------------------------------------------
 
       real (kind=RKIND), dimension(:), intent(in) :: &
-         btrVelocity,   &!< barotropic velocity
-         sshCell,       &!< ssh at cells, used for centered water column
-                         !< thickness
-         bottomDepthEdge !< bottom depth centered at edges, used for
-                         !< centered water column thickness
-      ! bottomDepth is already present
+         btrVelocity,       &!< barotropic velocity
+         deltaSSH,          &!< ssh change from baroclinic step to barotropic
+                             !< substep
+         baroclinicThickness !< water column thickness on edges at the last
+                             !< baroclinic step (centered or upwinded)
 
       !-----------------------------------------------------------------
       ! output variables
@@ -725,9 +742,9 @@ contains
 
          ! Compute mean layer thickness at edge
 #ifdef MPAS_OPENACC
-         !$acc enter data copyin(bottomDepthEdge, sshCell, wctEdge)
+         !$acc enter data copyin(baroclinicThickness, deltaSSH, wctEdge)
          !$acc parallel loop &
-         !$acc    present(bottomDepthEdge, sshCell, wctEdge, cellsOnEdge) &
+         !$acc    present(baroclinicThickness, deltaSSH, wctEdge, cellsOnEdge) &
          !$acc    private(iEdge, cell1, cell2)
 #else
          !$omp parallel
@@ -737,8 +754,8 @@ contains
             if ( maxLevelEdgeTop(iEdge) == 0 ) cycle
             cell1 = cellsOnEdge(1,iEdge)
             cell2 = cellsOnEdge(2,iEdge)
-            wctEdge(iEdge) = 0.5_RKIND*(sshCell(cell1) + sshCell(cell2)) &
-                             + bottomDepthEdge(iEdge)
+            wctEdge(iEdge) = 0.5_RKIND*(deltaSSH(cell1) + deltaSSH(cell2)) &
+                             + baroclinicThickness(iEdge)
          end do
 #ifndef MPAS_OPENACC
          !$omp end do
@@ -746,16 +763,16 @@ contains
 #endif
 
 #ifdef MPAS_OPENACC
-         !$acc exit data copyout(wctEdge) delete(bottomDepthEdge, sshCell)
+         !$acc exit data copyout(wctEdge) delete(baroclinicThickness, deltaSSH)
 #endif
 
       case (thickEdgeFluxUpwind)
 
          ! Use upwind thickness as the edge flux value
 #ifdef MPAS_OPENACC
-         !$acc enter data copyin(bottomDepthEdge, sshCell, btrVelocity, wctEdge)
+         !$acc enter data copyin(baroclinicThickness, deltaSSH, btrVelocity, wctEdge)
          !$acc parallel loop &
-         !$acc    present(bottomDepthEdge, btrVelocity, sshCell, cellsOnEdge, maxLevelEdgeTop, wctEdge) &
+         !$acc    present(baroclinicThickness, btrVelocity, deltaSSH, cellsOnEdge, maxLevelEdgeTop, wctEdge) &
          !$acc    private(cell1, cell2, iEdge)
 #else
          !$omp parallel
@@ -766,12 +783,12 @@ contains
             cell1 = cellsOnEdge(1, iEdge)
             cell2 = cellsOnEdge(2, iEdge)
             if (btrVelocity(iEdge) > 0.0_RKIND) then
-               wctEdge(iEdge) = sshCell(cell1) + bottomDepthEdge(iEdge)
+               wctEdge(iEdge) = deltaSSH(cell1) + baroclinicThickness(iEdge)
             elseif (btrVelocity(iEdge) < 0.0_RKIND) then
-               wctEdge(iEdge) = sshCell(cell2) + bottomDepthEdge(iEdge)
+               wctEdge(iEdge) = deltaSSH(cell2) + baroclinicThickness(iEdge)
             else
-               wctEdge(iEdge) = max(sshCell(cell1), sshCell(cell2)) &
-                                + bottomDepthEdge(iEdge)
+               wctEdge(iEdge) = max(deltaSSH(cell1), deltaSSH(cell2)) &
+                                + baroclinicThickness(iEdge)
             end if
          end do
 #ifndef MPAS_OPENACC
@@ -780,7 +797,7 @@ contains
 #endif
 
 #ifdef MPAS_OPENACC
-         !$acc exit data copyout(wctEdge) delete(bottomDepthEdge, sshCell, btrVelocity)
+         !$acc exit data copyout(wctEdge) delete(baroclinicThickness, deltaSSH, btrVelocity)
 #endif
 
       case default
@@ -808,7 +825,8 @@ contains
 !-----------------------------------------------------------------------
 
    subroutine ocn_diagnostic_solve_layerThicknessEdge(normalVelocity, &
-                                                      layerThickness, restingThickness)!{{{
+                                                      layerThickness, restingThickness, &
+                                                      ssh)!{{{
 
       !-----------------------------------------------------------------
       ! input variables
@@ -818,6 +836,8 @@ contains
          normalVelocity,  &!< [in] transport
          layerThickness,  &!< [in] layer thickness at cell center
          restingThickness  !< [in] initial layer thickness at cell center
+      real (kind=RKIND), dimension(:), intent(in) :: &
+         ssh               !< [in] sea surface height at cell center
 
       !-----------------------------------------------------------------
       ! output variables
@@ -880,63 +900,91 @@ contains
       case (thickEdgeFluxCenter)
          ! Use centered (mean) thickness as flux value
 
+         if ( config_use_subgrid_wetting_drying ) then
 #ifdef MPAS_OPENACC
-         !$acc parallel loop collapse(2) &
-         !$acc    present(layerThickEdgeFlux, layerThickEdgeMean)
+         !$acc update host(ssh)
+#endif
+
+            call ocn_subgrid_layerThickEdgeFlux_center(ssh, layerThickEdgeFlux)
+
+#ifdef MPAS_OPENACC
+         !$acc update device(layerThickEdgeFlux)
+#endif
+         else
+
+#ifdef MPAS_OPENACC
+            !$acc parallel loop collapse(2) &
+            !$acc    present(layerThickEdgeFlux, layerThickEdgeMean)
 #else
-         !$omp parallel
-         !$omp do schedule(runtime) private(k)
+            !$omp parallel
+            !$omp do schedule(runtime) private(k)
 #endif
-         do iEdge = 1, nEdgesAll
-         do k = 1,nVertLevels
-            layerThickEdgeFlux(k,iEdge) = &
-            layerThickEdgeMean(k,iEdge)
-         end do
-         end do
+            do iEdge = 1, nEdgesAll
+            do k = 1,nVertLevels
+               layerThickEdgeFlux(k,iEdge) = &
+               layerThickEdgeMean(k,iEdge)
+            end do
+            end do
 #ifndef MPAS_OPENACC
-         !$omp end do
-         !$omp end parallel
+            !$omp end do
+            !$omp end parallel
 #endif
+
+         end if  
 
       case (thickEdgeFluxUpwind)
          ! Use upwind thickness as the edge flux value
 
+         if (config_use_subgrid_wetting_drying) then
 #ifdef MPAS_OPENACC
-         !$acc parallel loop &
-         !$acc    present(normalVelocity, layerThickness, &
-         !$acc            minLevelEdgeBot, maxLevelEdgeTop, &
-         !$acc            layerThickEdgeFlux, cellsOnEdge) &
-         !$acc    private(k, kmin, kmax, cell1, cell2)
+         !$acc update host(ssh, normalVelocity, layerThickness)
+#endif
+
+            call ocn_subgrid_layerThickEdgeFlux_upwind(ssh, normalVelocity, layerThickness, layerThickEdgeFlux)
+
+#ifdef MPAS_OPENACC
+         !$acc update device(layerThickEdgeFlux)
+#endif
+
+         else
+#ifdef MPAS_OPENACC
+            !$acc parallel loop &
+            !$acc    present(normalVelocity, layerThickness, &
+            !$acc            minLevelEdgeBot, maxLevelEdgeTop, &
+            !$acc            layerThickEdgeFlux, cellsOnEdge) &
+            !$acc    private(k, kmin, kmax, cell1, cell2)
 #else
-         !$omp parallel
-         !$omp do schedule(runtime) private(k, kmin, kmax, cell1, cell2)
+            !$omp parallel
+            !$omp do schedule(runtime) private(k, kmin, kmax, cell1, cell2)
 #endif
-         do iEdge = 1, nEdgesAll
-            kmin = minLevelEdgeBot(iEdge)
-            kmax = maxLevelEdgeTop(iEdge)
-            cell1 = cellsOnEdge(1,iEdge)
-            cell2 = cellsOnEdge(2,iEdge)
-            do k=1,nVertLevels
-               ! initialize layerThicknessEdgeFlux to avoid divide by
-               ! zero and NaN problems.
-               layerThickEdgeFlux(k,iEdge) = -1.0e34_RKIND
+            do iEdge = 1, nEdgesAll
+               kmin = minLevelEdgeBot(iEdge)
+               kmax = maxLevelEdgeTop(iEdge)
+               cell1 = cellsOnEdge(1,iEdge)
+               cell2 = cellsOnEdge(2,iEdge)
+               do k=1,nVertLevels
+                  ! initialize layerThicknessEdgeFlux to avoid divide by
+                  ! zero and NaN problems.
+                  layerThickEdgeFlux(k,iEdge) = -1.0e34_RKIND
+               end do
+               do k = kmin,kmax
+                  if (normalVelocity(k,iEdge) > 0.0_RKIND) then
+                     layerThickEdgeFlux(k,iEdge) = layerThickness(k,cell1)
+                  elseif (normalVelocity(k,iEdge) < 0.0_RKIND) then
+                     layerThickEdgeFlux(k,iEdge) = layerThickness(k,cell2)
+                  else
+                     layerThickEdgeFlux(k,iEdge) = &
+                                         max(layerThickness(k,cell1), &
+                                             layerThickness(k,cell2))
+                  end if
+               end do
             end do
-            do k = kmin,kmax
-               if (normalVelocity(k,iEdge) > 0.0_RKIND) then
-                  layerThickEdgeFlux(k,iEdge) = layerThickness(k,cell1)
-               elseif (normalVelocity(k,iEdge) < 0.0_RKIND) then
-                  layerThickEdgeFlux(k,iEdge) = layerThickness(k,cell2)
-               else
-                  layerThickEdgeFlux(k,iEdge) = &
-                                      max(layerThickness(k,cell1), &
-                                          layerThickness(k,cell2))
-               end if
-            end do
-         end do
 #ifndef MPAS_OPENACC
-         !$omp end do
-         !$omp end parallel
+            !$omp end do
+            !$omp end parallel
 #endif
+
+        end if
 
       case (thickEdgeFluxConstant)
          ! Use linearized version H*u where H is constant in time
@@ -1107,18 +1155,19 @@ contains
 #ifdef MPAS_OPENACC
       !$acc parallel loop &
       !$acc    present(kineticEnergyVertex, normalVelocity, &
-      !$acc            areaTriangle, dcEdge, dvEdge, edgesOnVertex)
+      !$acc            areaTriangle, dcEdge, dvEdge, edgesOnVertex) &
+      !$acc    private(iEdge,rTmp,k,i)
 #else
       !$omp parallel
       !$omp do schedule(runtime) private(i, k, iEdge, rTmp)
 #endif
       do iVertex = 1, nVerticesAll
          kineticEnergyVertex(:, iVertex) = 0.0_RKIND
+         !$acc loop seq
          do i = 1, vertexDegree
             iEdge = edgesOnVertex(i, iVertex)
             rTmp  = dcEdge(iEdge)*dvEdge(iEdge)*0.25_RKIND/ &
                     areaTriangle(iVertex)
-            !$acc loop seq
             do k = 1, nVertLevels
                kineticEnergyVertex(k,iVertex) = &
                kineticEnergyVertex(k,iVertex) + rTmp* &
@@ -1134,7 +1183,8 @@ contains
       !$acc parallel loop &
       !$acc    present(kineticEnergyVertexOnCells, kineticEnergyVertex,&
       !$acc            kiteIndexOnCell, kiteAreasOnVertex, invAreaCell,&
-      !$acc            verticesOnCell, nEdgesOnCell)
+      !$acc            verticesOnCell, nEdgesOnCell) &
+      !$acc    private(i,j,k,iVertex,invAreaCell1)
 #else
       !$omp do schedule(runtime) &
       !$omp    private(i, j, k, iVertex, invAreaCell1)
@@ -1551,10 +1601,12 @@ contains
       !
       !-----------------------------------------------------------------
 
-      real(kind=RKIND) :: coef, shearSquared, delU2, shearMean
-      integer :: iCell, k, i, iEdge
+      real(kind=RKIND) :: coef, shear, Ri_edge, dz_edge, shearSquared, delU2, shearMean
+      integer :: jCell, iCell, k, i, iEdge
       integer :: nCells
+      real(kind=RKIND), dimension(:), allocatable :: RiTopOfCellNorm
 
+      allocate (RiTopOfCellNorm(nVertLevels))
       !
       ! Brunt-Vaisala frequency (this has units of s^{-2})
       !
@@ -1592,32 +1644,50 @@ contains
       !$acc parallel loop gang vector &
       !$acc          present(RiTopOfCell, maxLevelCell, nEdgesOnCell, edgesOnCell, normalVelocity, &
       !$acc                  edgeAreaFractionOfCell, zMid, BruntVaisalaFreqTop, minLevelCell) &
-      !$acc          private(k, i, iEdge, delU2, shearSquared, shearMean)
+      !$acc          private(k, i, iEdge, delU2, shearMean, jCell, shear, dz_edge, Ri_edge, &
+      !$acc                  RiTopOfCellNorm)
 #else
       !$omp parallel
-      !$omp do schedule(runtime) private(k, shearSquared, i, iEdge, delU2, shearMean)
+      !$omp do schedule(runtime) private(k, i, iEdge, delU2, shearMean, jCell, shear, &
+      !$omp                              dz_edge, Ri_edge, RiTopOfCellNorm)
 #endif
       do iCell=1,nCells
          RiTopOfCell(:,iCell) = 100.0_RKIND
-         do k = minLevelCell(iCell)+1, maxLevelCell(iCell)
-           shearSquared = 0.0_RKIND
+         RiTopOfCellNorm(:) = 1.0E-12_RKIND
            do i = 1, nEdgesOnCell(iCell)
              iEdge = edgesOnCell(i, iCell)
-             delU2 = (normalVelocity(k-1,iEdge) - normalVelocity(k,iEdge))**2
-             shearSquared = shearSquared + edgeAreaFractionOfCell(i,iCell) * delU2
+            jCell = cellsOnCell(i,iCell)
+            do k = minLevelEdgeBot(iEdge)+1, maxLevelEdgeTop(iEdge)
+               delU2 = (normalVelocity(k-1,iEdge) - normalVelocity(k,iEdge))**2 + &
+                  ( tangentialVelocity(k-1,iEdge) - tangentialVelocity(k,iEdge))**2
+
+               dz_edge = 0.5_RKIND * ( &
+                  zMid(k-1,iCell) + zMid(k-1,jCell) - &
+                  zMid(k-0,iCell) - zMid(k-0,jCell) )
+
+               shear = delU2 / dz_edge**2
+
+               Ri_edge = max(0.0_RKIND, 0.5_RKIND * ( &
+                  BruntVaisalaFreqTop(k,iCell) + &
+                  BruntVaisalaFreqTop(k,jCell) ) )/ (shear + 1.0E-12_RKIND)
+
+               RiTopOfCellNorm(k) = RiTopOfCellNorm(k) &
+                                    + 0.25_RKIND * dcEdge(iEdge) * dvEdge(iEdge)
+
+               RiTopOfCell(k,iCell) = &
+               RiTopOfCell(k,iCell) + 0.25_RKIND * dcEdge(iEdge) * dvEdge(iEdge) * Ri_edge
            enddo
-           ! Note that the factor of two is from averaging dot product to cell center on a C-grid
-           shearMean = sqrt(2.0_RKIND*shearSquared )
-           shearMean = shearMean / (zMid(k-1,iCell) - zMid(k,iCell))
-           RiTopOfCell(k,iCell) = BruntVaisalaFreqTop(k,iCell) / (shearMean**2 + 1.0e-10_RKIND)
+           enddo
+         do k = minLevelCell(iCell), maxLevelCell(iCell)
+            RiTopOfCell(k,iCell) = RiTopOfCell(k,iCell) / RiTopOfCellNorm(k)
           end do
-          RiTopOfCell(minLevelCell(iCell),iCell) = RiTopOfCell(minLevelCell(iCell)+1,iCell)
       end do
 #ifndef MPAS_OPENACC
       !$omp end do
       !$omp end parallel
 #endif
 
+   deallocate(RiTopOfCellNorm)
    end subroutine ocn_diagnostic_solve_richardson!}}}
 
 !***********************************************************************
@@ -1846,6 +1916,69 @@ contains
    !--------------------------------------------------------------------
 
    end subroutine ocn_diagnostic_solve_surfaceLayer !}}}
+
+!***********************************************************************
+!
+!  routine ocn_diagnostic_solve_surfaceLayer_subglacialRunoff
+!
+!> \brief   Computes diagnostic subglacialRunoff variables for surface layer
+!> \author  Irena Vankova
+!> \date    July 2024
+!> \details
+!
+!-----------------------------------------------------------------------
+
+   subroutine ocn_diagnostic_solve_surfaceLayer_subglacialRunoff(surfaceFluxAttenuationCoefficientSubglacialRunoff)!{{{
+
+      !-----------------------------------------------------------------
+      ! input variables
+      !-----------------------------------------------------------------
+
+      !-----------------------------------------------------------------
+      ! output variables
+      !-----------------------------------------------------------------
+
+      real (kind=RKIND), dimension(:), intent(out) :: &
+         surfaceFluxAttenuationCoefficientSubglacialRunoff !< [out] sfc flx attenuation
+
+      !-----------------------------------------------------------------
+      ! local variables
+      !-----------------------------------------------------------------
+
+      integer :: &
+         nCells,  &! num of cells
+         iCell     ! loop indices for cell
+
+      ! End preamble
+      !-----------------------------------------------------------------
+      ! Begin code
+
+      ! compute the attenuation coefficient for subglacial runoff surface fluxes
+
+      nCells = nCellsHalo( 1 )
+
+#ifdef MPAS_OPENACC
+      !$acc parallel loop &
+      !$acc    present(surfaceFluxAttenuationCoefficientSubglacialRunoff)
+#else
+      !$omp parallel
+      !$omp do schedule(runtime)
+#endif
+      do iCell = 1, nCells
+            surfaceFluxAttenuationCoefficientSubglacialRunoff(iCell) = &
+                      config_flux_attenuation_coefficient_subglacial_runoff
+      end do
+#ifndef MPAS_OPENACC
+      !$omp end do
+      !$omp end parallel
+#endif
+
+   !--------------------------------------------------------------------
+
+   end subroutine ocn_diagnostic_solve_surfaceLayer_subglacialRunoff !}}}
+
+!***********************************************************************
+
 
 !***********************************************************************
 !
@@ -2588,6 +2721,26 @@ contains
       !$omp end parallel
 #endif
 
+      if (config_use_subgrid_wetting_drying) then
+#ifdef MPAS_OPENACC
+      !$acc update host(layerThickness)
+#endif
+         do iCell = 1, nCells
+               call ocn_subgrid_ssh_lookup(layerThickness(1,iCell), &
+                                           subgridWetVolumeCellTable(:,iCell), &
+                                           subgridSshCellTableRange(:,iCell), &
+                                           bottomDepth(iCell), &
+                                           subgridCellBathymetryMin(iCell), & 
+                                           ssh(iCell))
+
+               zTop(1,iCell) = ssh(iCell)
+               zMid(1,iCell) = -bottomDepth(iCell) + 0.5_RKIND*layerThickness(1,iCell)         
+         end do
+#ifdef MPAS_OPENACC
+      !$acc update device(zTop, zMid, ssh)
+#endif
+      end if
+
    end subroutine ocn_diagnostic_solve_z_coordinates!}}}
 
 !***********************************************************************
@@ -3166,12 +3319,12 @@ contains
 
 !***********************************************************************
 !
-!  routine ocn_compute_KPP_input_fields
+!  routine ocn_compute_mixing_input_fields
 !
 !> \brief
-!>    Compute fields necessary to drive the CVMix KPP module
-!> \author  Todd Ringler
-!> \date    20 August 2013
+!>    Compute fields necessary to drive the CVMix KPP and gotm modules
+!> \author  Todd Ringler, Luke Van Roekel
+!> \date    11 July 2024
 !> \details
 !>    CVMix/KPP requires the following fields as intent(in):
 !>       surfaceBuoyancyForcing
@@ -3180,7 +3333,7 @@ contains
 !
 !-----------------------------------------------------------------------
 
-    subroutine ocn_compute_KPP_input_fields(statePool, forcingPool, &
+    subroutine ocn_compute_mixing_input_fields(statePool, forcingPool, &
                                             meshPool, timeLevelIn)!{{{
 
       !-----------------------------------------------------------------
@@ -3200,15 +3353,18 @@ contains
       !-----------------------------------------------------------------
 
       integer :: &
-         iCell, iEdge, i, &! loop indices for cell, edge, neighbors
-         kmin,            &! topmost active cell index
-         nCells,          &! number of cells
-         err,             &! local error code
-         timeLevel         ! time level for state variables (default 1)
+         iCell, iEdge, i, k, &! loop indices for cell, edge, neighbors
+         kmin,               &! topmost active cell index
+         nCells,             &! number of cells
+         err,                &! local error code
+         timeLevel            ! time level for state variables (default 1)
 
       real (kind=RKIND) :: &
          fracAbsorbed,       &! fraction of sfc flux absorbed
          fracAbsorbedRunoff, &! same for runoff
+         fracAbsorbedSubglacialRunoff, &! same for subglacial runoff
+         zTop,zBot,          &! temporary variables
+         transmissionCoeffTop,transmissionCoeffBot,     &! temporary variables
          sumSurfaceStressSquared ! sum of sfc stress squared
 
       ! pointers for variable/pool retrievals
@@ -3224,18 +3380,19 @@ contains
          penetrativeTemperatureFlux, &! various sfc flux components
          surfaceThicknessFlux, &
          surfaceThicknessFluxRunoff, &
+         surfaceThicknessFluxSubglacialRunoff, &
          rainTemperatureFlux, &
          evapTemperatureFlux, &
          icebergTemperatureFlux, &
          seaIceTemperatureFlux, &
-         surfaceStress, &
-         surfaceStressMagnitude
+         sfcStressMag
 
       real (kind=RKIND), dimension(:,:), pointer ::  &
          layerThickness,           &! layer thickness
          normalVelocity,           &! normal velocity
          activeTracersSurfaceFlux, &! sfc flux of active tracers (T,S)
          activeTracersSurfaceFluxRunoff, &! flx of tracers in runoff
+         activeTracersSurfaceFluxSubglacialRunoff, &! flx of tracers in subglacial runoff
          nonLocalSurfaceTracerFlux  ! non-local flux of tracers
 
       real (kind=RKIND), dimension(:,:,:), pointer :: &
@@ -3261,7 +3418,7 @@ contains
       !-----------------------------------------------------------------
       ! Begin code
 
-      call mpas_timer_start('KPP input fields')
+      call mpas_timer_start('Mixing input fields')
 
       if (present(timeLevelIn)) then
          timeLevel = timeLevelIn
@@ -3299,25 +3456,20 @@ contains
       call mpas_pool_get_array(tracersSurfaceFluxPool, &
                               'activeTracersSurfaceFluxRunoff', &
                                activeTracersSurfaceFluxRunoff)
+      call mpas_pool_get_array(tracersSurfaceFluxPool, &
+                              'activeTracersSurfaceFluxSubglacialRunoff', &
+                               activeTracersSurfaceFluxSubglacialRunoff)
 
       call mpas_pool_get_array(forcingPool, 'surfaceThicknessFlux', &
                                              surfaceThicknessFlux)
       call mpas_pool_get_array(forcingPool, 'surfaceThicknessFluxRunoff', &
                                              surfaceThicknessFluxRunoff)
+      call mpas_pool_get_array(forcingPool, 'surfaceThicknessFluxSubglacialRunoff', &
+                                             surfaceThicknessFluxSubglacialRunoff)
       call mpas_pool_get_array(forcingPool, 'penetrativeTemperatureFlux', &
                                              penetrativeTemperatureFlux)
-      call mpas_pool_get_array(forcingPool, 'surfaceStress', &
-                                             surfaceStress)
       call mpas_pool_get_array(forcingPool, 'surfaceStressMagnitude', &
-                                             surfaceStressMagnitude)
-      call mpas_pool_get_array(forcingPool, 'rainTemperatureFlux', &
-                                             rainTemperatureFlux)
-      call mpas_pool_get_array(forcingPool, 'evapTemperatureFlux', &
-                                             evapTemperatureFlux)
-      call mpas_pool_get_array(forcingPool, 'seaIceTemperatureFlux', &
-                                             seaIceTemperatureFlux)
-      call mpas_pool_get_array(forcingPool, 'icebergTemperatureFlux', &
-                                             icebergTemperatureFlux)
+                                             sfcStressMag)
 
       ! allocate scratch space displaced density computation
       ncells = nCellsAll
@@ -3376,7 +3528,8 @@ contains
 
       !$omp parallel
       !$omp do schedule(runtime) &
-      !$omp private(kmin, fracAbsorbed, fracAbsorbedRunoff, &
+      !$omp private(kmin, fracAbsorbed, fracAbsorbedRunoff, fracAbsorbedSubglacialRunoff, &
+      !$omp         zTop, k, zBot, transmissionCoeffTop, transmissionCoeffBot, &
       !$omp         sumSurfaceStressSquared, i, iEdge)
       do iCell = 1, nCells
 
@@ -3390,6 +3543,37 @@ contains
                       - exp( max(-100.0_RKIND, &
                                  -layerThickness(kmin, iCell)/ &
                            config_flux_attenuation_coefficient_runoff))
+         if (trim(config_subglacial_runoff_mode) == 'data') then
+             if (config_use_sgr_opt_kpp) then
+                if ( trim(config_sgr_flux_vertical_location) == 'top' ) then
+                    fracAbsorbedSubglacialRunoff = 1.0_RKIND &
+                          - exp( max(-100.0_RKIND, &
+                                     -layerThickness(kmin, iCell)/ &
+                               config_flux_attenuation_coefficient_subglacial_runoff))
+                else if ( trim(config_sgr_flux_vertical_location) == 'uniform' ) then
+                   ! calculate total thickness into variable zTop
+                   zTop = 0.0_RKIND
+                   do k = minLevelCell(iCell), maxLevelCell(iCell)
+                      zTop = zTop + layerThickness(k,iCell)
+                   end do
+                   ! distribute flux evenly throughout water column
+                   fracAbsorbedSubglacialRunoff = layerThickness(kmin, iCell) / zTop
+                else if ( trim(config_sgr_flux_vertical_location) == 'bottom' ) then
+                   zTop = 0.0_RKIND
+                   do k = maxLevelCell(iCell), minLevelCell(iCell), -1
+                      zBot = zTop - layerThickness(k,iCell)
+                      if (k == minLevelCell(iCell)) then
+                        transmissionCoeffTop = exp( max(zTop / config_flux_attenuation_coefficient_subglacial_runoff, -100.0_RKIND) )
+                        transmissionCoeffBot = exp( max(zBot / config_flux_attenuation_coefficient_subglacial_runoff, -100.0_RKIND) )
+                        fracAbsorbedSubglacialRunoff = transmissionCoeffTop - transmissionCoeffBot
+                      end if
+                      zTop = zBot
+                   end do
+                end if
+             else
+                   fracAbsorbedSubglacialRunoff = 0.0_RKIND
+             end if
+         end if
 
          ! Store the total tracer flux below in
          ! nonLocalSurfaceTemperatureFlux for use in the CVMix nonlocal
@@ -3399,12 +3583,8 @@ contains
                    activeTracersSurfaceFlux(indexTempFlux,iCell) &
                  + penetrativeTemperatureFlux(iCell) &
                  - penetrativeTemperatureFluxOBL(iCell)  &
-                 - fracAbsorbed* (rainTemperatureFlux(iCell) + &
-                                  evapTemperatureFlux(iCell) + &
-                                  seaIceTemperatureFlux(iCell) + &
-                                  icebergTemperatureFlux(iCell)) &
-                 - fracAbsorbedRunoff* &
-                   activeTracersSurfaceFluxRunoff(indexTempFlux,iCell)
+                 - fracAbsorbed*surfaceThicknessFlux(iCell) * &
+                   activeTracers(indexTempFlux,kmin,iCell)
 
          nonLocalSurfaceTracerFlux(indexSaltFlux,iCell) = &
                    activeTracersSurfaceFlux(indexSaltFlux,iCell) &
@@ -3412,6 +3592,11 @@ contains
                    activeTracers(indexSaltFlux,kmin,iCell) &
                  - fracAbsorbedRunoff*surfaceThicknessFluxRunoff(iCell)* &
                    activeTracers(indexSaltFlux,kmin,iCell)
+         if (trim(config_subglacial_runoff_mode) == 'data') then
+            nonLocalSurfaceTracerFlux(indexSaltFlux,iCell) = nonLocalSurfaceTracerFlux(indexSaltFlux,iCell) &
+                 - fracAbsorbedSubglacialRunoff*surfaceThicknessFluxSubglacialRunoff(iCell)* &
+                   activeTracers(indexSaltFlux,kmin,iCell)
+         end if
 
          surfaceBuoyancyForcing(iCell) = &
                   thermalExpansionCoeff(kmin,iCell)* &
@@ -3425,21 +3610,8 @@ contains
          surfaceBuoyancyForcing(iCell) = surfaceBuoyancyForcing(iCell)* &
                                          gravity
 
-         ! compute magnitude of surface stress
-         sumSurfaceStressSquared = 0.0_RKIND
-         do i = 1, nEdgesOnCell(iCell)
-            iEdge = edgesOnCell(i, iCell)
-            sumSurfaceStressSquared = sumSurfaceStressSquared &
-                                    + edgeAreaFractionOfCell(i,iCell)* &
-                                      surfaceStress(iEdge)**2
-         enddo
-
-         ! NOTE that the factor of 2 is from averaging dot products
-         ! to cell centers on a C-grid
-         surfaceStressMagnitude(iCell) = &
-                           sqrt(2.0_RKIND * sumSurfaceStressSquared)
          surfaceFrictionVelocity(iCell) = &
-                           sqrt(surfaceStressMagnitude(iCell) / rho_sw)
+                           sqrt(sfcStressMag(iCell) / rho_sw)
 
       enddo
       !$omp end do
@@ -3450,11 +3622,11 @@ contains
                  salineContractionCoeff, &
                  densitySurfaceDisplaced)
 
-      call mpas_timer_stop('KPP input fields')
+      call mpas_timer_stop('Mixing input fields')
 
     !-------------------------------------------------------------------
 
-    end subroutine ocn_compute_KPP_input_fields!}}}
+    end subroutine ocn_compute_mixing_input_fields!}}}
 
 !***********************************************************************
 !
@@ -3591,9 +3763,12 @@ contains
       do iCell = 1, nCellsAll
          ! the friction velocity is the square root of the top drag + variance of tidal velocity
          ! (computed regardless of land-ice coverage)
+
          landIceFrictionVelocity(iCell) = sqrt(landIceTopDragCoeff * &
                                    (2.0_RKIND * kineticEnergyCell(minLevelCell(iCell),iCell) &
-                                   + config_land_ice_flux_rms_tidal_velocity**2))
+                                   + config_land_ice_flux_tidal_Jourdain_alpha**2 * &
+                                   (config_land_ice_flux_tidal_Jourdain_A0 * velocityTidalRMS(iCell) + &
+                                   config_land_ice_flux_tidal_Jourdain_U0)**2))
       end do
 #ifndef MPAS_OPENACC
       !$omp end do
@@ -4350,6 +4525,21 @@ contains
                call ocn_write_field_statistics(debugUnit, fieldName, minValue, maxValue)
             end if
 
+            if (trim(config_subglacial_runoff_mode) == 'data') then
+                ! Test subglacialRunoffFlux
+                fieldName = 'subglacialRunoffFlux'
+                minValue = HUGE(minValue)
+                maxValue = -HUGE(maxValue)
+                call mpas_pool_get_array(forcingPool, fieldName, real1DArr)
+                if ( associated(real1DArr) ) then
+                   do iCell = 1, nCellsSolve
+                      minValue = min( minValue, real1DArr(iCell) )
+                      maxValue = max( maxValue, real1DArr(iCell) )
+                   end do
+                   call ocn_write_field_statistics(debugUnit, fieldName, minValue, maxValue)
+                end if
+            end if
+
             ! Test seaIceSalinityFlux
             fieldName = 'seaIceSalinityFlux'
             minValue = HUGE(minValue)
@@ -4464,12 +4654,15 @@ contains
          ke_cell_flag = 1
       endif
 
-      if ((trim(config_time_integrator) == 'RK4') .or.(trim(config_time_integrator) == 'LTS') ) then
-         ! For RK4 or LTS, PV includes f: PV = (eta+f)/h.
+      if ( (trim(config_time_integrator) == 'RK4') &
+           .or. (trim(config_time_integrator) == 'LTS') &
+           .or. (trim(config_time_integrator) == 'FB_LTS') ) then
+         ! For RK4, LTS, or FB_LTS, PV includes f: PV = (eta+f)/h.
          fCoef = 1
       elseif (trim(config_time_integrator) == 'split_explicit' &
         .or.trim(config_time_integrator) == 'unsplit_explicit' &
-        .or.trim(config_time_integrator) == 'split_implicit') then
+        .or.trim(config_time_integrator) == 'split_implicit'   &
+        .or.trim(config_time_integrator) == 'split_explicit_ab2') then
           ! For split explicit, PV is eta/h because the Coriolis term
           ! is added separately to the momentum tendencies.
           fCoef = 0
@@ -4516,6 +4709,12 @@ contains
 
       call ocn_diagnostics_variables_init(domain, jenkinsOn, &
                                           hollandJenkinsOn, err)
+
+      if ( trim(config_sgr_flux_vertical_location) /= 'top' .and. &
+           trim(config_sgr_flux_vertical_location) /= 'uniform' .and. &
+           trim(config_sgr_flux_vertical_location) /= 'bottom' ) then
+        call mpas_log_write("config_sgr_flux_vertical_location not one of 'bottom', 'uniform', 'top'.", MPAS_LOG_CRIT)
+      end if
 
     end subroutine ocn_diagnostics_init!}}}
 

@@ -51,7 +51,7 @@ module restFileMod
   use BeTRSimulationELM    , only : betr_simulation_elm_type
   use CropType             , only : crop_type
   use GridcellDataType     , only : grc_wf
-  use TopounitDataType     , only : top_es
+  use TopounitDataType     , only : top_es, top_ws
   use LandunitDataType     , only : lun_es, lun_ws
   use ColumnDataType       , only : col_es, col_ef, col_ws, col_wf
   use ColumnDataType       , only : col_cs, c13_col_cs, c14_col_cs
@@ -211,6 +211,8 @@ contains
     
     call grc_ws%Restart(bounds, ncid, flag='define')
     
+    call top_ws%Restart (bounds, ncid, flag='define')
+
     call lun_ws%Restart (bounds, ncid, flag='define')
 
     call col_ws%Restart (bounds, ncid, flag='define', &
@@ -345,6 +347,8 @@ contains
 
     call grc_ws%Restart(bounds, ncid, flag='write')
     
+    call top_ws%Restart (bounds, ncid, flag='write')
+
     call lun_ws%Restart (bounds, ncid, flag='write')
 
     call col_ws%Restart (bounds, ncid, flag='write', &
@@ -404,6 +408,8 @@ contains
        call veg_ps%Restart(bounds, ncid, flag='write')
        call veg_pf%Restart(bounds, ncid, flag='write')
        call crop_vars%Restart(bounds, ncid, flag='write')
+
+       call grc_cs%Restart(bounds, ncid, flag='write')
     end if
 
 
@@ -568,6 +574,8 @@ contains
 
     call grc_ws%Restart(bounds, ncid, flag='read')
 
+    call top_ws%Restart (bounds, ncid, flag='read')
+
     call lun_ws%Restart (bounds, ncid, flag='read')
 
     call col_ws%Restart (bounds, ncid, flag='read', &
@@ -627,6 +635,8 @@ contains
        call veg_ps%Restart(bounds, ncid, flag='read')
        call veg_pf%Restart(bounds, ncid, flag='read')
        call crop_vars%Restart(bounds, ncid, flag='read')
+
+       call grc_cs%Restart(bounds, ncid, flag='read')
     end if
 
     if (use_fates) then

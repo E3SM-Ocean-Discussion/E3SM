@@ -1,35 +1,23 @@
-INCLUDE (ScreamUtils)
+include (ScreamUtils)
 
-SET (NEED_LIBS shoc physics_share scream_share)
-SET (SK_NEED_LIBS shoc_sk physics_share scream_share)
+add_subdirectory(infra)
+
 set(SHOC_TESTS_SRCS
     shoc_tests.cpp
     shoc_grid_tests.cpp
     shoc_diag_obklen_tests.cpp
     shoc_impli_comp_tmpi_tests.cpp
     shoc_impli_dp_inverse_tests.cpp
-    shoc_impli_sfc_fluxes_tests.cpp
-    shoc_impli_srf_stress_tests.cpp
-    shoc_impli_srf_tke_tests.cpp
     shoc_vertflux_tests.cpp
     shoc_varorcovar_tests.cpp
     shoc_energy_fixer_tests.cpp
     shoc_energy_update_dse_tests.cpp
     shoc_energy_integral_tests.cpp
-    shoc_energy_total_fixer_tests.cpp
-    shoc_energy_dse_fixer_tests.cpp
-    shoc_energy_threshold_fixer_tests.cpp
     shoc_length_tests.cpp
     shoc_brunt_length_tests.cpp
     shoc_l_inf_length_tests.cpp
     shoc_check_length_tests.cpp
     shoc_mix_length_tests.cpp
-    shoc_fterm_input_third_moms_tests.cpp
-    shoc_fterm_diag_third_moms_tests.cpp
-    shoc_omega_diag_third_moms_tests.cpp
-    shoc_xy_diag_third_moms_tests.cpp
-    shoc_aa_diag_third_moms_tests.cpp
-    shoc_w3_diag_third_moms_tests.cpp
     shoc_clip_third_moms_tests.cpp
     shoc_tke_tests.cpp
     shoc_check_tke_tests.cpp
@@ -70,68 +58,46 @@ set(SHOC_TESTS_SRCS
     shoc_pblintd_surf_temp_tests.cpp
     shoc_pblintd_check_pblh_tests.cpp
     shoc_pblintd_tests.cpp
+    shoc_compute_shoc_temperature_tests.cpp
     ) # SHOC_TESTS_SRCS
 
-# NOTE: tests inside this if statement won't be built in a baselines-only build
-if (NOT SCREAM_BASELINES_ONLY)
-  CreateUnitTest(shoc_tests    "${SHOC_TESTS_SRCS}" "${NEED_LIBS}"    THREADS 1 ${SCREAM_TEST_MAX_THREADS} ${SCREAM_TEST_THREAD_INC} DEP shoc_tests_ut_np1_omp1)
-  if (NOT SCREAM_SMALL_KERNELS)
-    CreateUnitTest(shoc_sk_tests "${SHOC_TESTS_SRCS}" "${SK_NEED_LIBS}" THREADS 1 ${SCREAM_TEST_MAX_THREADS} ${SCREAM_TEST_THREAD_INC} DEP shoc_tests_ut_np1_omp1 EXE_ARGS shoc_main_bfb)
-  endif()
-endif()
-
+# All tests should understand the same baseline args
 if (SCREAM_ENABLE_BASELINE_TESTS)
-  set(BASELINE_FILE_ARG "-b ${SCREAM_TEST_DATA_DIR}/shoc_run_and_cmp.baseline")
-
-  CreateUnitTestExec(shoc_run_and_cmp "shoc_run_and_cmp.cpp" "${NEED_LIBS}"
-                     EXCLUDE_MAIN_CPP)
-
-  CreateUnitTestFromExec(shoc_run_and_cmp_cxx shoc_run_and_cmp
-                 THREADS ${SCREAM_TEST_MAX_THREADS}
-                 EXE_ARGS "${BASELINE_FILE_ARG}"
-                 LABELS "shoc;physics")
-
-  CreateUnitTestFromExec(shoc_run_and_cmp_f90 shoc_run_and_cmp
-                 THREADS ${SCREAM_TEST_MAX_THREADS}
-                 EXE_ARGS "-f ${BASELINE_FILE_ARG}"
-                 LABELS "shoc;physics")
-
-  #
-  # Use fake tests to generate shell commands to generate baselines
-  #
-  CreateUnitTestFromExec(shoc_baseline_f90_fake shoc_run_and_cmp
-    THREADS ${SCREAM_TEST_MAX_THREADS}
-    EXE_ARGS "-f -g ${BASELINE_FILE_ARG}"
-    PROPERTIES DISABLED True)
-
-  CreateUnitTestFromExec(shoc_baseline_cxx_fake shoc_run_and_cmp
-    THREADS ${SCREAM_TEST_MAX_THREADS}
-    EXE_ARGS "-g ${BASELINE_FILE_ARG}"
-    PROPERTIES DISABLED True)
-
-  if (SCREAM_TEST_MAX_THREADS GREATER 1)
-    get_test_property(shoc_baseline_f90_fake_omp${SCREAM_TEST_MAX_THREADS} FULL_TEST_COMMAND SHOC_F90_GEN)
-    get_test_property(shoc_baseline_cxx_fake_omp${SCREAM_TEST_MAX_THREADS} FULL_TEST_COMMAND SHOC_CXX_GEN)
+  if (SCREAM_ONLY_GENERATE_BASELINES)
+    set(BASELINE_FILE_ARG "-g -b ${SCREAM_BASELINES_DIR}/data")
+    # We don't want to do thread spreads when generating. That
+    # could cause race conditions in the file system.
+    set(SHOC_THREADS "${SCREAM_TEST_MAX_THREADS}")
   else()
-    get_test_property(shoc_baseline_f90_fake FULL_TEST_COMMAND SHOC_F90_GEN)
-    get_test_property(shoc_baseline_cxx_fake FULL_TEST_COMMAND SHOC_CXX_GEN)
+    set(BASELINE_FILE_ARG "-c -b ${SCREAM_BASELINES_DIR}/data")
+    set(SHOC_THREADS 1 ${SCREAM_TEST_MAX_THREADS} ${SCREAM_TEST_THREAD_INC})
   endif()
-
-  if (SHOC_F90_GEN STREQUAL "NOTFOUND")
-    message(FATAL_ERROR "Could not get FULL_TEST_COMMAND for shoc_baseline fake test")
-  endif()
-
-  separate_arguments(SHOC_F90_GEN_ARGS UNIX_COMMAND "${SHOC_F90_GEN}")
-  separate_arguments(SHOC_CXX_GEN_ARGS UNIX_COMMAND "${SHOC_CXX_GEN}")
-
-  add_custom_target(shoc_baseline_f90
-    COMMAND ${CMAKE_COMMAND} -E env OMP_NUM_THREADS=${SCREAM_TEST_MAX_THREADS} ${SHOC_F90_GEN_ARGS})
-
-  add_custom_target(shoc_baseline_cxx
-    COMMAND ${CMAKE_COMMAND} -E env OMP_NUM_THREADS=${SCREAM_TEST_MAX_THREADS} ${SHOC_CXX_GEN_ARGS})
-
-  # By default, baselines should be created using all fortran (make baseline). If the user wants
-  # to use CXX to generate their baselines, they should use "make baseline_cxx".
-  add_dependencies(baseline     shoc_baseline_f90)
-  add_dependencies(baseline_cxx shoc_baseline_cxx)
+else()
+  set(BASELINE_FILE_ARG "-n") # no baselines
+  set(SHOC_THREADS 1 ${SCREAM_TEST_MAX_THREADS} ${SCREAM_TEST_THREAD_INC})
 endif()
+
+CreateUnitTest(shoc_tests "${SHOC_TESTS_SRCS}"
+  LIBS shoc shoc_test_infra
+  THREADS ${SHOC_THREADS}
+  EXE_ARGS "--args ${BASELINE_FILE_ARG}"
+  LABELS "shoc;physics;baseline_gen;baseline_cmp"
+  )
+
+# If small kernels are ON, we don't need a separate executable to test them.
+# Also, we never want to generate baselines with this separate executable
+if (NOT SCREAM_SHOC_SMALL_KERNELS AND NOT SCREAM_ONLY_GENERATE_BASELINES)
+  CreateUnitTest(shoc_sk_tests "shoc_main_tests.cpp"
+    LIBS shoc_sk shoc_test_infra
+    THREADS ${SHOC_THREADS}
+    EXE_ARGS "--args ${BASELINE_FILE_ARG}"
+    LABELS "shoc;physics;baseline_cmp"
+    )
+endif()
+
+CreateUnitTest(shoc_run_and_cmp "shoc_run_and_cmp.cpp"
+  LIBS shoc shoc_test_infra
+  EXCLUDE_MAIN_CPP
+  THREADS ${SCREAM_TEST_MAX_THREADS}
+  EXE_ARGS "${BASELINE_FILE_ARG}"
+  LABELS "shoc;physics;baseline_gen;baseline_cmp")

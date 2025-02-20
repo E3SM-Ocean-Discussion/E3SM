@@ -22,6 +22,7 @@ TEST_CASE("utils") {
   using namespace ShortFieldTagsNames;
   using namespace ekat::units;
   using kt = KokkosTypes<DefaultDevice>;
+  using kt_host = KokkosTypes<HostDevice>;
 
   using P8 = ekat::Pack<Real,8>;
 
@@ -36,13 +37,38 @@ TEST_CASE("utils") {
   f1.get_header().get_alloc_properties().request_allocation(P8::n);
   f1.allocate_view();
 
+  SECTION("compare-rank-0") {
+    // create two fields with rank-0 and get their views
+    std::vector<FieldTag> tags_0 = {};
+    std::vector<int> dims_0      = {};
+    FieldIdentifier fid_01("field_01", {tags_0, dims_0}, m / s, "some_grid");
+    FieldIdentifier fid_02("field_02", {tags_0, dims_0}, m / s, "some_grid");
+    Field f01(fid_01);
+    Field f02(fid_02);
+    f01.allocate_view();
+    f02.allocate_view();
+    auto f01v = f01.get_view<Real>();
+    auto f02v = f02.get_view<Real>();
+    // fill the views with the same values
+    Real val = 54321;
+    Kokkos::deep_copy(f01v, val);
+    Kokkos::deep_copy(f02v, val);
+    // check that the views are equal
+    REQUIRE(views_are_equal(f01, f02));
+
+    // fill the views with different values
+    Kokkos::deep_copy(f02v, 1 / val);
+    // check that the views are not equal
+    REQUIRE(not views_are_equal(f01, f02));
+  }
+
   SECTION ("compare") {
 
     Field f2(fid);
     f2.allocate_view();
 
-    auto v1 = f1.get_view<P8**>();
-    auto v2 = f2.get_view<Real**>();
+    auto v1 = f1.get_strided_view<P8**>();
+    auto v2 = f2.get_strided_view<Real**>();
     auto dim0 = fid.get_layout().dim(0);
     auto dim1 = fid.get_layout().dim(1);
     auto am_i_root = comm.am_i_root();
@@ -79,7 +105,7 @@ TEST_CASE("utils") {
 
   SECTION ("sum") {
 
-    auto v1 = f1.get_view<Real**>();
+    auto v1 = f1.get_strided_view<Real**>();
     auto dim0 = fid.get_layout().dim(0);
     auto dim1 = fid.get_layout().dim(1);
     auto lsize = fid.get_layout().size();
@@ -100,9 +126,314 @@ TEST_CASE("utils") {
     REQUIRE(field_sum<Real>(f1,&comm)==gsum);
   }
 
+  // The following two functions are used in both horiz_contraction and
+  // vert_contraction below
+  auto sum_n    = [](int n) { return n * (n + 1) / 2; };
+  auto sum_n_sq = [](int n) { return n * (n + 1) * (2 * n + 1) / 6; };
+
+  SECTION("horiz_contraction") {
+    // A numerical tolerance
+    // Accumulations in the Kokkos threaded reductions may be done in a
+    // different order than the manual ones below, so we can only test
+    // correctness up to a tolerance
+    auto tol = std::numeric_limits<Real>::epsilon() * 100;
+
+    using RPDF  = std::uniform_real_distribution<Real>;
+    auto engine = setup_random_test();
+    RPDF pdf(0, 1);
+
+    int dim0 = 129;
+    int dim1 = 4;
+    int dim2 = 17;
+
+    // Set a weight field
+    FieldIdentifier f00("f", {{COL}, {dim0}}, m / s, "g");
+    Field field00(f00);
+    field00.allocate_view();
+    field00.sync_to_host();
+    auto v00 = field00.get_strided_view<Real *, Host>();
+    for(int i = 0; i < dim0; ++i) {
+      // By design, denominator is the sum of the first dim0 integers
+      v00(i) = sp(i + 1) / sp(sum_n(dim0));
+    }
+    field00.sync_to_dev();
+
+    // Create (random) sample fields
+    FieldIdentifier fsc("f", {{}, {}}, m / s, "g");  // scalar
+    FieldIdentifier f10("f", {{COL, CMP}, {dim0, dim1}}, m / s, "g");
+    FieldIdentifier f11("f", {{COL, LEV}, {dim0, dim2}}, m / s, "g");
+    FieldIdentifier f20("f", {{COL, CMP, LEV}, {dim0, dim1, dim2}}, m / s, "g");
+    Field fieldsc(fsc);
+    Field field10(f10);
+    Field field11(f11);
+    Field field20(f20);
+    fieldsc.allocate_view();
+    field10.allocate_view();
+    field11.allocate_view();
+    field20.allocate_view();
+    randomize(fieldsc, engine, pdf);
+    randomize(field10, engine, pdf);
+    randomize(field11, engine, pdf);
+    randomize(field20, engine, pdf);
+
+    FieldIdentifier F_x("fx", {{COL}, {dim0}}, m / s, "g");
+    FieldIdentifier F_y("fy", {{LEV}, {dim2}}, m / s, "g");
+    FieldIdentifier F_z("fz", {{CMP}, {dim1}}, m / s, "g");
+    FieldIdentifier F_w("fyz", {{CMP, LEV}, {dim1, dim2}}, m / s, "g");
+
+    Field field_x(F_x);
+    Field field_y(F_y);
+    Field field_z(F_z);
+    Field field_w(F_w);
+
+    // Test invalid inputs
+    REQUIRE_THROWS(horiz_contraction<Real>(fieldsc, field_x,
+                                           field00));  // x not allocated yet
+
+    field_x.allocate_view();
+    field_y.allocate_view();
+    field_z.allocate_view();
+    field_w.allocate_view();
+
+    REQUIRE_THROWS(horiz_contraction<Real>(fieldsc, field_y,
+                                           field_x));  // unmatching layout
+    REQUIRE_THROWS(horiz_contraction<Real>(field_z, field11,
+                                           field11));  // wrong weight layout
+
+    Field result;
+
+    // Ensure a scalar case works
+    result = fieldsc.clone();
+    horiz_contraction<Real>(result, field00, field00);
+    result.sync_to_host();
+    auto v = result.get_view<Real, Host>();
+    // The numerator is the sum of the squares of the first dim0 integers
+    // The denominator is the sum of the first dim0 integers squared
+    Real wavg = sp(sum_n_sq(dim0)) / sp(sum_n(dim0) * sum_n(dim0));
+    REQUIRE_THAT(v(), Catch::Matchers::WithinRel(wavg, tol));
+
+    // Test higher-order cases
+    result = field_z.clone();
+    horiz_contraction<Real>(result, field10, field00);
+    REQUIRE(result.get_header().get_identifier().get_layout().tags() ==
+            std::vector<FieldTag>({CMP}));
+    REQUIRE(result.get_header().get_identifier().get_layout().dim(0) == dim1);
+
+    result = field_y.clone();
+    horiz_contraction<Real>(result, field11, field00);
+    REQUIRE(result.get_header().get_identifier().get_layout().tags() ==
+            std::vector<FieldTag>({LEV}));
+    REQUIRE(result.get_header().get_identifier().get_layout().dim(0) == dim2);
+
+    result = field_w.clone();
+    horiz_contraction<Real>(result, field20, field00);
+    REQUIRE(result.get_header().get_identifier().get_layout().tags() ==
+            std::vector<FieldTag>({CMP, LEV}));
+    REQUIRE(result.get_header().get_identifier().get_layout().dim(0) == dim1);
+    REQUIRE(result.get_header().get_identifier().get_layout().dim(1) == dim2);
+
+    // Check a 3D case
+    field20.sync_to_host();
+    result.sync_to_host();
+    auto manual_result = result.clone();
+    manual_result.deep_copy(0);
+    manual_result.sync_to_host();
+    auto v2 = field20.get_strided_view<Real ***, Host>();
+    auto mr = manual_result.get_strided_view<Real **, Host>();
+    auto rr = result.get_strided_view<Real **, Host>();
+
+    for(int j = 0; j < dim1; ++j) {
+      for(int k = 0; k < dim2; ++k) {
+        for(int i = 0; i < dim0; ++i) {
+          mr(j, k) += v00(i) * v2(i, j, k);
+        }
+        REQUIRE_THAT(rr(j, k), Catch::Matchers::WithinRel(mr(j, k), tol));
+      }
+    }
+  }
+
+  SECTION("vert_contraction") {
+    // A numerical tolerance
+    // Accumulations in the Kokkos threaded reductions may be done in a
+    // different order than the manual ones below, so we can only test
+    // correctness up to a tolerance
+    auto tol = std::numeric_limits<Real>::epsilon() * 100;
+
+    std::vector<FieldTag> lev_tags = {LEV, ILEV};
+    // iterate over lev_tags
+    for(auto lev_tag : lev_tags) {
+      using RPDF  = std::uniform_real_distribution<Real>;
+      auto engine = setup_random_test();
+      RPDF pdf(0, 1);
+
+      int dim0 = 18;
+      int dim1 = 9;
+      // Note that parallel reduction is happening over dim2 (LEV/ILEV)
+      int dim2 = lev_tag == LEV ? 225 : 226;
+
+      // Set a weight field
+      FieldIdentifier f00("f", {{lev_tag}, {dim2}}, m / s, "g");
+      Field field00(f00);
+      field00.allocate_view();
+      field00.sync_to_host();
+      auto v00 = field00.get_strided_view<Real *, Host>();
+      for(int i = 0; i < dim2; ++i) {
+        // The denominator is the sum of the first dim2 integers (analytically
+        // known)
+        v00(i) = sp(i + 1) / sp(sum_n(dim2));
+      }
+      field00.sync_to_dev();
+
+      // Create (random) sample fields
+      FieldIdentifier fsc("f", {{}, {}}, m / s, "g");  // scalar
+      FieldIdentifier f10("f", {{COL, lev_tag}, {dim0, dim2}}, m / s, "g");
+      FieldIdentifier f11("f", {{CMP, lev_tag}, {dim1, dim2}}, m / s, "g");
+      FieldIdentifier f20("f", {{COL, CMP, lev_tag}, {dim0, dim1, dim2}}, m / s,
+                          "g");
+      Field fieldsc(fsc);
+      Field field10(f10);
+      Field field11(f11);
+      Field field20(f20);
+      fieldsc.allocate_view();
+      field10.allocate_view();
+      field11.allocate_view();
+      field20.allocate_view();
+      randomize(fieldsc, engine, pdf);
+      randomize(field10, engine, pdf);
+      randomize(field11, engine, pdf);
+      randomize(field20, engine, pdf);
+
+      FieldIdentifier F_x("fx", {{COL}, {dim0}}, m / s, "g");
+      FieldIdentifier F_y("fy", {{CMP}, {dim1}}, m / s, "g");
+      FieldIdentifier F_z("fz", {{COL, CMP}, {dim0, dim1}}, m / s, "g");
+
+      Field field_x(F_x);
+      Field field_y(F_y);
+      Field field_z(F_z);
+
+      // Test invalid inputs
+      REQUIRE_THROWS(vert_contraction<Real>(fieldsc, field_x,
+                                            field00));  // x not allocated yet
+
+      field_x.allocate_view();
+      field_y.allocate_view();
+      field_z.allocate_view();
+
+      REQUIRE_THROWS(vert_contraction<Real>(fieldsc, field_y,
+                                            field_x));  // unmatching layout
+      REQUIRE_THROWS(vert_contraction<Real>(field_z, field11,
+                                            field11));  // wrong weight layout
+
+      Field result;
+
+      // Add test for invalid rank-2 weight field layout
+      FieldIdentifier bad_w("bad_w", {{CMP, lev_tag}, {dim1, dim2}}, m / s,
+                            "g");
+      Field bad_weight(bad_w);
+      bad_weight.allocate_view();
+      REQUIRE_THROWS(vert_contraction<Real>(result, field20, bad_weight));
+
+      // Add test for mismatched weight field dimensions
+      FieldIdentifier wrong_size_w(
+          "wrong_w", {{COL, lev_tag}, {dim0 + 1, dim2}}, m / s, "g");
+      Field wrong_weight(wrong_size_w);
+      wrong_weight.allocate_view();
+      REQUIRE_THROWS(vert_contraction<Real>(result, field20, wrong_weight));
+
+      // Ensure a scalar case works
+      result = fieldsc.clone();
+      vert_contraction<Real>(result, field00, field00);
+      result.sync_to_host();
+      auto v = result.get_view<Real, Host>();
+      // The numerator is the sum of the squares of the first dim2 integers
+      // (analytically known). The denominator is the sum of the first dim2
+      // integers squared (analytically known)
+      Real havg = sp(sum_n_sq(dim2)) / sp(sum_n(dim2) * sum_n(dim2));
+      REQUIRE_THAT(v(), Catch::Matchers::WithinRel(havg, tol));
+
+      // Test higher-order cases
+      result = field_x.clone();
+      vert_contraction<Real>(result, field10, field00);
+      REQUIRE(result.get_header().get_identifier().get_layout().tags() ==
+              std::vector<FieldTag>({COL}));
+      REQUIRE(result.get_header().get_identifier().get_layout().dim(0) == dim0);
+
+      // Check a 2D case with 1D weight
+      field10.sync_to_host();
+      result.sync_to_host();
+      auto manual_result = result.clone();
+      manual_result.deep_copy(0);
+      manual_result.sync_to_host();
+      auto v1 = field10.get_strided_view<Real **, Host>();
+      auto mr = manual_result.get_strided_view<Real *, Host>();
+      auto rr = result.get_strided_view<Real *, Host>();
+      for(int i = 0; i < dim0; ++i) {
+        for(int j = 0; j < dim2; ++j) {
+          mr(i) += v00(j) * v1(i, j);
+        }
+        REQUIRE_THAT(rr(i), Catch::Matchers::WithinRel(mr(i), tol));
+      }
+
+      result = field_y.clone();
+      vert_contraction<Real>(result, field11, field00);
+      REQUIRE(result.get_header().get_identifier().get_layout().tags() ==
+              std::vector<FieldTag>({CMP}));
+      REQUIRE(result.get_header().get_identifier().get_layout().dim(0) == dim1);
+
+      result = field_z.clone();
+      vert_contraction<Real>(result, field20, field00);
+      REQUIRE(result.get_header().get_identifier().get_layout().tags() ==
+              std::vector<FieldTag>({COL, CMP}));
+      REQUIRE(result.get_header().get_identifier().get_layout().dim(0) == dim0);
+      REQUIRE(result.get_header().get_identifier().get_layout().dim(1) == dim1);
+
+      // Check a 3D case with 1D weight
+      field20.sync_to_host();
+      result.sync_to_host();
+      manual_result = result.clone();
+      manual_result.deep_copy(0);
+      manual_result.sync_to_host();
+      auto v2  = field20.get_strided_view<Real ***, Host>();
+      auto mr2 = manual_result.get_strided_view<Real **, Host>();
+      auto rr2 = result.get_strided_view<Real **, Host>();
+      for(int i = 0; i < dim0; ++i) {
+        for(int j = 0; j < dim1; ++j) {
+          for(int k = 0; k < dim2; ++k) {
+            mr2(i, j) += v00(k) * v2(i, j, k);
+          }
+          REQUIRE_THAT(rr2(i, j), Catch::Matchers::WithinRel(mr2(i, j), tol));
+        }
+      }
+
+      // Check a 3D case with 2D weight
+      result = field_z.clone();
+      vert_contraction<Real>(result, field20, field10);
+      REQUIRE(result.get_header().get_identifier().get_layout().tags() ==
+              std::vector<FieldTag>({COL, CMP}));
+      REQUIRE(result.get_header().get_identifier().get_layout().dim(0) == dim0);
+      REQUIRE(result.get_header().get_identifier().get_layout().dim(1) == dim1);
+
+      field20.sync_to_host();
+      result.sync_to_host();
+      manual_result = result.clone();
+      manual_result.deep_copy(0);
+      manual_result.sync_to_host();
+      auto mr3 = manual_result.get_strided_view<Real **, Host>();
+      auto rr3 = result.get_strided_view<Real **, Host>();
+      for(int i = 0; i < dim0; ++i) {
+        for(int j = 0; j < dim1; ++j) {
+          for(int k = 0; k < dim2; ++k) {
+            mr3(i, j) += v1(i, k) * v2(i, j, k);
+          }
+          REQUIRE_THAT(rr3(i, j), Catch::Matchers::WithinRel(mr3(i, j), tol));
+        }
+      }
+    }
+  }
+
   SECTION ("frobenius") {
 
-    auto v1 = f1.get_view<Real**>();
+    auto v1 = f1.get_strided_view<Real**>();
     auto dim0 = fid.get_layout().dim(0);
     auto dim1 = fid.get_layout().dim(1);
     auto lsize = fid.get_layout().size();
@@ -129,7 +460,7 @@ TEST_CASE("utils") {
 
   SECTION ("max") {
 
-    auto v1 = f1.get_view<Real**>();
+    auto v1 = f1.get_strided_view<Real**>();
     auto dim0 = fid.get_layout().dim(0);
     auto dim1 = fid.get_layout().dim(1);
     auto lsize = fid.get_layout().size();
@@ -152,7 +483,7 @@ TEST_CASE("utils") {
 
   SECTION ("min") {
 
-    auto v1 = f1.get_view<Real**>();
+    auto v1 = f1.get_strided_view<Real**>();
     auto dim0 = fid.get_layout().dim(0);
     auto dim1 = fid.get_layout().dim(1);
     auto lsize = fid.get_layout().size();
@@ -170,6 +501,103 @@ TEST_CASE("utils") {
 
     REQUIRE(field_min<Real>(f1)==lmin);
     REQUIRE(field_min<Real>(f1,&comm)==gmin);
+  }
+
+  SECTION ("perturb") {
+    using namespace ShortFieldTagsNames;
+    using RPDF = std::uniform_real_distribution<Real>;
+    using IPDF = std::uniform_int_distribution<int>;
+    auto engine = setup_random_test ();
+
+    const int ncols = 6;
+    const int ncmps = 2;
+    const int nlevs = IPDF(3,9)(engine); // between 3-9 levels
+
+    // Create 1d, 2d, 3d fields with a level dimension, and set all to 1
+    FieldIdentifier fid1 ("f_1d",   FieldLayout({LEV},           {nlevs}),               Units::nondimensional(), "");
+    FieldIdentifier fid2a("f_2d_a", FieldLayout({CMP, LEV},      {ncmps, nlevs}),        Units::nondimensional(), "");
+    FieldIdentifier fid2b("f_2d_b", FieldLayout({COL, LEV},      {ncols, nlevs}),        Units::nondimensional(), "");
+    FieldIdentifier fid3 ("f_3d",   FieldLayout({COL, CMP, LEV}, {ncols, ncmps, nlevs}), Units::nondimensional(), "");
+    Field f1(fid1), f2a(fid2a), f2b(fid2b), f3(fid3);
+    f1.allocate_view(), f2a.allocate_view(), f2b.allocate_view(), f3.allocate_view();
+    f1.deep_copy(1), f2a.deep_copy(1), f2b.deep_copy(1), f3.deep_copy(1);
+
+    // We need GIDs for fields with COL component. This test is not over
+    // multiple ranks, so just set as [0, ncols-1].
+    Field gids(FieldIdentifier("gids", FieldLayout({COL}, {ncols}), Units::nondimensional(), "", DataType::IntType));
+    gids.allocate_view();
+    auto gids_data = gids.get_internal_view_data<int,Host>();
+    std::iota(gids_data, gids_data+ncols, 0);
+    gids.sync_to_dev();
+
+    // Create masks s.t. only last 3 levels are perturbed. For variety,
+    // 1d and 2d fields will use lambda mask and 3 field will use a view.
+    auto mask_lambda = [&nlevs] (const int& i0) {
+      return i0 >= nlevs-3;
+    };
+    kt_host::view_1d<bool> mask_view("mask_view", nlevs);
+    Kokkos::deep_copy(mask_view, false);
+    for (int ilev=0; ilev<nlevs; ++ilev) {
+      if (ilev >= nlevs-3) mask_view(ilev) = true;
+    }
+
+    // Compute random perturbation between [2, 3]
+    RPDF pdf(2, 3);
+    int base_seed = 0;
+    perturb(f1,  engine, pdf, base_seed, mask_lambda);
+    perturb(f2a, engine, pdf, base_seed, mask_lambda);
+    perturb(f2b, engine, pdf, base_seed, mask_lambda, gids);
+    perturb(f3,  engine, pdf, base_seed, mask_view,   gids);
+
+    // Sync to host for checks
+    f1.sync_to_host(), f2a.sync_to_host(), f2b.sync_to_host(), f3.sync_to_host();
+    const auto v1  = f1.get_strided_view <Real*,   Host>();
+    const auto v2a = f2a.get_strided_view<Real**,  Host>();
+    const auto v2b = f2b.get_strided_view<Real**,  Host>();
+    const auto v3  = f3.get_strided_view <Real***, Host>();
+
+    // Check that all field values are 1 for all but last 3 levels and between [2,3] otherwise.
+    auto check_level = [&] (const int ilev, const Real val) {
+      if (ilev < nlevs-3) REQUIRE(val == 1);
+      else REQUIRE((2 <= val && val <= 3));
+    };
+    for (int icol=0; icol<ncols; ++icol) {
+      for (int icmp=0; icmp<ncmps; ++icmp) {
+        for (int ilev=0; ilev<nlevs; ++ilev) {
+          if (icol==0 && icmp==0) check_level(ilev, v1(ilev));
+          if (icol==0) check_level(ilev, v2a(icmp,ilev));
+          if (icmp==0) check_level(ilev, v2b(icol,ilev));
+          check_level(ilev, v3(icol,icmp,ilev));
+    }}}
+
+    // Check that using a different seed gives different values
+    auto f1_alt = f1.clone(); f1_alt.deep_copy(1.0);
+    auto f3_alt = f3.clone(); f3_alt.deep_copy(1.0);
+    int base_seed_alt = 100;
+    perturb(f1_alt, engine, pdf, base_seed_alt, mask_lambda);
+    perturb(f3_alt, engine, pdf, base_seed_alt, mask_lambda, gids);
+    f1_alt.sync_to_host(), f3_alt.sync_to_host();
+
+    const auto v1_alt = f1_alt.get_strided_view<Real*,   Host>();
+    const auto v3_alt = f3_alt.get_strided_view<Real***, Host>();
+
+    auto check_diff = [&] (const int ilev, const Real val1, const Real val2) {
+      if (ilev < nlevs-3) REQUIRE(val1==val2);
+      else                REQUIRE(val1!=val2);
+    };
+    for (int icol=0; icol<ncols; ++icol) {
+      for (int icmp=0; icmp<ncmps; ++icmp) {
+        for (int ilev=0; ilev<nlevs; ++ilev) {
+          if (icol==0 && icmp==0) check_diff(ilev, v1(ilev), v1_alt(ilev));
+          check_diff(ilev, v3(icol,icmp,ilev), v3_alt(icol,icmp,ilev));
+    }}}
+
+    // Finally check that the original seed gives same result
+    f1_alt.deep_copy(1.0), f3_alt.deep_copy(1.0);
+    perturb(f1_alt, engine, pdf, base_seed, mask_lambda);
+    perturb(f3_alt, engine, pdf, base_seed, mask_lambda, gids);
+    REQUIRE(views_are_equal(f1, f1_alt));
+    REQUIRE(views_are_equal(f3, f3_alt));
   }
 
   SECTION ("wrong_st") {
@@ -220,7 +648,7 @@ TEST_CASE ("print_field_hyperslab") {
   f.allocate_view();
   randomize (f,engine,pdf);
 
-  auto v = f.get_view<const Real*****,Host>();
+  auto v = f.get_strided_view<const Real*****,Host>();
 
   SECTION ("slice_0") {
     std::vector<FieldTag> loc_tags = {EL,CMP};
@@ -229,7 +657,7 @@ TEST_CASE ("print_field_hyperslab") {
     print_field_hyperslab(f,loc_tags,loc_idxs,out);
 
     std::stringstream expected;
-    expected << "     f" << to_string(fid.get_layout()) << "\n\n";
+    expected << "     f" << fid.get_layout().to_string() << "\n\n";
       for (int gp1=0; gp1<ngp; ++gp1) {
         for (int gp2=0; gp2<ngp; ++gp2) {
           expected <<  "  f(" << iel << "," << icmp << "," << gp1 << "," << gp2 << ",:)";
@@ -252,7 +680,7 @@ TEST_CASE ("print_field_hyperslab") {
     print_field_hyperslab(f,loc_tags,loc_idxs,out);
 
     std::stringstream expected;
-    expected << "     f" << to_string(fid.get_layout()) << "\n\n";
+    expected << "     f" << fid.get_layout().to_string() << "\n\n";
       expected <<  "  f(" << iel << ",:," << igp << "," << jgp << "," << ilev << ")";
       for (int cmp=0; cmp<ncmp; ++cmp) {
         if (cmp % max_per_line == 0) {
@@ -271,7 +699,7 @@ TEST_CASE ("print_field_hyperslab") {
     print_field_hyperslab(f,loc_tags,loc_idxs,out);
 
     std::stringstream expected;
-    expected << "     f" << to_string(fid.get_layout()) << "\n\n";
+    expected << "     f" << fid.get_layout().to_string() << "\n\n";
       expected <<  "  f(" << ekat::join(loc_idxs,",") << ")\n";
       expected << "    " << v(iel,icmp,igp,jgp,ilev) << ", \n";
 

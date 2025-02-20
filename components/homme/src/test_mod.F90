@@ -21,10 +21,10 @@ use asp_tests,            only: asp_tracer, asp_baroclinic, asp_rossby, asp_moun
 use baroclinic_inst_mod,  only: binst_init_state, jw_baroclinic
 use dcmip12_wrapper,      only: dcmip2012_test1_1, dcmip2012_test1_2, dcmip2012_test1_3,&
                                 dcmip2012_test2_0, dcmip2012_test2_x, dcmip2012_test3,  &
-                                dcmip2012_test4_init, mtest_init, dcmip2012_test1_1_conv
+                                dcmip2012_test4_init, mtest_init, dcmip2012_test1_conv
 use dcmip16_wrapper,      only: dcmip2016_test1, dcmip2016_test2, dcmip2016_test3, &
                                 dcmip2016_test1_forcing, dcmip2016_test2_forcing, dcmip2016_test3_forcing, &
-                                dcmip2016_test1_pg, dcmip2016_test1_pg_forcing, dcmip2016_init
+                                dcmip2016_pg_init, dcmip2016_test1_pg, dcmip2016_test1_pg_forcing, dcmip2016_init
 use held_suarez_mod,      only: hs0_init_state
 
 use dry_planar_tests,     only: planar_hydro_gravity_wave_init, planar_nonhydro_gravity_wave_init
@@ -68,7 +68,8 @@ subroutine set_test_initial_conditions(elem, deriv, hybrid, hvcoord, tl, nets, n
     case('asp_tracer');
     case('baroclinic');
     case('dcmip2012_test1_1');
-    case('dcmip2012_test1_1_conv');
+    case('dcmip2012_test1_3a_conv', 'dcmip2012_test1_3b_conv', 'dcmip2012_test1_3c_conv', &
+         'dcmip2012_test1_3d_conv', 'dcmip2012_test1_3e_conv', 'dcmip2012_test1_3f_conv')
     case('dcmip2012_test1_2');
     case('dcmip2012_test1_3');
     case('dcmip2012_test2_0');
@@ -76,8 +77,8 @@ subroutine set_test_initial_conditions(elem, deriv, hybrid, hvcoord, tl, nets, n
     case('dcmip2012_test2_2'); test_with_forcing = .true. ;
     case('dcmip2012_test3');
     case('dcmip2012_test4');
-    case('dcmip2016_test1');    call dcmip2016_init();  test_with_forcing = .true. ;
-    case('dcmip2016_test1_pg1', 'dcmip2016_test1_pg2', 'dcmip2016_test1_pg3', 'dcmip2016_test1_pg4')
+    case('dcmip2016_test1', &
+         'dcmip2016_test1_pg1', 'dcmip2016_test1_pg2', 'dcmip2016_test1_pg3', 'dcmip2016_test1_pg4')
        call dcmip2016_init();  test_with_forcing = .true. ;
     case('dcmip2016_test2');    call dcmip2016_init();  test_with_forcing = .true. ;
     case('dcmip2016_test3');    call dcmip2016_init();  test_with_forcing = .true. ;
@@ -91,7 +92,7 @@ subroutine set_test_initial_conditions(elem, deriv, hybrid, hvcoord, tl, nets, n
     case('planar_hydro_mtn_wave');
     case('planar_nonhydro_mtn_wave');
     case('planar_schar_mtn_wave');
-    case('planar_rising_bubble');
+    case('planar_rising_bubble', 'planar_rising_bubble_pg2')
            if (bubble_moist) then 
               call dcmip2016_init();
               test_with_forcing = .true. ;
@@ -118,9 +119,10 @@ subroutine set_test_initial_conditions(elem, deriv, hybrid, hvcoord, tl, nets, n
       case('asp_tracer');         call asp_tracer       (elem,hybrid,hvcoord,nets,nete)
       case('baroclinic');         call binst_init_state (elem,hybrid, nets, nete, hvcoord)
       case('dcmip2012_test1_1');  call dcmip2012_test1_1(elem,hybrid,hvcoord,nets,nete,0.0d0,1,timelevels)
-      case('dcmip2012_test1_1_conv')
+      case('dcmip2012_test1_3a_conv', 'dcmip2012_test1_3b_conv', 'dcmip2012_test1_3c_conv', &
+           'dcmip2012_test1_3d_conv', 'dcmip2012_test1_3e_conv', 'dcmip2012_test1_3f_conv')
          midpoint_eta_dot_dpdn = .true.
-         call dcmip2012_test1_1_conv(elem,hybrid,hvcoord,nets,nete,0.0d0,1,timelevels)
+         call dcmip2012_test1_conv(test_case,elem,hybrid,hvcoord,deriv,nets,nete,0.0d0,1,timelevels)
       case('dcmip2012_test1_2');  call dcmip2012_test1_2(elem,hybrid,hvcoord,nets,nete,0.0d0,1,timelevels)
       case('dcmip2012_test1_3');  call dcmip2012_test1_3(elem,hybrid,hvcoord,nets,nete,0.0d0,1,timelevels,deriv)
       case('dcmip2012_test2_0');  call dcmip2012_test2_0(elem,hybrid,hvcoord,nets,nete)
@@ -146,6 +148,9 @@ subroutine set_test_initial_conditions(elem, deriv, hybrid, hvcoord, tl, nets, n
       case('planar_nonhydro_mtn_wave');             call planar_nonhydro_mountain_wave_init(elem,hybrid,hvcoord,nets,nete)
       case('planar_schar_mtn_wave');                call planar_schar_mountain_wave_init(elem,hybrid,hvcoord,nets,nete)
       case('planar_rising_bubble');                 call planar_rising_bubble_init(elem,hybrid,hvcoord,nets,nete)
+      case('planar_rising_bubble_pg2')
+         call dcmip2016_pg_init(elem,hybrid,hvcoord,nets,nete,2)
+         call planar_rising_bubble_init(elem,hybrid,hvcoord,nets,nete)
       case('planar_density_current');               call planar_density_current_init(elem,hybrid,hvcoord,nets,nete)
       case('planar_baroclinic_instab');             call planar_baroclinic_instab_init(elem,hybrid,hvcoord,nets,nete)
       case('planar_moist_rising_bubble');           call planar_moist_rising_bubble_init(elem,hybrid,hvcoord,nets,nete)
@@ -194,7 +199,9 @@ subroutine set_test_prescribed_wind(elem, deriv, hybrid, hvcoord, dt, tl, nets, 
   ! set prescribed quantities at timelevel np1 
   select case(test_case)
     case('dcmip2012_test1_1'); call dcmip2012_test1_1(elem,hybrid,hvcoord,nets,nete,time,np1,np1)
-    case('dcmip2012_test1_1_conv'); call dcmip2012_test1_1_conv(elem,hybrid,hvcoord,nets,nete,time,np1,np1)
+    case('dcmip2012_test1_3a_conv', 'dcmip2012_test1_3b_conv', 'dcmip2012_test1_3c_conv', &
+         'dcmip2012_test1_3d_conv', 'dcmip2012_test1_3e_conv', 'dcmip2012_test1_3f_conv')
+       call dcmip2012_test1_conv(test_case,elem,hybrid,hvcoord,deriv,nets,nete,time,np1,np1)
     case('dcmip2012_test1_2'); call dcmip2012_test1_2(elem,hybrid,hvcoord,nets,nete,time,np1,np1)
     case('dcmip2012_test1_3'); call dcmip2012_test1_3(elem,hybrid,hvcoord,nets,nete,time,np1,np1,deriv)
   endselect
@@ -251,6 +258,8 @@ subroutine compute_test_forcing(elem,hybrid,hvcoord,nt,ntQ,dt,nets,nete,tl)
 
     case('planar_rising_bubble');  
             if (bubble_moist) call dcmip2016_test1_forcing(elem,hybrid,hvcoord,nets,nete,nt,ntQ,dt,tl)
+    case('planar_rising_bubble_pg2');  
+            if (bubble_moist) call dcmip2016_test1_pg_forcing(elem,hybrid,hvcoord,nets,nete,nt,ntQ,dt,tl)
 
     case('held_suarez0');
        do ie=nets,nete
@@ -353,7 +362,9 @@ end subroutine compute_test_forcing
     type(parallel_t), intent(in) :: par
 
     select case(test_case)
-       case('dcmip2012_test1_1_conv'); call dcmip2012_print_test1_conv_results(elem, tl, hvcoord, par, 1)
+    case('dcmip2012_test1_3a_conv', 'dcmip2012_test1_3b_conv', 'dcmip2012_test1_3c_conv', &
+         'dcmip2012_test1_3d_conv', 'dcmip2012_test1_3e_conv', 'dcmip2012_test1_3f_conv')
+       call dcmip2012_print_test1_conv_results(test_case, elem, tl, hvcoord, par, 1)
     end select
   end subroutine print_test_results
 

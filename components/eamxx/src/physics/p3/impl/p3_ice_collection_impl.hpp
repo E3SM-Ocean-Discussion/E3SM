@@ -15,6 +15,7 @@ void Functions<S,D>
   const Spack& qi_incld, const Spack& qc_incld,
   const Spack& ni_incld, const Spack& nc_incld,
   Spack& qc2qi_collect_tend, Spack& nc_collect_tend, Spack& qc2qr_ice_shed_tend, Spack& ncshdc,
+  const P3Runtime& runtime_options,
   const Smask& context)
 {
   constexpr Scalar qsmall = C::QSMALL;
@@ -27,17 +28,25 @@ void Functions<S,D>
   const auto both_ge_small        = qi_incld_ge_small && qc_incld_ge_small && context;
   const auto both_ge_small_pos_t  = both_ge_small && !t_is_negative;
 
-  constexpr auto eci = C::eci;
+  const Scalar cldliq_to_ice_collection_factor =
+      runtime_options.cldliq_to_ice_collection_factor;
   constexpr auto inv_dropmass = C::ONE/C::dropmass;
 
   qc2qi_collect_tend.set(both_ge_small && t_is_negative,
-            rhofaci*table_val_qc2qi_collect*qc_incld*eci*rho*ni_incld);
-  nc_collect_tend.set(both_ge_small, rhofaci*table_val_qc2qi_collect*nc_incld*eci*rho*ni_incld);
+                         rhofaci * table_val_qc2qi_collect * qc_incld *
+                             cldliq_to_ice_collection_factor * rho * ni_incld);
+  nc_collect_tend.set(both_ge_small,
+                      rhofaci * table_val_qc2qi_collect * nc_incld *
+                          cldliq_to_ice_collection_factor * rho * ni_incld);
 
   // for T_atm > 273.15, assume cloud water is collected and shed as rain drops
   // sink for cloud water mass and number, note qcshed is source for rain mass
-  qc2qr_ice_shed_tend.set(both_ge_small_pos_t, rhofaci*table_val_qc2qi_collect*qc_incld*eci*rho*ni_incld);
-  nc_collect_tend.set(both_ge_small_pos_t, rhofaci*table_val_qc2qi_collect*nc_incld*eci*rho*ni_incld);
+  qc2qr_ice_shed_tend.set(both_ge_small_pos_t,
+                          rhofaci * table_val_qc2qi_collect * qc_incld *
+                              cldliq_to_ice_collection_factor * rho * ni_incld);
+  nc_collect_tend.set(both_ge_small_pos_t,
+                      rhofaci * table_val_qc2qi_collect * nc_incld *
+                          cldliq_to_ice_collection_factor * rho * ni_incld);
   // source for rain number, assume 1 mm drops are shed
   ncshdc.set(both_ge_small_pos_t, qc2qr_ice_shed_tend*inv_dropmass);
 }
@@ -52,6 +61,7 @@ void Functions<S,D>
   const Spack& qi_incld, const Spack& ni_incld,
   const Spack& qr_incld,
   Spack& qr2qi_collect_tend, Spack& nr_collect_tend,
+  const P3Runtime& runtime_options,
   const Smask& context)
 {
   constexpr Scalar qsmall = C::QSMALL;
@@ -65,11 +75,17 @@ void Functions<S,D>
   const auto both_ge_small_neg_t  = both_ge_small && t_is_negative;
 
   constexpr Scalar ten = 10.0;
-  constexpr auto eri = C::eri;
+  const Scalar rain_to_ice_collection_factor =
+      runtime_options.rain_to_ice_collection_factor;
 
   // note: table_val_qr2qi_collect and logn0r are already calculated as log_10
-  qr2qi_collect_tend.set(both_ge_small_neg_t, pow(ten, table_val_qr2qi_collect+logn0r)*rho*rhofaci*eri*ni_incld);
-  nr_collect_tend.set(both_ge_small_neg_t, pow(ten, table_val_nr_collect+logn0r)*rho*rhofaci*eri*ni_incld);
+  qr2qi_collect_tend.set(both_ge_small_neg_t,
+                         pow(ten, table_val_qr2qi_collect + logn0r) * rho *
+                             rhofaci * rain_to_ice_collection_factor *
+                             ni_incld);
+  nr_collect_tend.set(both_ge_small_neg_t,
+                      pow(ten, table_val_nr_collect + logn0r) * rho * rhofaci *
+                          rain_to_ice_collection_factor * ni_incld);
 
   // rain number sink due to collection
   // for T_atm > 273.15, assume collected rain number is shed as
@@ -78,7 +94,8 @@ void Functions<S,D>
   // rate of ice mass due to melting
   // collection of rain above freezing does not impact total rain mass
   nr_collect_tend.set(both_ge_small && !t_is_negative,
-            pow(ten, table_val_nr_collect + logn0r)*rho*rhofaci*eri*ni_incld);
+                      pow(ten, table_val_nr_collect + logn0r) * rho * rhofaci *
+                          rain_to_ice_collection_factor * ni_incld);
   // for now neglect shedding of ice collecting rain above freezing, since snow is
   // not expected to shed in these conditions (though more hevaily rimed ice would be
   // expected to lead to shedding)
