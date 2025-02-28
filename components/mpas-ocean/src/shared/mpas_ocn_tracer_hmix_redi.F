@@ -272,6 +272,7 @@ contains
             else  ! cell2 == iCell
                iCellSelf = 2
             endif
+            if (maxLevelCell(cell1) == 0 .or. maxLevelCell(cell2) == 0) cycle
 
             if (use_quasi_monotone) then
                ! expand min/max bnds on edge neighbours
