@@ -263,6 +263,9 @@
       real(kind=r8) :: zcd(nlayers+1,ngptsw), zcu(nlayers+1,ngptsw)
       real(kind=r8) :: zfd(nlayers+1,ngptsw), zfu(nlayers+1,ngptsw)
 
+! Ratio of flux in RRTMG_SW band 9 in VIS vs NIR Band
+      real(kind=r8) :: vis_frc, nir_frc
+
 ! Inactive arrays
 !     real(kind=r8) :: zbbcd(nlayers+1), zbbcu(nlayers+1)
 !     real(kind=r8) :: zbbfd(nlayers+1), zbbfu(nlayers+1)
@@ -585,6 +588,17 @@
 !   Two-stream calculations go from top to bottom; 
 !   layer indexing is reversed to go bottom to top for output arrays
 
+!   JPT 20240605: include option for an asymetric split of 9th RRTMG_SW
+!   band which straddles the VIS/NIR split sent to surface model.
+!   Current implentation breaks splits band 9 50/50. But offline simulations
+!   hyperspectral simulations suggest a ~55/45 split would more appropriate
+
+            vis_frc = 0.5             ! Default
+            nir_frc = 1.0 - vis_frc   ! Default
+!            vis_frc = 0.555           ! JPT: Proposed value
+!            nir_frc = 1.0 - vis_frc   ! JPT: Proposed value
+
+
             do jk=1,klev+1
                ikl=klev+2-jk
 
@@ -625,23 +639,23 @@
                   endif
 ! band 9 is half-NearIR and half-Visible
                else if (ibm == 9) then  
-                  puvcd(ikl) = puvcd(ikl) + 0.5_r8*zincflx(iw)*zcd(jk,iw)
-                  puvfd(ikl) = puvfd(ikl) + 0.5_r8*zincflx(iw)*zfd(jk,iw)
-                  pnicd(ikl) = pnicd(ikl) + 0.5_r8*zincflx(iw)*zcd(jk,iw)
-                  pnifd(ikl) = pnifd(ikl) + 0.5_r8*zincflx(iw)*zfd(jk,iw)
+                  puvcd(ikl) = puvcd(ikl) + vis_frc*zincflx(iw)*zcd(jk,iw)
+                  puvfd(ikl) = puvfd(ikl) + vis_frc*zincflx(iw)*zfd(jk,iw)
+                  pnicd(ikl) = pnicd(ikl) + nir_frc*zincflx(iw)*zcd(jk,iw)
+                  pnifd(ikl) = pnifd(ikl) + nir_frc*zincflx(iw)*zfd(jk,iw)
                   if (idelm .eq. 0) then
-                     puvfddir(ikl) = puvfddir(ikl) + 0.5_r8*zincflx(iw)*ztdbt_nodel(jk)
-                     puvcddir(ikl) = puvcddir(ikl) + 0.5_r8*zincflx(iw)*ztdbtc_nodel(jk)
-                     pnifddir(ikl) = pnifddir(ikl) + 0.5_r8*zincflx(iw)*ztdbt_nodel(jk)
-                     pnicddir(ikl) = pnicddir(ikl) + 0.5_r8*zincflx(iw)*ztdbtc_nodel(jk)
+                     puvfddir(ikl) = puvfddir(ikl) + vis_frc*zincflx(iw)*ztdbt_nodel(jk)
+                     puvcddir(ikl) = puvcddir(ikl) + vis_frc*zincflx(iw)*ztdbtc_nodel(jk)
+                     pnifddir(ikl) = pnifddir(ikl) + nir_frc*zincflx(iw)*ztdbt_nodel(jk)
+                     pnicddir(ikl) = pnicddir(ikl) + nir_frc*zincflx(iw)*ztdbtc_nodel(jk)
                   elseif (idelm .eq. 1) then
-                     puvfddir(ikl) = puvfddir(ikl) + 0.5_r8*zincflx(iw)*ztdbt(jk)
-                     puvcddir(ikl) = puvcddir(ikl) + 0.5_r8*zincflx(iw)*ztdbtc(jk)
-                     pnifddir(ikl) = pnifddir(ikl) + 0.5_r8*zincflx(iw)*ztdbt(jk)
-                     pnicddir(ikl) = pnicddir(ikl) + 0.5_r8*zincflx(iw)*ztdbtc(jk)
+                     puvfddir(ikl) = puvfddir(ikl) + vis_frc*zincflx(iw)*ztdbt(jk)
+                     puvcddir(ikl) = puvcddir(ikl) + vis_frc*zincflx(iw)*ztdbtc(jk)
+                     pnifddir(ikl) = pnifddir(ikl) + nir_frc*zincflx(iw)*ztdbt(jk)
+                     pnicddir(ikl) = pnicddir(ikl) + nir_frc*zincflx(iw)*ztdbtc(jk)
                   endif
-                  pnicu(ikl) = pnicu(ikl) + 0.5_r8*zincflx(iw)*zcu(jk,iw)
-                  pnifu(ikl) = pnifu(ikl) + 0.5_r8*zincflx(iw)*zfu(jk,iw)
+                  pnicu(ikl) = pnicu(ikl) + nir_frc*zincflx(iw)*zcu(jk,iw)
+                  pnifu(ikl) = pnifu(ikl) + nir_frc*zincflx(iw)*zfu(jk,iw)
 ! Accumulate direct fluxes for near-IR bands
                else if (ibm == 14 .or. ibm <= 8) then  
                   pnicd(ikl) = pnicd(ikl) + zincflx(iw)*zcd(jk,iw)
