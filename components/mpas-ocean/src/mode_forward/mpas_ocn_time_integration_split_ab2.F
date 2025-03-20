@@ -581,6 +581,15 @@ module ocn_time_integration_split_ab2
          !$omp end parallel
 #endif
       endif
+      if ( configVertAdvMethod == vertAdvRemap ) then
+         call mpas_timer_start("vertical remap")
+         call mpas_log_write('Call remap at beginning of outer loop')
+         ! Perform the remapping
+         call ocn_remap_vert_state(block, err, 2)
+
+         call mpas_timer_stop("vertical remap")
+      end if
+
 
       call mpas_timer_stop("se prep")
 
@@ -2211,6 +2220,16 @@ module ocn_time_integration_split_ab2
                !$omp end do
                !$omp end parallel
 #endif
+            if ( configVertAdvMethod == vertAdvRemap ) then
+
+               call mpas_pool_get_array(statePool, 'layerThicknessLag', layerThicknessLagNew, 2)
+
+               ! Store the current, Lagrangian location for computation of the
+               ! Eulerian vertical velocity induced by remapping
+               layerThicknessLagNew = layerThicknessNew
+
+            end if
+
 
             endif ! nowTimeStamp
 
@@ -2748,23 +2767,6 @@ module ocn_time_integration_split_ab2
       call mpas_timer_stop('se vmix halos')
 
       call mpas_timer_stop("se implicit vert mix")
-
-      if ( configVertAdvMethod == vertAdvRemap ) then
-
-         call mpas_timer_start("vertical remap")
-
-         call mpas_pool_get_array(statePool, 'layerThicknessLag', layerThicknessLagNew, 2)
-
-         ! Store the current, Lagrangian location for computation of the
-         ! Eulerian vertical velocity induced by remapping
-         layerThicknessLagNew = layerThicknessNew
-
-         ! Perform the remapping
-         call ocn_remap_vert_state(block, err)
-
-         call mpas_timer_stop("vertical remap")
-
-      end if
 
       call mpas_timer_start('se fini')
 
