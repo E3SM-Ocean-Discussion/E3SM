@@ -853,6 +853,9 @@ add_default($nl,'use_rad_dt_cosz');
 #if 0., no rayleigh friction is applied
 add_default($nl, 'raytau0');
 
+# DC
+add_default($nl, 'rad_asym_vis');
+
 # these options were added for global RCE and they only work with RRTMGP
 my $rad_pkg = $cfg->get('rad');
 if ($rad_pkg eq 'rrtmgp') {
