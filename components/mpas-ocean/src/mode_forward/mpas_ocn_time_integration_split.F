@@ -2587,7 +2587,7 @@ module ocn_time_integration_split
          layerThicknessLagNew = layerThicknessNew
 
          ! Perform the remapping
-         call ocn_remap_vert_state(block, err)
+         call ocn_remap_vert_state(block, err, 2)
 
          call mpas_timer_stop("vertical remap")
 
