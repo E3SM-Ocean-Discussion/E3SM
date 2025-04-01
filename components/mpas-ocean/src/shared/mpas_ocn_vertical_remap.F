@@ -75,11 +75,13 @@ module ocn_vertical_remap
 !
 !-----------------------------------------------------------------------
 
-   subroutine ocn_remap_vert_state(block, err)
+   subroutine ocn_remap_vert_state(block, err, timeLevel)
 
       type (block_type), intent(in) :: block
+      integer, intent(in) :: timeLevel
       integer, intent(out) :: err
 
+      real (kind=RKIND) :: predSSH
       integer :: nCells, nEdges
       integer :: nLayers, nLevels, nVars, nDoFs, nTracers
       integer :: cell1, cell2, iCell, jCell, iEdge, iTrac
@@ -120,11 +122,11 @@ module ocn_vertical_remap
 
       call mpas_pool_get_array(verticalMeshPool, 'restingThickness', restingThickness)
 
-      call mpas_pool_get_array(statePool, 'layerThickness', layerThickness, 2)
-      call mpas_pool_get_array(statePool, 'normalVelocity', normalVelocity, 2)
+      call mpas_pool_get_array(statePool, 'layerThicknessLag', layerThickness, timeLevel)
+      call mpas_pool_get_array(statePool, 'normalVelocity', normalVelocity, timeLevel)
       if (config_use_freq_filtered_thickness) then
-         call mpas_pool_get_array(statePool, 'highFreqThickness', highFreqThickness, 2)
-         call mpas_pool_get_array(statePool, 'lowFreqDivergence', lowFreqDivergence, 2)
+         call mpas_pool_get_array(statePool, 'highFreqThickness', highFreqThickness, timeLevel)
+         call mpas_pool_get_array(statePool, 'lowFreqDivergence', lowFreqDivergence, timeLevel)
       end if
 
       nCells = nCellsAll
@@ -141,14 +143,19 @@ module ocn_vertical_remap
 
       ! Compute new layer thicknesses based on vertical coordinate choice
       ! Currently, zstar coordinate is hard-coded
-      call ocn_vert_regrid(restingThickness, layerThickness, &
-                           layerThicknessNew, err)
+      if (associated(highFreqThickness)) then
+         call ocn_vert_regrid(verticalMeshPool, layerThickness, &
+                              layerThicknessNew, err, highFreqThickness)
+      else
+         call ocn_vert_regrid(verticalMeshPool, layerThickness, &
+                              layerThicknessNew, err)
+      endif
 
       ! Compute the layer interface locations between bottomDepth and -ssh
       ! (rather than between -bottomDepth and ssh due to PPR limitations)
 
       !$omp parallel
-      !$omp do schedule(runtime) private(k)
+      !$omp do schedule(runtime) private(k, predSSH)
       do iCell = 1, nCells
          heightCellNow(:, iCell) = bottomDepth(iCell)
          heightCellNew(:, iCell) = bottomDepth(iCell)
@@ -165,6 +172,10 @@ module ocn_vertical_remap
             heightCellNew(k, iCell) = &
                heightCellNew(k + 1, iCell) - layerThicknessNew(k, iCell)
          end do
+         predSSH = heightCellNew(minLevelCell(iCell)+1, iCell) - layerThicknessNew(minLevelCell(iCell), iCell)
+         if (iCell == 1 .and. abs(predSSH - heightCellNew(minLevelCell(iCell), iCell)) > 0.1_RKIND) &
+            call mpas_log_write('remap cell $i, sshNew = $r, ssh = $r', &
+                                intArgs=(/iCell/), realArgs=(/predSSH, heightCellNew(minLevelCell(iCell), iCell)/))
       end do
       !$omp end do
       !$omp end parallel
@@ -405,13 +416,38 @@ module ocn_vertical_remap
 !
 !-----------------------------------------------------------------------
 
-   subroutine ocn_vertical_remap_init(err)
+   subroutine ocn_vertical_remap_init(domain, err)
 
+      type (domain_type), intent(inout) :: domain
+      type (block_type), pointer :: block
+      type (mpas_pool_type), pointer :: statePool
       integer, intent(out) :: err !< Output: Error flag
+
+      integer :: iCell, k
+      real (kind=RKIND), dimension(:, :), pointer :: layerThicknessLagCur, layerThicknessCur
 
       err = 0
 
       call ocn_vert_regrid_init(err)
+
+      ! We need to set the lagrangian locations equal to the initial state so that no
+      ! remapping occurs at the first time step
+      block => domain % blocklist
+      do while (associated(block))
+         call mpas_pool_get_subpool(block % structs, 'state', statePool)
+         call mpas_pool_get_array(statePool, 'layerThickness', layerThicknessCur, 1)
+         call mpas_pool_get_array(statePool, 'layerThicknessLag', layerThicknessLagCur, 1)
+         !$omp parallel
+         !$omp do schedule(runtime) private(k)
+         do iCell = 1, nCellsAll
+            do k = minLevelCell(iCell), maxLevelCell(iCell)
+               layerThicknessLagCur(k,iCell) = layerThicknessCur(k,iCell)
+            end do
+         end do
+         !$omp end do
+         !$omp end parallel
+         block => block % next
+      enddo
 
       if ( config_time_integrator == 'RK4' ) then
          CALL mpas_log_write('Vertical remap not supported for RK4', &
