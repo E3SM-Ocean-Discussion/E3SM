@@ -1851,6 +1851,8 @@ contains
                                   significantWaveHeightField, &
                                   peakWaveFrequencyField, &
                                   peakWaveDirectionField, &
+                                  z0wavField, &
+                                  ustarwavField, &
                                   charnockSeaStateField, &
                                   waveSupportedZonalWindStressField, &
                                   waveSupportedMeridionalWindStressField, &
@@ -1910,6 +1912,8 @@ contains
                                                significantWaveHeight, &
                                                peakWaveFrequency, &
                                                peakWaveDirection, &
+                                               z0wav, &
+                                               ustarwav, &
                                                charnockSeaState, &
                                                waveSupportedZonalWindStress, &
                                                waveSupportedMeridionalWindStress, &
@@ -2003,6 +2007,8 @@ contains
       call mpas_pool_get_field(forcingPool, 'significantWaveHeight', significantWaveHeightField)
       call mpas_pool_get_field(forcingPool, 'peakWaveFrequency', peakWaveFrequencyField)
       call mpas_pool_get_field(forcingPool, 'peakWaveDirection', peakWaveDirectionField)
+      call mpas_pool_get_field(forcingPool, 'z0wav', z0wavField)
+      call mpas_pool_get_field(forcingPool, 'ustarwav', ustarwavField)
       call mpas_pool_get_field(forcingPool, 'charnockSeaState', charnockSeaStateField)
       call mpas_pool_get_field(forcingPool, 'waveSupportedZonalWindStress', waveSupportedZonalWindStressField)
       call mpas_pool_get_field(forcingPool, 'waveSupportedMeridionalWindStress', waveSupportedMeridionalWindStressField)
@@ -2056,6 +2062,8 @@ contains
       significantWaveHeight => significantWaveHeightField % array
       peakWaveFrequency => peakWaveFrequencyField % array
       peakWaveDirection => peakWaveDirectionField % array
+      z0wav => z0wavField % array
+      ustarwav => ustarwavField % array
       charnockSeaState => charnockSeaStateField % array
       waveSupportedZonalWindStress => waveSupportedZonalWindStressField % array
       waveSupportedMeridionalWindStress => waveSupportedMeridionalWindStressField % array
@@ -2284,6 +2292,12 @@ contains
            if ( peakWaveDirectionField % isActive ) then
               peakWaveDirection(i) = x2o_o % rAttr(index_x2o_Sw_Dp, n)
            end if
+           if ( z0wavField % isActive ) then
+              z0wav(i) = x2o_o % rAttr(index_x2o_Sw_Z0, n)
+           end if
+           if ( ustarwavField % isActive ) then
+              ustarwav(i) = x2o_o % rAttr(index_x2o_Sw_Ustar, n)
+           end if
            if ( charnockSeaStateField % isActive ) then
               charnockSeaState(i) = x2o_o % rAttr(index_x2o_Sw_Charn, n)
            end if
@@ -2483,6 +2497,8 @@ contains
    call mpas_pool_get_field(forcingPool, 'significantWaveHeight', significantWaveHeightField)
    call mpas_pool_get_field(forcingPool, 'peakWaveFrequency', peakWaveFrequencyField)
    call mpas_pool_get_field(forcingPool, 'peakWaveDirection', peakWaveDirectionField)
+   call mpas_pool_get_field(forcingPool, 'z0wav', z0wavField)
+   call mpas_pool_get_field(forcingPool, 'ustarwav', ustarwavField)
    call mpas_pool_get_field(forcingPool, 'charnockSeaState', charnockSeaStateField)
    call mpas_pool_get_field(forcingPool, 'waveSupportedZonalWindStress', waveSupportedZonalWindStressField)
    call mpas_pool_get_field(forcingPool, 'waveSupportedMeridionalWindStress', waveSupportedMeridionalWindStressField)
@@ -2625,6 +2641,12 @@ contains
    end if
    if ( peakWaveDirectionField % isActive ) then
       call mpas_dmpar_exch_halo_field(peakWaveDirectionField)
+   end if
+   if ( z0wavField % isActive ) then
+      call mpas_dmpar_exch_halo_field(z0wavField)
+   end if
+   if ( ustarwavField % isActive ) then
+      call mpas_dmpar_exch_halo_field(ustarwavField)
    end if
    if ( charnockSeaStateField % isActive ) then
       call mpas_dmpar_exch_halo_field(charnockSeaStateField)
