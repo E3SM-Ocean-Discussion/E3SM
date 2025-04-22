@@ -101,7 +101,7 @@ module ocn_vertical_remap
          heightCellNow, heightEdgeNow, & ! depth at layer interfaces (lagrangian grid)
          heightCellNew, heightEdgeNew    ! depth at layer interfaces (new target grid)
 
-      real (kind=RKIND), dimension(:, :), pointer :: layerThicknessLag, restingThickness, layerThickness, layerThicknessTarget
+      real (kind=RKIND), dimension(:, :), pointer :: layerThicknessLag, restingThickness, layerThicknessNew
       real (kind=RKIND), dimension(:, :), pointer :: normalVelocity
       real (kind=RKIND), dimension(:, :), pointer :: highFreqThickness,lowFreqDivergence
       real (kind=RKIND), dimension(:, :, :), pointer :: tracersGroup
@@ -122,8 +122,7 @@ module ocn_vertical_remap
       call mpas_pool_get_array(verticalMeshPool, 'restingThickness', restingThickness)
 
       call mpas_pool_get_array(statePool, 'layerThicknessLag', layerThicknessLag, timeLevel)
-      call mpas_pool_get_array(statePool, 'layerThicknessTarget', layerThicknessTarget, timeLevel)
-      call mpas_pool_get_array(statePool, 'layerThickness', layerThickness, timeLevel)
+      call mpas_pool_get_array(statePool, 'layerThickness', layerThicknessNew, timeLevel)
       call mpas_pool_get_array(statePool, 'normalVelocity', normalVelocity, timeLevel)
       if (config_use_freq_filtered_thickness) then
          call mpas_pool_get_array(statePool, 'highFreqThickness', highFreqThickness, timeLevel)
@@ -143,6 +142,7 @@ module ocn_vertical_remap
 
       ! Compute new layer thicknesses based on vertical coordinate choice
       ! Currently, zstar coordinate is hard-coded
+      ! The diagnostic variable layerThicknessTarget is updated
       if (associated(highFreqThickness)) then
          call ocn_vert_regrid(verticalMeshPool, layerThicknessLag, &
                               layerThicknessTarget, err, highFreqThickness)
@@ -185,11 +185,11 @@ module ocn_vertical_remap
 
       ! Assign new layerThicknesses
 
-      layerThickness = layerThicknessTarget
+      layerThicknessNew = layerThicknessTarget
 
 #ifdef MPAS_OPENACC
       !$acc parallel loop &
-      !$acc    present(layerThickness, layerThickEdgeMean, &
+      !$acc    present(layerThicknessNew, layerThickEdgeMean, &
       !$acc            minLevelEdgeBot, maxLevelEdgeTop, cellsOnEdge) &
       !$acc    private(k, kmin, kmax, cell1, cell2)
 #else
@@ -209,8 +209,8 @@ module ocn_vertical_remap
          do k = kmin, kmax
             ! central differenced
             layerThickEdgeNew(k,iEdge) = 0.5_RKIND * &
-                                         (layerThickness(k,cell1) + &
-                                          layerThickness(k,cell2))
+                                         (layerThicknessNew(k,cell1) + &
+                                          layerThicknessNew(k,cell2))
          end do
       end do
 #ifndef MPAS_OPENACC
@@ -250,9 +250,6 @@ module ocn_vertical_remap
       end do
       !$omp end do
       !$omp end parallel
-
-      ! Assign new layerThicknesses
-      layerThickness = layerThicknessNew
 
       !----------------------------------------------------------------------------
       ! ACTUAL REMAPPING FROM HERE

@@ -84,6 +84,7 @@ module ocn_vertical_regrid
 
       real (kind=RKIND), dimension(:,:), intent(inout) :: &
          layerThicknessTarget ! adjusted target layerThickness for remapping
+                              ! generally set equal to layerThicknessTarget diagnostics variable
 
       integer, intent(out) :: err !< Output: Error flag
 

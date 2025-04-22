@@ -385,6 +385,7 @@ module ocn_time_integration_split_ab2
                                            lowFreqDivergenceNew, 2)
 
       call mpas_pool_get_array(statePool, 'layerThicknessLag', layerThicknessLagNew, 2)
+      call mpas_log_write("got layerThicknessLag")
 
       call mpas_pool_get_dimension_scalar(tracersPool, 'index_salinity', &
                                                         indexSalinity)
@@ -436,14 +437,10 @@ module ocn_time_integration_split_ab2
          call mpas_timer_start("vertical remap")
          call mpas_log_write('Validate ocean state timeLevel=1 before remap')
          call ocn_validate_state(domain, timeLevel=1)
-         call mpas_log_write('Validate ocean state timeLevel=2 before remap')
-         call ocn_validate_state(domain, timeLevel=2)
          ! Perform the remapping
          call ocn_remap_vert_state(block, err, 1)
          call mpas_log_write('Validate ocean state timeLevel=1 after remap')
          call ocn_validate_state(domain, timeLevel=1)
-         call mpas_log_write('Validate ocean state timeLevel=2 after remap')
-         call ocn_validate_state(domain, timeLevel=2)
 
          call mpas_timer_stop("vertical remap")
       end if
@@ -513,6 +510,7 @@ module ocn_time_integration_split_ab2
 #endif
 
       if ( associated(layerThicknessLagNew) ) then
+        call mpas_log_write("Update layerThicknessLagNew")
 #ifdef MPAS_OPENACC
       !$acc loop collapse(2)
 #else
@@ -528,6 +526,8 @@ module ocn_time_integration_split_ab2
 #ifndef MPAS_OPENACC
          !$omp end do
 #endif
+      else
+        call mpas_log_write("layerThicknessLagNew not associated")
       endif
 
       call mpas_pool_begin_iteration(tracersPool)
@@ -665,7 +665,7 @@ module ocn_time_integration_split_ab2
                            normalVelocityCur, stage1_tend_time)
 
 #ifdef MPAS_OPENACC
-         !$acc enter data copyin(layerThicknessCur, normalVelocityCur, sshCur)
+         !$acc enter data copyin(layerThicknessCur, normalVelocityCur, sshCur, layerThicknessTarget)
          !$acc update device(layerThickEdgeFlux)
          if (config_use_freq_filtered_thickness .or. associated(highFreqThicknessNew) ) then
             !$acc enter data create(highFreqThicknessNew)
@@ -749,12 +749,12 @@ module ocn_time_integration_split_ab2
             call ocn_vert_transport_velocity_top( &
                  verticalMeshPool, layerThicknessCur, &
                  layerThickEdgeFlux, normalVelocityCur, sshCur, dt, &
-                 vertAleTransportTop, err, highFreqThicknessNew)
+                 layerThicknessTarget, vertAleTransportTop, err, highFreqThicknessNew)
          else
             call ocn_vert_transport_velocity_top( &
                  verticalMeshPool, layerThicknessCur, &
                  layerThickEdgeFlux, normalVelocityCur, sshCur, dt, &
-                 vertAleTransportTop, err)
+                 layerThicknessTarget, vertAleTransportTop, err)
          endif
 
 #ifdef MPAS_OPENACC
@@ -1792,7 +1792,7 @@ module ocn_time_integration_split_ab2
             call ocn_vert_transport_velocity_top( &
                  verticalMeshPool, layerThicknessCur, &
                  layerThickEdgeFlux, normalTransportVelocity, sshCur, &
-                 dt, vertAleTransportTop, err, highFreqThicknessNew)
+                 dt, layerThicknessTarget, vertAleTransportTop, err, highFreqThicknessNew)
 #ifdef MPAS_OPENACC
             !$acc exit data delete(highFreqThicknessNew)
 #endif
@@ -1800,7 +1800,7 @@ module ocn_time_integration_split_ab2
             call ocn_vert_transport_velocity_top( &
                  verticalMeshPool, layerThicknessCur, &
                  layerThickEdgeFlux, normalTransportVelocity, sshCur, &
-                 dt, vertAleTransportTop, err)
+                 dt, layerThicknessTarget, vertAleTransportTop, err)
          endif
 #ifdef MPAS_OPENACC
          !$acc exit data delete(layerThicknessCur, sshCur)
@@ -2216,7 +2216,7 @@ module ocn_time_integration_split_ab2
                call ocn_vert_transport_velocity_top( &
                     verticalMeshPool, layerThicknessCur, &
                     layerThickEdgeFlux, normalTransportVelocity,sshCur, dt, &
-                    vertAleTransportTop, err)
+                    layerThicknessTarget, vertAleTransportTop, err)
 
                call ocn_tend_thick(tendPool, forcingPool)
 
