@@ -97,12 +97,11 @@ module ocn_vertical_remap
 
       real (kind=RKIND), dimension(:, :, :), allocatable :: dataNow, dataNew
       real (kind=RKIND), dimension(:, :), allocatable :: &
-         layerThicknessNew,            & ! layerThickness (new target grid)
          layerThickEdgeNew,            & ! layerThickness at edges (new target grid)
          heightCellNow, heightEdgeNow, & ! depth at layer interfaces (lagrangian grid)
          heightCellNew, heightEdgeNew    ! depth at layer interfaces (new target grid)
 
-      real (kind=RKIND), dimension(:, :), pointer :: layerThickness, restingThickness
+      real (kind=RKIND), dimension(:, :), pointer :: layerThickness, restingThickness, layerThicknessNew
       real (kind=RKIND), dimension(:, :), pointer :: normalVelocity
       real (kind=RKIND), dimension(:, :), pointer :: highFreqThickness,lowFreqDivergence
       real (kind=RKIND), dimension(:, :, :), pointer :: tracersGroup
@@ -123,6 +122,7 @@ module ocn_vertical_remap
       call mpas_pool_get_array(verticalMeshPool, 'restingThickness', restingThickness)
 
       call mpas_pool_get_array(statePool, 'layerThicknessLag', layerThickness, timeLevel)
+      call mpas_pool_get_array(statePool, 'layerThicknessTarget', layerThicknessNew, timeLevel)
       call mpas_pool_get_array(statePool, 'normalVelocity', normalVelocity, timeLevel)
       if (config_use_freq_filtered_thickness) then
          call mpas_pool_get_array(statePool, 'highFreqThickness', highFreqThickness, timeLevel)
@@ -138,7 +138,6 @@ module ocn_vertical_remap
       allocate(heightCellNew(nVertLevels + 1, nCells))
       allocate(heightEdgeNow(nVertLevels + 1, nEdges))
       allocate(heightEdgeNew(nVertLevels + 1, nEdges))
-      allocate(layerThicknessNew(nVertLevels, nCells + 1))
       allocate(layerThickEdgeNew(nVertLevels, nEdges))
 
       ! Compute new layer thicknesses based on vertical coordinate choice
@@ -150,15 +149,15 @@ module ocn_vertical_remap
          call ocn_vert_regrid(verticalMeshPool, layerThickness, &
                               layerThicknessNew, err)
       endif
-
-      ! Compute the layer interface locations between bottomDepth and -ssh
+      ! Compute the depth of the top of each layer between bottomDepth and -ssh
       ! (rather than between -bottomDepth and ssh due to PPR limitations)
 
       !$omp parallel
       !$omp do schedule(runtime) private(k, predSSH)
       do iCell = 1, nCells
-         heightCellNow(:, iCell) = bottomDepth(iCell)
-         heightCellNew(:, iCell) = bottomDepth(iCell)
+         if (maxLevelCell(iCell) < 1) cycle
+         heightCellNow(maxLevelCell(iCell) + 1:, iCell) = bottomDepth(iCell)
+         heightCellNew(maxLevelCell(iCell) + 1:, iCell) = bottomDepth(iCell)
 
          ! reconstruct "now" heights
          do k = maxLevelCell(iCell), minLevelCell(iCell), -1
@@ -167,14 +166,17 @@ module ocn_vertical_remap
          end do
 
          ! reconstruct "new" heights
-         heightCellNew(minLevelCell(iCell), iCell) = heightCellNow(minLevelCell(iCell), iCell)
-         do k = maxLevelCell(iCell), minLevelCell(iCell)+1, -1
+         do k = maxLevelCell(iCell), minLevelCell(iCell) + 1, -1
             heightCellNew(k, iCell) = &
                heightCellNew(k + 1, iCell) - layerThicknessNew(k, iCell)
          end do
+
+         ! We force the reconstruction to agree on the total baroclinic depth so we don't have propagagtion of floating point errors
+         heightCellNew(minLevelCell(iCell), iCell) = heightCellNow(minLevelCell(iCell), iCell)
+
          predSSH = heightCellNew(minLevelCell(iCell)+1, iCell) - layerThicknessNew(minLevelCell(iCell), iCell)
-         if (iCell == 1 .and. abs(predSSH - heightCellNew(minLevelCell(iCell), iCell)) > 0.1_RKIND) &
-            call mpas_log_write('remap cell $i, sshNew = $r, ssh = $r', &
+         if (abs(predSSH - heightCellNew(minLevelCell(iCell), iCell)) > 0.1_RKIND) &
+            call mpas_log_write('SSH reconstruction incorrect: cell $i, sshNew = $r, ssh = $r', &
                                 intArgs=(/iCell/), realArgs=(/predSSH, heightCellNew(minLevelCell(iCell), iCell)/))
       end do
       !$omp end do
@@ -189,7 +191,7 @@ module ocn_vertical_remap
       !$omp parallel
       !$omp do schedule(runtime) private(k, kmin, kmax, cell1, cell2)
 #endif
-      do iEdge = 1, nEdgesAll
+      do iEdge = 1, nEdges
          kmin = minLevelEdgeBot(iEdge)
          kmax = maxLevelEdgeTop(iEdge)
          cell1 = cellsOnEdge(1,iEdge)
@@ -341,7 +343,7 @@ module ocn_vertical_remap
       call mpas_pool_begin_iteration(tracersPool)
       do while ( mpas_pool_get_next_member(tracersPool, groupItr) )
          if ( groupItr % memberType == MPAS_POOL_FIELD ) then
-            call mpas_pool_get_array(tracersPool, groupItr % memberName, tracersGroup, 2)
+            call mpas_pool_get_array(tracersPool, groupItr % memberName, tracersGroup, timeLevel)
             if ( associated(tracersGroup) ) then
 
                nTracers = size(tracersGroup, dim=1)
