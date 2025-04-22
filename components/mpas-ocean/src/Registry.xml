@@ -3111,6 +3111,9 @@
 			 description="vertical tracer-transport velocity defined at center (horizontally) and top (vertically) of cell.  This is not the vertical ALE transport, but is Eulerian (fixed-frame) in the vertical, and computed from the continuity equation from the horizontal MLE (submesoscale) Bolus velocity."
 			 packages="submeso"
 		/>
+		<var name="layerThicknessTarget" type="real" dimensions="nVertLevels nCells Time" units="m"
+			 description="The layerThickness from ALE routine, prior to remapping."
+		/>
 		<var name="tangentialVelocity" type="real" dimensions="nVertLevels nEdges Time" units="m s^-1"
 			 description="horizontal velocity, tangential to an edge"
 			 missing_value="FILLVAL" missing_value_mask="edgeMask"
