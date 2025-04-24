@@ -111,6 +111,7 @@ module ocn_diagnostics_variables
    real (kind=RKIND), dimension(:), pointer :: surfaceBuoyancyForcing
    real (kind=RKIND), dimension(:), pointer :: surfaceFrictionVelocity
    real (kind=RKIND), dimension(:), pointer :: surfacePressure
+   real (kind=RKIND), dimension(:), pointer :: landIcePressureApplied
 
    real (kind=RKIND), dimension(:,:), pointer :: &
       transportVelocityX, transportVelocityY, transportVelocityZ, transportVelocityZonal, &
@@ -707,6 +708,8 @@ contains
       call mpas_pool_get_array(diagnosticsPool, 'dThreshMLD', dThreshMLD)
       call mpas_pool_get_array(diagnosticsPool, 'surfacePressure', &
                 surfacePressure)
+      call mpas_pool_get_array(diagnosticsPool, 'landIcePressureApplied', &
+                landIcePressureApplied)
 
       ! Semi-implicit Array Pointer retrievals
       if (trim(config_time_integrator) == 'split_implicit') then
@@ -957,6 +960,7 @@ contains
       !$acc                   thermExpCoeff,                           &
       !$acc                   sfcFlxAttCoeff,                          &
       !$acc                   surfacePressure,                         &
+      !$acc                   landIcePressureApplied,                  &
       !$acc                   potentialDensity,                        &
       !$acc                   displacedDensity,                        &
       !$acc                   boundaryLayerDepth,                      &
@@ -1217,6 +1221,7 @@ contains
       !$acc                   thermExpCoeff,                           &
       !$acc                   sfcFlxAttCoeff,                          &
       !$acc                   surfacePressure,                         &
+      !$acc                   landIcePressureApplied,                  &
       !$acc                   potentialDensity,                        &
       !$acc                   displacedDensity,                        &
       !$acc                   boundaryLayerDepth,                      &
@@ -1420,6 +1425,7 @@ contains
               thermExpCoeff,                           &
               sfcFlxAttCoeff,                          &
               surfacePressure,                         &
+              landIcePressureApplied,                  &
               potentialDensity,                        &
               displacedDensity,                        &
               boundaryLayerDepth,                      &
