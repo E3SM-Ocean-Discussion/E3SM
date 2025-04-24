@@ -390,7 +390,7 @@ contains
 
     !------ namelist -----
     character(len=CSS)  :: fldname, fldflow
-    character(len=CSS)  :: fldname_ext  ! use for moab extensions 
+    character(len=CSS)  :: fldname_ext  ! use for moab extensions
     type(mct_string)    :: mctOStr  ! mct string for output outfield
     logical :: is_state, is_flux
     integer :: i,n
@@ -802,7 +802,7 @@ contains
     units    = 'kg m-3'
     attname  = 'Sa_dens'
     call metadata_set(attname, longname, stdname, units)
-    
+
     ! UoverN for use by topounits
     call seq_flds_add(a2x_states,"Sa_uovern")
     call seq_flds_add(x2l_states,"Sa_uovern")
@@ -2196,7 +2196,7 @@ contains
     endif
 
     !------------------------------
-    ! ice<->wav only exchange 
+    ! ice<->wav only exchange
     !------------------------------
 
     ! Sea ice thickness
@@ -2373,7 +2373,7 @@ contains
     units    = 'kg m-2 s-1'
     attname  = 'Flrr_supply'
     call metadata_set(attname, longname, stdname, units)
-    
+
     call seq_flds_add(r2x_fluxes,'Flrr_deficit')
     call seq_flds_add(x2l_fluxes,'Flrr_deficit')
     longname = 'River model supply deficit'
@@ -4099,7 +4099,7 @@ contains
     call catFields(seq_flds_x2w_fields, seq_flds_x2w_states, seq_flds_x2w_fluxes)
     call catFields(seq_flds_o2x_fields_to_rof, seq_flds_o2x_states_to_rof, seq_flds_o2x_fluxes_to_rof)
     ! form character(CXX) :: seq_flds_a2x_ext_states from seq_flds_a2x_states by adding _ext in each field
-    ! first form a list 
+    ! first form a list
     call mct_list_init(temp_list ,seq_flds_a2x_fields)
     size_list=mct_list_nitem (temp_list)
     seq_flds_a2x_ext_fields=''
@@ -4133,7 +4133,7 @@ contains
     call mct_list_clean(temp_list)
 
 
-   
+
     if (seq_comm_iamroot(ID)) then
       write(logunit,*) subname//': seq_flds_dom_fields= ',trim(seq_flds_dom_fields)
       write(logunit,*) subname//': seq_flds_a2x_ext_states= ',trim(seq_flds_a2x_ext_states)
@@ -4540,7 +4540,7 @@ contains
     use shr_kind_mod    , only: r8 => SHR_KIND_R8
     implicit none
 
-    integer :: ierr, lsize 
+    integer :: ierr, lsize
     character(len=*), intent(in) :: tagname
     type(mct_aVect), intent(in) :: avx
     integer, intent(in) :: index

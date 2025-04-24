@@ -781,7 +781,7 @@ contains
     units    = 'kg m-3'
     attname  = 'Sa_dens'
     call metadata_set(attname, longname, stdname, units)
-    
+
     ! UoverN for use by topounits
     call seq_flds_add(a2x_states,"Sa_uovern")
     call seq_flds_add(x2l_states,"Sa_uovern")
@@ -2176,7 +2176,7 @@ contains
     endif
 
     !------------------------------
-    ! ice<->wav only exchange 
+    ! ice<->wav only exchange
     !------------------------------
 
     ! Sea ice thickness
@@ -2274,7 +2274,7 @@ contains
     units    = ' '
     attname  = 'coszen_str'
     call metadata_set(attname, longname, stdname, units)
-       
+
     if (rof_sed) then
        call seq_flds_add(l2x_fluxes,'Flrl_rofmud')
        call seq_flds_add(l2x_fluxes_to_rof,'Flrl_rofmud')
@@ -2354,7 +2354,7 @@ contains
     units    = 'kg m-2 s-1'
     attname  = 'Flrr_supply'
     call metadata_set(attname, longname, stdname, units)
-    
+
     call seq_flds_add(r2x_fluxes,'Flrr_deficit')
     call seq_flds_add(x2l_fluxes,'Flrr_deficit')
     longname = 'River model supply deficit'
@@ -3886,7 +3886,7 @@ contains
 
     !-----------------------------------------------------------------------------
     ! Read namelist for FAN NH3 emissions
-    ! If specified, the NH3 surface emission is sent to CAM. 
+    ! If specified, the NH3 surface emission is sent to CAM.
     !-----------------------------------------------------------------------------
 
     call shr_fan_readnl(nlfilename='drv_flds_in', ID=ID, fan_fields=fan_fields, have_fields=fan_have_fields)
