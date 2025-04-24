@@ -503,7 +503,7 @@ module ocn_forward_mode
       ierr = ior(ierr,err_tmp)
       call ocn_vertical_advection_init(err_tmp)
       if ( configVertAdvMethod == vertAdvRemap ) &
-         call ocn_vertical_remap_init(domain, err_tmp)
+         call ocn_vertical_remap_init(err_tmp)
       call ocn_stokes_drift_init(err_tmp)
       ierr = ior(ierr,err_tmp)
       call ocn_manufactured_solution_init(domain, err_tmp)
