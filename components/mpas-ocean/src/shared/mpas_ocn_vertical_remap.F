@@ -420,38 +420,13 @@ module ocn_vertical_remap
 !
 !-----------------------------------------------------------------------
 
-   subroutine ocn_vertical_remap_init(domain, err)
+   subroutine ocn_vertical_remap_init(err)
 
-      type (domain_type), intent(inout) :: domain
-      type (block_type), pointer :: block
-      type (mpas_pool_type), pointer :: statePool
       integer, intent(out) :: err !< Output: Error flag
-
-      integer :: iCell, k
-      real (kind=RKIND), dimension(:, :), pointer :: layerThicknessLagCur, layerThicknessCur
 
       err = 0
 
       call ocn_vert_regrid_init(err)
-
-      ! We need to set the lagrangian locations equal to the initial state so that no
-      ! remapping occurs at the first time step
-      block => domain % blocklist
-      do while (associated(block))
-         call mpas_pool_get_subpool(block % structs, 'state', statePool)
-         call mpas_pool_get_array(statePool, 'layerThickness', layerThicknessCur, 1)
-         call mpas_pool_get_array(statePool, 'layerThicknessLag', layerThicknessLagCur, 1)
-         !$omp parallel
-         !$omp do schedule(runtime) private(k)
-         do iCell = 1, nCellsAll
-            do k = minLevelCell(iCell), maxLevelCell(iCell)
-               layerThicknessLagCur(k,iCell) = layerThicknessCur(k,iCell)
-            end do
-         end do
-         !$omp end do
-         !$omp end parallel
-         block => block % next
-      enddo
 
       if ( config_time_integrator == 'RK4' ) then
          CALL mpas_log_write('Vertical remap not supported for RK4', &
