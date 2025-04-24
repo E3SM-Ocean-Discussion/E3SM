@@ -908,9 +908,9 @@ contains
          ! Finally, set whence to latest_before so we have piecewise-constant forcing.
          ! Could add, e.g., linear interpolation later.
 
-         ! NOTE: If any input ("forcing") files here contain fields that the coupler also passes, 
-         ! the input file versions here will clobber the fields passed from the coupler. 
-         
+         ! NOTE: If any input ("forcing") files here contain fields that the coupler also passes,
+         ! the input file versions here will clobber the fields passed from the coupler.
+
          call mpas_stream_mgr_read(domain % streamManager, whence=MPAS_STREAM_LATEST_BEFORE, saveActualWhen = .true., ierr=err_tmp)
          err = ior(err, err_tmp)
          call mpas_stream_mgr_reset_alarms(domain % streamManager, direction=MPAS_STREAM_INPUT, ierr=err_tmp)
@@ -1545,9 +1545,9 @@ contains
 
             ! NOTE: time averaging not implemented yet, so fluxes will not conserve mass between components!
 
-            ! Recuperate runoff routing switch code (originally in glc_route_ice_runoff module in earlier code), 
+            ! Recuperate runoff routing switch code (originally in glc_route_ice_runoff module in earlier code),
             ! and attach to ice calving flux once present...
-            !call route_ice_runoff(0.0_RKIND, & 
+            !call route_ice_runoff(0.0_RKIND, &
             !                      rofi_to_ocn=Fogg_rofi, &
             !                      rofi_to_ice=Figg_rofi)
             g2x_g % rAttr(index_g2x_Fogg_rofl,n)=0.0!...and remove these placeholders
@@ -1635,10 +1635,10 @@ contains
       character (len=StrKIND), intent(out) :: timeStamp
       real (kind=RKIND) :: secondsPerHour, secondsPerMinute, remaining
       integer :: minutes, hours, secondsLeft
-   
+
       secondsPerHour = 3600
       secondsPerMinute = 60
-   
+
       if(seconds < 0 .or. seconds > 86400) then
         secondsLeft = 00
         minutes = 00
@@ -1646,16 +1646,16 @@ contains
       else
         hours = int(seconds/secondsPerHour)
         remaining = seconds - real(hours) * secondsPerHour
-   
+
         minutes = int(remaining/secondsPerMinute)
         remaining = remaining - real(minutes) * secondsPerMinute
-   
+
         secondsLeft = int(remaining)
       end if
-   
+
       write(timeStamp,"(a,i2.2,a,i2.2,a,i2.2)") "00_",hours,":",minutes,":",secondsLeft
       timeStamp = trim(timeStamp)
-   
+
    end subroutine convert_seconds_to_timestamp!}}}
 
    subroutine add_stream_attributes(stream_manager, domain)!{{{
