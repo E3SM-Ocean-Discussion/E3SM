@@ -1500,7 +1500,8 @@ contains
 
    type (block_type), pointer :: block
 
-   real (kind=RKIND), pointer :: config_sea_level
+   real (kind=RKIND), pointer :: config_sea_level, &
+                                 config_ice_density
    character(len=StrKIND), pointer :: config_basal_mass_bal_float
 
    type (mpas_pool_type), pointer :: meshPool
@@ -1517,8 +1518,10 @@ contains
    real (kind=RKIND), dimension(:), pointer :: avgCalvingFlux
    real (kind=RKIND), dimension(:), pointer :: avgFaceMeltFlux
    real (kind=RKIND), dimension(:), pointer :: avgFloatingBMBFlux
+   real (kind=RKIND), dimension(:), pointer :: bedTopography
    real (kind=RKIND), dimension(:,:), pointer :: temperature
    integer, dimension(:), pointer :: cellMask
+   integer :: belowSeaLevelMask
    !-------------------------------------------------------------------
 
     errorCode = 0
@@ -1528,6 +1531,7 @@ contains
 
     call mpas_pool_get_config(domain % configs, 'config_sea_level', config_sea_level)
     call mpas_pool_get_config(domain % configs, 'config_basal_mass_bal_float', config_basal_mass_bal_float)
+    call mpas_pool_get_config(domain % configs, 'config_ice_density', config_ice_density)
 
     do while (associated(block))
          call mpas_pool_get_subpool(block % structs, 'mesh', meshPool)
@@ -1542,6 +1546,7 @@ contains
          call mpas_pool_get_array(geometryPool, 'upperSurface', upperSurface)
          call mpas_pool_get_array(meshPool, 'layerThicknessFractions', layerThicknessFractions)
          call mpas_pool_get_array(geometryPool, 'thickness', thickness, timeLevel = 1)
+         call mpas_pool_get_array(geometryPool, 'bedTopography', bedTopography)
          call mpas_pool_get_array(thermalPool, 'temperature', temperature)
 
          call mpas_pool_get_array(timeAveragingPool, 'avgBareIceAblationApplied', avgBareIceAblationApplied)
@@ -1572,7 +1577,18 @@ contains
             g2x_g % rAttr(index_g2x_Sg_tbot, n) = temperature(nVertlevels,i) - SHR_CONST_TKTRIP
             ! layerThickness is not populated on init, so calculating like this instead:
             g2x_g % rAttr(index_g2x_Sg_dztbot, n) = layerThicknessFractions(nVertLevels) * thickness(i) / 2.0
-            g2x_g % rAttr(index_g2x_Sg_lithop, n) = thickness(i) * config_ice_density * SHR_CONST_G
+
+            ! A mask for quantities remapped to the ocean indicating where bedrock is below sea level
+            ! and thus where ocean can possibly be in contact with the ice sheet.
+            if (bedTopography(i) <= config_sea_level) then
+               belowSeaLevelMask = 1
+            else
+               belowSeaLevelMask = 0
+            endif
+            g2x_g % rAttr(index_g2x_Sg_below_sea_level_mask, n) = belowSeaLevelMask
+
+            ! mask lithostatic pressure to only locations below sea level
+            g2x_g % rAttr(index_g2x_Sg_lithop, n) = belowSeaLevelMask * thickness(i) * config_ice_density * SHR_CONST_G
 
             !!!Mask configurations
             g2x_g % rAttr(index_g2x_Sg_ice_covered, n) = li_mask_is_ice_int(cellMask(i))
@@ -1592,8 +1608,8 @@ contains
             g2x_g % rAttr(index_g2x_Sg_icemask_coupled_fluxes, n) = g2x_g % rAttr(index_g2x_Sg_icemask, n)
 
             ! Add masks used for ice shelf basal melt calculation
-            g2x_g % rAttr(index_g2x_Sg_icemask_floating, n) = li_mask_is_floating_ice_int(cellMask(i))
-            g2x_g % rAttr(index_g2x_Sg_icemask_grounded, n) = li_mask_is_grounded_ice_int(cellMask(i))
+            g2x_g % rAttr(index_g2x_Sg_icemask_below_sea_level, n) = belowSeaLevelMask * li_mask_is_ice_int(cellMask(i))
+            g2x_g % rAttr(index_g2x_Sg_icemask_floating, n) = belowSeaLevelMask * li_mask_is_floating_ice_int(cellMask(i))
 
          end do
 

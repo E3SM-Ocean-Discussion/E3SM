@@ -3807,7 +3807,7 @@ contains
 
    real (kind=RKIND), dimension(:,:), pointer :: landIceInterfaceTracers
 
-   real (kind=RKIND) :: riverFactor
+   real (kind=RKIND) :: riverFactor, belowSeaLevelFraction
 
    logical :: landIceFluxesCoupled
 
@@ -4180,11 +4180,21 @@ contains
            landIceInterfaceTracers(indexIT, i) = x2o_om(n, index_x2o_Sg_blit)
            landIceInterfaceTracers(indexIS, i) = x2o_om(n, index_x2o_Sg_blis)
 
-           ! We are not yet ready for MALI to supply land-ice fraction, floating
-           !  fraction or pressure
-           ! landIceFraction(i) = x2o_om(n, index_x2o_Sg_icemask)
-           ! landIceFloatingFraction(i) = x2o_om(n, index_x2o_Sg_???)
-           ! landIcePressure(i) = x2o_om(n, index_x2o_Sg_lithop)
+           belowSeaLevelFraction = x2o_om(n, index_x2o_Sg_below_sea_level_mask)
+
+           ! normalize the masks and pressure by the fraction of the cell
+           ! that is below sea level, since this was used to mask the fields
+           ! before remapping
+           if (belowSeaLevelFraction > 0.0_RKIND) then
+              landIceFloatingFraction(i) = x2o_om(n, index_x2o_Sg_icemask_floating) / belowSeaLevelFraction
+              landIceFraction(i) = x2o_om(n, index_x2o_Sg_icemask_below_sea_level) / belowSeaLevelFraction
+              landIcePressure(i) = x2o_om(n, index_x2o_Sg_lithop) / belowSeaLevelFraction
+           else
+              landIceFloatingFraction(i) = 0.0_RKIND
+              landIceFraction(i) = 0.0_RKIND
+              landIcePressure(i) = 0.0_RKIND
+           end if
+
         end if
 
         ! BGC fields
