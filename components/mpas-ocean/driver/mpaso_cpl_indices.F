@@ -145,9 +145,9 @@ module mpaso_cpl_indices
   integer :: index_x2o_Sg_blit
   integer :: index_x2o_Sg_blis
   integer :: index_x2o_Sg_lithop
-  integer :: index_x2o_Sg_icemask
-  integer :: index_x2o_Sg_icemask_grounded
+  integer :: index_x2o_Sg_icemask_below_sea_level
   integer :: index_x2o_Sg_icemask_floating
+  integer :: index_x2o_Sg_below_sea_level_mask
 
 
   ! drv -> ocn (BGC)
@@ -337,9 +337,9 @@ contains
     index_x2o_Sg_blit    = mct_avect_indexra(x2o,'Sg_blit')
     index_x2o_Sg_blis    = mct_avect_indexra(x2o,'Sg_blis')
     index_x2o_Sg_lithop  = mct_avect_indexra(x2o,'Sg_lithop')
-    index_x2o_Sg_icemask = mct_avect_indexra(x2o,'Sg_icemask')
-    index_x2o_Sg_icemask = mct_avect_indexra(x2o,'Sg_icemask_grounded')
-    index_x2o_Sg_icemask = mct_avect_indexra(x2o,'Sg_icemask_floating')
+    index_x2o_Sg_icemask_below_sea_level = mct_avect_indexra(x2o,'Sg_icemask_below_sea_level')
+    index_x2o_Sg_icemask_floating = mct_avect_indexra(x2o,'Sg_icemask_floating')
+    index_x2o_Sg_below_sea_level_mask = mct_avect_indexra(x2o,'Sg_below_sea_level_mask')
 
     if (wav_ocn_coup == 'twoway') then
        index_x2o_Sw_ustokes_wavenumber_1 = mct_avect_indexra(x2o,'Sw_ustokes_wavenumber_1')
