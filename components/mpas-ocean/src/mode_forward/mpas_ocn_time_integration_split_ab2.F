@@ -430,6 +430,22 @@ module ocn_time_integration_split_ab2
       endif
 #endif
 
+      if ( configVertAdvMethod == vertAdvRemap ) then
+         call mpas_timer_start("vertical remap")
+         call mpas_log_write('Validate ocean state timeLevel=1 before remap')
+         call ocn_validate_state(domain, timeLevel=1)
+         call mpas_log_write('Validate ocean state timeLevel=2 before remap')
+         call ocn_validate_state(domain, timeLevel=2)
+         ! Perform the remapping
+         call ocn_remap_vert_state(block, err, 1)
+         call mpas_log_write('Validate ocean state timeLevel=1 after remap')
+         call ocn_validate_state(domain, timeLevel=1)
+         call mpas_log_write('Validate ocean state timeLevel=2 after remap')
+         call ocn_validate_state(domain, timeLevel=2)
+
+         call mpas_timer_stop("vertical remap")
+      end if
+
       ! Initialize * variables that are used to compute baroclinic
       ! tendencies below.
 
@@ -581,15 +597,6 @@ module ocn_time_integration_split_ab2
          !$omp end parallel
 #endif
       endif
-      if ( configVertAdvMethod == vertAdvRemap ) then
-         call mpas_timer_start("vertical remap")
-         call mpas_log_write('Call remap at beginning of outer loop')
-         ! Perform the remapping
-         call ocn_remap_vert_state(block, err, 2)
-
-         call mpas_timer_stop("vertical remap")
-      end if
-
 
       call mpas_timer_stop("se prep")
 
