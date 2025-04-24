@@ -75,7 +75,6 @@ module ocn_surface_land_ice_fluxes
 
    real (kind=RKIND) :: &
       cpLandIce,        &! specific heat for land ice
-      rhoLandIce,       &! density of land ice
       ISOMIPgammaT       ! parameter for ISOMIP formulation
 
 !***********************************************************************
@@ -835,7 +834,6 @@ contains
       jenkinsOn        = .false.
       hollandJenkinsOn = .false.
       cpLandIce        = 0.0_RKIND
-      rhoLandIce       = 0.0_RKIND
       ISOMIPgammaT     = 0.0_RKIND
 
       !*** Determine whether land ice fluxes are on
@@ -901,7 +899,6 @@ contains
       !*** Set physical values
 
       cpLandIce    = config_land_ice_flux_cp_ice
-      rhoLandIce   = config_land_ice_flux_rho_ice
       ISOMIPgammaT = config_land_ice_flux_ISOMIP_gammaT
 
    !--------------------------------------------------------------------
