@@ -3126,7 +3126,7 @@ contains
       !$acc enter data create(projectedSSH, ALE_Thickness, div_hu)
 
       ! Only need to compute over 0 and 1 halos
-      nCells = nCellsHalo( 1 )
+      nCells = nCellsAll
 
       !
       ! thickness-weighted divergence and barotropic divergence
