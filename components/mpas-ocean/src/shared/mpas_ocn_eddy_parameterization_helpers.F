@@ -47,9 +47,9 @@ module ocn_eddy_parameterization_helpers
   !
   !  routine ocn_eddy_compute_buoyancy_gradient
   !
-  !> \brief Computes fixed depth horizontal buoyancy gradient 
+  !> \brief Computes fixed depth horizontal buoyancy gradient
   !> \details
-  !>  Computes the horizontal buoyancy gradient on fixed depth levels. 
+  !>  Computes the horizontal buoyancy gradient on fixed depth levels.
   !>  This quantity is extracted from mpas_ocn_gm as it is needed for both
   !>  the GM eddy parameterization and the submesoscale eddy parameterization
   !***********************************************************************
@@ -185,7 +185,7 @@ module ocn_eddy_parameterization_helpers
   !
   !> \brief   Computes the density threshold based mixed layer depth
   !> \details
-  !>   Computes the density threshold based mixed layer depth.  This 
+  !>   Computes the density threshold based mixed layer depth.  This
   !>   quantity is required by the submesoscale and redi parameterizations
   !>   The calculation is moved out of analysis members for this reason
   !***********************************************************************
@@ -233,6 +233,8 @@ module ocn_eddy_parameterization_helpers
 
           !Initialize RefIndex for cases of very shallow columns
           refIndex = maxLevelCell(iCell)
+          if (refIndex == 0) cycle
+
           found_den_mld = .false.
 
           do k=1, maxLevelCell(iCell)-1
