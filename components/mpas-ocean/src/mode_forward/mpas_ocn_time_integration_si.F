@@ -562,13 +562,9 @@ module ocn_time_integration_si
 #endif
         endif
         call mpas_timer_start("vertical remap")
-        call mpas_log_write('Validate ocean state timeLevel=1 before remap')
-        call ocn_validate_state(domain, timeLevel=1)
         ! Perform the remapping
         ! The updated layerThickness goes in layerThicknessCur which is assigned to layerThicknessNew below
         call ocn_remap_vert_state(block, err, 1)
-        call mpas_log_write('Validate ocean state timeLevel=1 after remap')
-        call ocn_validate_state(domain, timeLevel=1)
         call mpas_timer_stop("vertical remap")
       end if
 
