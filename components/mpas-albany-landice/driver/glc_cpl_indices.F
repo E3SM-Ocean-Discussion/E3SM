@@ -1,5 +1,5 @@
 module glc_cpl_indices
-  
+
   use seq_flds_mod
   use mct_mod
 !  use glc_constants, only : glc_nec, glc_smb  ! TODO Will these be needed?  If so, need to add MPAS version
@@ -10,7 +10,7 @@ module glc_cpl_indices
   SAVE
   public
 
-  integer , parameter, private:: glc_nec_max = 100
+  integer , parameter, private:: glc_nzoc_max = 100
 
   ! Note that, in both the drv -> glc and the glc -> drv fields, index 0 means bare land
 
@@ -22,7 +22,8 @@ module glc_cpl_indices
   integer, public :: index_x2g_So_htv    = 0 !Ice shelf ocean heat transfer velocity
   integer, public :: index_x2g_So_stv    = 0 !Ice shelf ocean salinity transfer velocity
   integer, public :: index_x2g_So_rhoeff = 0 !Ocean effective pressure
-  integer, public :: index_x2g_So_tf2d   = 0 !Ocean thermal forcing at predefined critical depth
+  integer, public :: index_x2g_So_tf3d(glc_nzoc_max)   = 0 !Ocean thermal forcing at specified z-levels
+  integer, public :: index_x2g_So_tf3d_mask(glc_nzoc_max)   = 0 !mask of ocean thermal forcing at specified z-levels
   integer, public :: index_x2g_Fogx_qiceli = 0 !Subshelf mass flux
   integer, public :: index_x2g_Fogx_qicehi = 0 !Subshelf heat flux for the ice sheet
 
@@ -40,21 +41,28 @@ module glc_cpl_indices
   integer, public :: index_g2x_Sg_blit = 0 !Boundary layer interface temperature for ocean
   integer, public :: index_g2x_Sg_icemask = 0 !complete grounded/floating ice mask
   integer, public :: index_g2x_Sg_ice_covered = 0 !ice covered ice mask
-  integer, public :: index_g2x_Sg_icemask_grounded = 0 !grounded mask
+  integer, public :: index_g2x_Sg_icemask_below_sea_level = 0 !ice mask where topography is below sea level
   integer, public :: index_g2x_Sg_icemask_floating = 0 !floating mask
+  integer, public :: index_g2x_Sg_below_sea_level_mask = 0 !below sea level mask
   integer, public :: index_g2x_Sg_icemask_coupled_fluxes = 0 !ice mask for coupled fluxes
 
 contains
 
   subroutine glc_cpl_indices_set( )
 
+    use glc_zocnclass_mod
+
     !-------------------------------------------------------------
     type(mct_aVect)   :: g2x      ! temporary
     type(mct_aVect)   :: x2g      ! temporary
-    integer           :: num 
-    character(len= 2) :: cnum
-    character(len=64) :: name
+
+    integer :: glc_nzoc
+    integer :: iLev
+    character(len=2) :: cnum
+    character(len=64) :: varname
     !-------------------------------------------------------------
+
+    glc_nzoc = glc_get_num_zocn_classes()
 
     ! create temporary attribute vectors
 
@@ -71,7 +79,17 @@ contains
     index_x2g_Fogx_qiceli =               mct_avect_indexra(x2g,'Fogx_qiceli',perrwith='quiet')
     index_x2g_Fogx_qicehi =               mct_avect_indexra(x2g,'Fogx_qicehi',perrwith='quiet')
     index_x2g_So_rhoeff =                 mct_avect_indexra(x2g,'So_rhoeff',perrwith='quiet')
-    index_x2g_So_tf2d =                   mct_avect_indexra(x2g,'So_tf2d',perrwith='quiet')
+
+    if (glc_nzoc > 0) then
+       do iLev = 1, glc_nzoc
+          cnum = glc_zocnclass_as_string(iLev)
+          varname = 'So_tf3d' // cnum
+          index_x2g_So_tf3d(iLev) = mct_avect_indexra(x2g, trim(varname))
+
+          varname = 'So_tf3d_mask' // cnum
+          index_x2g_So_tf3d_mask(iLev) = mct_avect_indexra(x2g, trim(varname))
+       enddo
+    endif
 
     !Following block of x2g/g2x vectors are used internally within coupler for subshelf melt flux
     !calculations (and so do not have directly-related export-side arrays)
@@ -118,8 +136,14 @@ contains
     ! ice sheet landunit SMB vs. bare land landunit SMB.  This mask is used by
     ! CLM to differentiate bare land and ice sheet landunit types.
 
-    index_g2x_Sg_icemask_grounded =       mct_avect_indexra(g2x,'Sg_icemask_grounded',perrwith='quiet')
-    index_g2x_Sg_icemask_floating =       mct_avect_indexra(g2x,'Sg_icemask_floating',perrwith='quiet')
+    ! a mask where ice is prsent and topography is below sea level (0 or 1)
+    index_g2x_Sg_icemask_below_sea_level = mct_avect_indexra(g2x,'Sg_icemask_below_sea_level',perrwith='quiet')
+    ! a mask where ice is floating and topography is below sea level (0 or 1)
+    index_g2x_Sg_icemask_floating =        mct_avect_indexra(g2x,'Sg_icemask_floating',perrwith='quiet')
+    ! a mask of where the bed topography is below sea level (0 or 1), used to
+    ! mask fields passed to the ocean
+    index_g2x_Sg_below_sea_level_mask =   mct_avect_indexra(g2x,'Sg_below_sea_level_mask',perrwith='quiet')
+
     index_g2x_Sg_icemask_coupled_fluxes = mct_avect_indexra(g2x,'Sg_icemask_coupled_fluxes',perrwith='quiet')
     ! mask of ice sheet grid coverage where we are potentially sending non-zero
     ! fluxes (state: current snapshot)

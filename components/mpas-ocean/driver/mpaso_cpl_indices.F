@@ -1,5 +1,5 @@
 module mpaso_cpl_indices
-  
+
   use seq_flds_mod
   use mct_mod
 
@@ -8,9 +8,11 @@ module mpaso_cpl_indices
   SAVE
   public                               ! By default make data private
 
+  integer , parameter, private:: glc_nzoc_max = 100
+
   ! ocn -> drv
 
-  integer :: index_o2x_So_t      
+  integer :: index_o2x_So_t
   integer :: index_o2x_So_u
   integer :: index_o2x_So_v
   integer :: index_o2x_So_s
@@ -37,7 +39,9 @@ module mpaso_cpl_indices
   integer :: index_o2x_So_htv !ocean heat-transfer velocity
   integer :: index_o2x_So_stv !ocean salt-transfer velocity
   integer :: index_o2x_So_rhoeff !ocean effective density
-  integer :: index_o2x_So_tf2d !ocean thermal forcing at predefined critical depth
+  integer :: index_o2x_So_tf3d(glc_nzoc_max) !ocean thermal forcing at predefined z-levels
+  integer :: index_o2x_So_tf3d_mask(glc_nzoc_max) !mask ofocean thermal forcing at predefined z-levels
+
 
 
   ! ocn -> drv  (BGC)
@@ -79,7 +83,7 @@ module mpaso_cpl_indices
   integer :: index_x2o_Foxx_tauy       ! meridonal wind stress (tauy)     (W/m2   )
   integer :: index_x2o_Foxx_swnet      ! net short-wave heat flux         (W/m2   )
   integer :: index_x2o_Foxx_sen        ! sensible heat flux               (W/m2   )
-  integer :: index_x2o_Foxx_lat        
+  integer :: index_x2o_Foxx_lat
   integer :: index_x2o_Foxx_lwup       ! longwave radiation (up)          (W/m2   )
   integer :: index_x2o_Faxa_lwdn       ! longwave radiation (down)        (W/m2   )
   integer :: index_x2o_Fioi_melth      ! heat flux from snow & ice melt   (W/m2   )
@@ -88,7 +92,7 @@ module mpaso_cpl_indices
   integer :: index_x2o_Fioi_bergw      ! iceberg melt flux                (kg/m2/s)
   integer :: index_x2o_Fioi_salt       ! salt                             (kg(salt)/m2/s)
   integer :: index_x2o_Foxx_evap       ! evaporation flux                 (kg/m2/s)
-  integer :: index_x2o_Faxa_prec         
+  integer :: index_x2o_Faxa_prec
   integer :: index_x2o_Faxa_snow       ! water flux due to snow           (kg/m2/s)
   integer :: index_x2o_Faxa_rain       ! water flux due to rain           (kg/m2/s)
   integer :: index_x2o_Faxa_bcphidry   ! flux: Black   Carbon hydrophilic dry deposition
@@ -118,17 +122,17 @@ module mpaso_cpl_indices
   integer :: index_x2o_Foxx_rofPN      ! PN  runoff flux                  (kg/m2/s)
   integer :: index_x2o_Foxx_rofDIC     ! DIC runoff flux                  (kg/m2/s)
   integer :: index_x2o_Foxx_rofFe      ! Fe  runoff flux                  (kg/m2/s)
-  integer :: index_x2o_Sw_ustokes_wavenumber_1      ! partitioned Stokes drift wavenumber 1 
+  integer :: index_x2o_Sw_ustokes_wavenumber_1      ! partitioned Stokes drift wavenumber 1
   integer :: index_x2o_Sw_vstokes_wavenumber_1      ! partitioned Stokes drift wavenumber 1
-  integer :: index_x2o_Sw_ustokes_wavenumber_2      ! partitioned Stokes drift wavenumber 2 
+  integer :: index_x2o_Sw_ustokes_wavenumber_2      ! partitioned Stokes drift wavenumber 2
   integer :: index_x2o_Sw_vstokes_wavenumber_2      ! partitioned Stokes drift wavenumber 2
-  integer :: index_x2o_Sw_ustokes_wavenumber_3      ! partitioned Stokes drift wavenumber 3 
+  integer :: index_x2o_Sw_ustokes_wavenumber_3      ! partitioned Stokes drift wavenumber 3
   integer :: index_x2o_Sw_vstokes_wavenumber_3      ! partitioned Stokes drift wavenumber 3
-  integer :: index_x2o_Sw_ustokes_wavenumber_4      ! partitioned Stokes drift wavenumber 4 
+  integer :: index_x2o_Sw_ustokes_wavenumber_4      ! partitioned Stokes drift wavenumber 4
   integer :: index_x2o_Sw_vstokes_wavenumber_4      ! partitioned Stokes drift wavenumber 4
-  integer :: index_x2o_Sw_ustokes_wavenumber_5      ! partitioned Stokes drift wavenumber 5 
+  integer :: index_x2o_Sw_ustokes_wavenumber_5      ! partitioned Stokes drift wavenumber 5
   integer :: index_x2o_Sw_vstokes_wavenumber_5      ! partitioned Stokes drift wavenumber 5
-  integer :: index_x2o_Sw_ustokes_wavenumber_6      ! partitioned Stokes drift wavenumber 6 
+  integer :: index_x2o_Sw_ustokes_wavenumber_6      ! partitioned Stokes drift wavenumber 6
   integer :: index_x2o_Sw_vstokes_wavenumber_6      ! partitioned Stokes drift wavenumber 6
   integer :: index_x2o_Sw_Hs         ! Significant wave height
   integer :: index_x2o_Sw_Fp         ! Peak wave frequency
@@ -141,9 +145,9 @@ module mpaso_cpl_indices
   integer :: index_x2o_Sg_blit
   integer :: index_x2o_Sg_blis
   integer :: index_x2o_Sg_lithop
-  integer :: index_x2o_Sg_icemask
-  integer :: index_x2o_Sg_icemask_grounded
+  integer :: index_x2o_Sg_icemask_below_sea_level
   integer :: index_x2o_Sg_icemask_floating
+  integer :: index_x2o_Sg_below_sea_level_mask
 
 
   ! drv -> ocn (BGC)
@@ -173,9 +177,18 @@ contains
 
   subroutine mpaso_cpl_indices_set( )
 
-    use seq_flds_mod, only : wav_ocn_coup      
+    use seq_flds_mod, only : wav_ocn_coup
+    use glc_zocnclass_mod
+
     type(mct_aVect) :: o2x      ! temporary
     type(mct_aVect) :: x2o      ! temporary
+
+    integer :: glc_nzoc
+    integer :: iLev
+    character(len=2) :: cnum
+    character(len=64) :: varname
+
+    glc_nzoc = glc_get_num_zocn_classes()
 
     ! Determine attribute vector indices
 
@@ -210,7 +223,16 @@ contains
     index_o2x_So_htv        = mct_avect_indexra(o2x,'So_htv')
     index_o2x_So_stv        = mct_avect_indexra(o2x,'So_stv')
     index_o2x_So_rhoeff     = mct_avect_indexra(o2x,'So_rhoeff')
-    index_o2x_So_tf2d       = mct_avect_indexra(o2x,'So_tf2d',perrWith='quiet')
+    if (glc_nzoc > 0) then
+       do iLev = 1, glc_nzoc
+          cnum = glc_zocnclass_as_string(iLev)
+          varname = 'So_tf3d' // cnum
+          index_o2x_So_tf3d(iLev) = mct_avect_indexra(o2x, trim(varname))
+
+          varname = 'So_tf3d_mask' // cnum
+          index_o2x_So_tf3d_mask(iLev) = mct_avect_indexra(o2x, trim(varname))
+       enddo
+    endif
 
     index_o2x_So_algae1     = mct_avect_indexra(o2x,'So_algae1',perrWith='quiet')
     index_o2x_So_algae2     = mct_avect_indexra(o2x,'So_algae2',perrWith='quiet')
@@ -248,14 +270,14 @@ contains
     index_x2o_Foxx_sen      = mct_avect_indexra(x2o,'Foxx_sen')
     index_x2o_Foxx_lwup     = mct_avect_indexra(x2o,'Foxx_lwup')
     index_x2o_Faxa_lwdn     = mct_avect_indexra(x2o,'Faxa_lwdn')
-    index_x2o_Fioi_melth    = mct_avect_indexra(x2o,'Fioi_melth')   
+    index_x2o_Fioi_melth    = mct_avect_indexra(x2o,'Fioi_melth')
     index_x2o_Fioi_meltw    = mct_avect_indexra(x2o,'Fioi_meltw')
     index_x2o_Fioi_bergh    = mct_avect_indexra(x2o,'PFioi_bergh')
     index_x2o_Fioi_bergw    = mct_avect_indexra(x2o,'PFioi_bergw')
-    index_x2o_Fioi_salt     = mct_avect_indexra(x2o,'Fioi_salt')   
-    index_x2o_Faxa_prec     = mct_avect_indexra(x2o,'Faxa_prec')   
-    index_x2o_Faxa_snow     = mct_avect_indexra(x2o,'Faxa_snow')   
-    index_x2o_Faxa_rain     = mct_avect_indexra(x2o,'Faxa_rain')   
+    index_x2o_Fioi_salt     = mct_avect_indexra(x2o,'Fioi_salt')
+    index_x2o_Faxa_prec     = mct_avect_indexra(x2o,'Faxa_prec')
+    index_x2o_Faxa_snow     = mct_avect_indexra(x2o,'Faxa_snow')
+    index_x2o_Faxa_rain     = mct_avect_indexra(x2o,'Faxa_rain')
     index_x2o_Foxx_evap     = mct_avect_indexra(x2o,'Foxx_evap')
     index_x2o_Foxx_rofl     = mct_avect_indexra(x2o,'Foxx_rofl')
     index_x2o_Foxx_rofi     = mct_avect_indexra(x2o,'Foxx_rofi')
@@ -315,9 +337,9 @@ contains
     index_x2o_Sg_blit    = mct_avect_indexra(x2o,'Sg_blit')
     index_x2o_Sg_blis    = mct_avect_indexra(x2o,'Sg_blis')
     index_x2o_Sg_lithop  = mct_avect_indexra(x2o,'Sg_lithop')
-    index_x2o_Sg_icemask = mct_avect_indexra(x2o,'Sg_icemask')
-    index_x2o_Sg_icemask = mct_avect_indexra(x2o,'Sg_icemask_grounded')
-    index_x2o_Sg_icemask = mct_avect_indexra(x2o,'Sg_icemask_floating')
+    index_x2o_Sg_icemask_below_sea_level = mct_avect_indexra(x2o,'Sg_icemask_below_sea_level')
+    index_x2o_Sg_icemask_floating = mct_avect_indexra(x2o,'Sg_icemask_floating')
+    index_x2o_Sg_below_sea_level_mask = mct_avect_indexra(x2o,'Sg_below_sea_level_mask')
 
     if (wav_ocn_coup == 'twoway') then
        index_x2o_Sw_ustokes_wavenumber_1 = mct_avect_indexra(x2o,'Sw_ustokes_wavenumber_1')
