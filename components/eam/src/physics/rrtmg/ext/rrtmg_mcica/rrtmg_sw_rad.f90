@@ -68,6 +68,11 @@
       use rrtmg_sw_spcvmc, only: spcvmc_sw
 
       use perf_mod
+!DC
+!      use radiation_readnl, only: rad_asym_vis
+!      use radiation, only: radiation_readnl
+!      use radiation, only: rad_asym_vis
+      use cam_logfile,     only: iulog
 
       implicit none
 
@@ -196,6 +201,9 @@
       use rrsw_aer, only : rsrtaua, rsrpiza, rsrasya
       use rrsw_con, only : heatfac, oneminus, pi
       use rrsw_wvn, only : wavenum1, wavenum2
+
+!      use radiation_readnl, only: rad_asym_vis
+!      use radiation, only: rad_asym_vis
 
 ! ------- Declarations
 
@@ -352,6 +360,11 @@
       real(kind=r8) :: taua(nlay,nbndsw)      ! Aerosol optical depth
       real(kind=r8) :: ssaa(nlay,nbndsw)      ! Aerosol single scattering albedo
       real(kind=r8) :: asma(nlay,nbndsw)      ! Aerosol asymmetry parameter
+
+!DC
+!      real(kind=r8) :: rad_asym_vis              ! DC nl
+      real(kind=r8) :: vis_frc                   ! JPT Weight of flux VIS-ward in band 9
+      real(kind=r8) :: nir_frc                   ! JPT Weight of flux NIR-ward in band 9
 
 ! Atmosphere - setcoef
       integer :: laytrop                        ! tropopause layer index
@@ -585,8 +598,17 @@
          albdif(nbndsw) = aldif(iplon)
 !  Set band 24 (or, band 9 counting from 1) to use linear average of UV/visible
 !  and near-IR values, since this band straddles 0.7 microns: 
-         albdir(9) = 0.5*(aldir(iplon) + asdir(iplon))
-         albdif(9) = 0.5*(aldif(iplon) + asdif(iplon))
+         !DC change to read in from namelist
+!         call radiation_readnl
+         vis_frc = 0.5             ! default
+         nir_frc = 1.0 - vis_frc   ! default
+!         vis_frc = rad_asym_vis    ! DC testing namelist
+!         nir_frc = 1.0 - vis_frc   ! DC testing
+!         vis_frc = 0.555           ! JPT: Proposed value
+!         nir_frc = 1.0 - vis_frc   ! JPT: Proposed value
+         albdir(9) = (nir_frc*aldir(iplon)) + (vis_frc*asdir(iplon))
+         albdif(9) = (nir_frc*aldif(iplon)) + (vis_frc*asdif(iplon))
+!write(iulog,*) 'Rad asym vis = ',rad_asym_vis ! DC debug
 !  UV/visible bands 25-28 (10-13), 16000-50000 cm-1, 0.200-0.625 micron
          do ib=10,13
             albdir(ib) = asdir(iplon)
