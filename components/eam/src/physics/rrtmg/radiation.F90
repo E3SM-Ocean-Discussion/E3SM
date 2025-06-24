@@ -75,6 +75,8 @@ logical :: spectralflux  = .false. ! calculate fluxes (up and down) per band.
 
 logical :: use_rad_dt_cosz  = .false. ! if true, uses the radiation dt for all cosz calculations !BSINGH - Added for solar insolation calc.
 
+real(r8) :: rad_asym_vis = 0.5_r8 ! DC add
+
 ! Flag to indicate whether to read optics from spa netcdf file
 ! NOTE: added for consistency with RRTMGP; this is non-functioning for RRTMG!
 logical :: do_spa_optics = .false.
@@ -120,7 +122,7 @@ subroutine radiation_readnl(nlfile, dtime_in)
    ! Variables defined in namelist
    namelist /radiation_nl/ iradsw, iradlw, irad_always, &
                            use_rad_dt_cosz, spectralflux, &
-                           do_spa_optics
+                           do_spa_optics, rad_asym_vis
 
    ! Read the namelist, only if called from master process
    ! TODO: better documentation and cleaner logic here?
@@ -146,6 +148,7 @@ subroutine radiation_readnl(nlfile, dtime_in)
    call mpibcast(use_rad_dt_cosz, 1, mpi_logical, mstrid, mpicom, ierr)
    call mpibcast(spectralflux, 1, mpi_logical, mstrid, mpicom, ierr)
    call mpibcast(do_spa_optics, 1, mpi_logical, mstrid, mpicom, ierr)
+   call mpibcast(rad_asym_vis, 1, mpi_logical, mstrid, mpicom, ierr)
 #endif
 
    ! Make sure nobody tries to use SPA optics with RRTMG
@@ -288,6 +291,8 @@ subroutine radiation_printopts
 10 format(' Execute SW/LW radiation continuously for the first ',i5, ' timestep(s) of this run')
 20 format(' Frequency of Shortwave Radiation calc. (IRADSW)     ',i5/, &
           ' Frequency of Longwave Radiation calc. (IRADLW)      ',i5)
+!DC
+   write(iulog,*) 'Rad asym vis = ',rad_asym_vis
 
 end subroutine radiation_printopts
 
