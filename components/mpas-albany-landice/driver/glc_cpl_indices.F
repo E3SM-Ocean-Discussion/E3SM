@@ -1,5 +1,5 @@
 module glc_cpl_indices
-  
+
   use seq_flds_mod
   use mct_mod
 !  use glc_constants, only : glc_nec, glc_smb  ! TODO Will these be needed?  If so, need to add MPAS version
@@ -41,8 +41,9 @@ module glc_cpl_indices
   integer, public :: index_g2x_Sg_blit = 0 !Boundary layer interface temperature for ocean
   integer, public :: index_g2x_Sg_icemask = 0 !complete grounded/floating ice mask
   integer, public :: index_g2x_Sg_ice_covered = 0 !ice covered ice mask
-  integer, public :: index_g2x_Sg_icemask_grounded = 0 !grounded mask
+  integer, public :: index_g2x_Sg_icemask_below_sea_level = 0 !ice mask where topography is below sea level
   integer, public :: index_g2x_Sg_icemask_floating = 0 !floating mask
+  integer, public :: index_g2x_Sg_below_sea_level_mask = 0 !below sea level mask
   integer, public :: index_g2x_Sg_icemask_coupled_fluxes = 0 !ice mask for coupled fluxes
 
 contains
@@ -135,8 +136,14 @@ contains
     ! ice sheet landunit SMB vs. bare land landunit SMB.  This mask is used by
     ! CLM to differentiate bare land and ice sheet landunit types.
 
-    index_g2x_Sg_icemask_grounded =       mct_avect_indexra(g2x,'Sg_icemask_grounded',perrwith='quiet')
-    index_g2x_Sg_icemask_floating =       mct_avect_indexra(g2x,'Sg_icemask_floating',perrwith='quiet')
+    ! a mask where ice is prsent and topography is below sea level (0 or 1)
+    index_g2x_Sg_icemask_below_sea_level = mct_avect_indexra(g2x,'Sg_icemask_below_sea_level',perrwith='quiet')
+    ! a mask where ice is floating and topography is below sea level (0 or 1)
+    index_g2x_Sg_icemask_floating =        mct_avect_indexra(g2x,'Sg_icemask_floating',perrwith='quiet')
+    ! a mask of where the bed topography is below sea level (0 or 1), used to
+    ! mask fields passed to the ocean
+    index_g2x_Sg_below_sea_level_mask =   mct_avect_indexra(g2x,'Sg_below_sea_level_mask',perrwith='quiet')
+
     index_g2x_Sg_icemask_coupled_fluxes = mct_avect_indexra(g2x,'Sg_icemask_coupled_fluxes',perrwith='quiet')
     ! mask of ice sheet grid coverage where we are potentially sending non-zero
     ! fluxes (state: current snapshot)
