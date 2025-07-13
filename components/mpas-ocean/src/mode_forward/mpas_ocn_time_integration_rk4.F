@@ -914,12 +914,12 @@ module ocn_time_integration_rk4
       ! The diagnostic variable layerThicknessTarget is updated
       if (associated(highFreqThicknessProvis)) then
          call ocn_vert_transport_velocity_top(verticalMeshPool, &
-            layerThicknessCur,layerThickEdgeFlux, normalVelocityProvis, &
+            layerThicknessCur, layerThickEdgeFlux, normalVelocityProvis, &
             sshCur, rkSubstepWeight, layerThicknessTarget, &
             vertAleTransportTop, err, highFreqThicknessProvis)
       else
          call ocn_vert_transport_velocity_top(verticalMeshPool, &
-            layerThicknessCur,layerThickEdgeFlux, normalVelocityProvis, &
+            layerThicknessCur, layerThickEdgeFlux, normalVelocityProvis, &
             sshCur, rkSubstepWeight, layerThicknessTarget, &
             vertAleTransportTop, err)
       endif
