@@ -176,9 +176,6 @@ module ocn_vertical_remap
          heightCellNew(minLevelCell(iCell), iCell) = heightCellNow(minLevelCell(iCell), iCell)
 
          predSSH = heightCellNew(minLevelCell(iCell)+1, iCell) - layerThicknessTarget(minLevelCell(iCell), iCell)
-         if (abs(predSSH - heightCellNew(minLevelCell(iCell), iCell)) > 0.1_RKIND) &
-            call mpas_log_write('SSH reconstruction incorrect: cell $i, sshNew = $r, ssh = $r', &
-                                intArgs=(/iCell/), realArgs=(/predSSH, heightCellNew(minLevelCell(iCell), iCell)/))
       end do
       !$omp end do
       !$omp end parallel
