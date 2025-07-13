@@ -3051,7 +3051,7 @@ contains
 
    subroutine ocn_vert_transport_velocity_top(verticalMeshPool, &
                      oldLayerThickness, layerThicknessEdgeFlux, &
-                     normalVelocity, oldSSH, dt, ALE_Thickness, &
+                     normalVelocity, oldSSH, dt, layerThicknessTarget, &
                      vertAleTransportTop, err, newHighFreqThickness)!{{{
 
       !-----------------------------------------------------------------
@@ -3081,7 +3081,7 @@ contains
       !-----------------------------------------------------------------
 
       real (kind=RKIND), dimension(:,:), intent(inout) :: &
-         ALE_Thickness
+         layerThicknessTarget !< [out] Update diagnostic variable
 
       real (kind=RKIND), dimension(:,:), intent(out) :: &
          vertAleTransportTop     !< [out] vertical transport top of cell
@@ -3123,7 +3123,7 @@ contains
 
       allocate(div_hu(nVertLevels, nCellsAll), &
                projectedSSH(nCellsAll))
-      !$acc enter data create(projectedSSH, ALE_Thickness, div_hu)
+      !$acc enter data create(projectedSSH, div_hu)
 
       ! Only need to compute over 0 and 1 halos
       nCells = nCellsAll
@@ -3187,11 +3187,11 @@ contains
       ! Vertical transport through layer interface at top and
       ! bottom is zero. Here we are using solving the continuity
       ! equation for vertAleTransportTop ($w^t$), and using
-      ! ALE_Thickness for thickness at the new time.
+      ! layerThicknessTarget for thickness at the new time.
 
 #ifdef MPAS_OPENACC
       !$acc parallel loop gang vector &
-      !$acc          present(vertAleTransportTop, ALE_Thickness, &
+      !$acc          present(vertAleTransportTop, &
       !$acc                  oldLayerThickness, div_hu, &
       !$acc                  minLevelCell, maxLevelCell)
 #else
@@ -3213,7 +3213,7 @@ contains
       !$omp end parallel
 #endif
 
-      !$acc exit data delete(projectedSSH, ALE_Thickness, div_hu)
+      !$acc exit data delete(projectedSSH, div_hu)
       deallocate(div_hu, &
                  projectedSSH)
 
