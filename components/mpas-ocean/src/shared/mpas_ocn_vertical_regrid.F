@@ -91,7 +91,6 @@ module ocn_vertical_regrid
       integer :: iCell, k, kmin, kmax
 
       real (kind=RKIND), dimension(:), allocatable :: projectedSSH
-      real (kind=RKIND) :: totalThicknessTarget
 
       err = 0
 
@@ -118,33 +117,6 @@ module ocn_vertical_regrid
         call ocn_ALE_thickness(verticalMeshPool, projectedSSH, &
                                layerThicknessTarget, err)
       endif
-
-      !!$omp parallel
-      !!$omp do schedule(runtime) private(k,totalThicknessTarget)
-      do iCell = 1, nCellsAll
-         totalThicknessTarget = 0.0_RKIND
-         do k = minLevelCell(iCell), maxLevelCell(iCell)
-            if (layerThicknessTarget(k,iCell) < 1.0E-3_RKIND) then
-               call mpas_log_write('ALE: iCell $i, k $i: layerThicknessTarget = $r, zBed = $r, ssh = $r', intArgs=(/k, iCell/), &
-                                   realArgs=(/layerThicknessTarget(k,iCell), bottomDepth(iCell), projectedSSH(iCell)/))
-               err = iCell
-            end if
-            totalThicknessTarget = totalThicknessTarget + layerThicknessTarget(k,iCell)
-         end do
-         if (abs(totalThicknessTarget - (bottomDepth(iCell) + projectedSSH(iCell))) > 0.1_RKIND) then
-            call mpas_log_write('ALE: iCell $i: totalThickness = $r', intArgs=(/iCell/), realArgs=(/bottomDepth(iCell) + projectedSSH(iCell)/))
-            call mpas_log_write('ALE: iCell $i: bottomDepth = $r, ssh = $r', intArgs=(/iCell/), realArgs=(/bottomDepth(iCell), projectedSSH(iCell)/))
-            call mpas_log_write('ALE: iCell $i: totalThicknessTarget = $r', intArgs=(/iCell/), realArgs=(/totalThicknessTarget/))
-            do k = minLevelCell(iCell), maxLevelCell(iCell)
-               call mpas_log_write('ALE: iCell $i: layerThicknessTarget($i) = $r', intArgs=(/iCell, k/), realArgs=(/layerThicknessTarget(minLevelCell(iCell), iCell)/))
-               totalThicknessTarget = totalThicknessTarget + layerThicknessTarget(k,iCell)
-            end do
-            err = iCell
-         end if
-      end do
-      !!$omp end do
-      !!$omp end parallel
-
 
    end subroutine ocn_vert_regrid
 
