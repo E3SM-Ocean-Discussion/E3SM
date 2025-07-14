@@ -286,7 +286,7 @@ module ocn_time_integration_split_ab2
 
       ! Remap variables
       real (kind=RKIND), dimension(:,:), pointer :: &
-         layerThicknessLagNew
+         layerThicknessLagCur, layerThicknessLagNew
 
       ! These are public variables used from the diagnostics module
       ! indexSurfaceVelocityZonal, indexSurfaceVelocityMeridional
@@ -384,6 +384,9 @@ module ocn_time_integration_split_ab2
       call mpas_pool_get_array(statePool, 'lowFreqDivergence', &
                                            lowFreqDivergenceNew, 2)
 
+      call mpas_pool_get_array(statePool, 'layerThicknessLag', layerThicknessLagCur, 1)
+      call mpas_pool_get_array(statePool, 'layerThicknessLag', layerThicknessLagNew, 2)
+
       call mpas_pool_get_dimension_scalar(tracersPool, 'index_salinity', &
                                                         indexSalinity)
 
@@ -429,6 +432,31 @@ module ocn_time_integration_split_ab2
          !$acc enter data create(lowFreqDivergenceNew)
       endif
 #endif
+
+      if ( configVertAdvMethod == vertAdvRemap ) then
+        if ( associated(layerThicknessLagCur) ) then
+#ifdef MPAS_OPENACC
+          !$acc loop collapse(2)
+#else
+          !$omp do schedule(runtime) private(k)
+#endif
+          do iCell= 1,nCellsAll
+          do k = 1,nVertLevels
+             ! Store the current, Lagrangian location for computation of the
+             ! Eulerian vertical velocity induced by remapping
+             layerThicknessLagCur(k,iCell) = layerThicknessCur(k,iCell)
+          end do
+          end do
+#ifndef MPAS_OPENACC
+           !$omp end do
+#endif
+        endif
+        call mpas_timer_start("vertical remap")
+        ! Perform the remapping
+        ! The updated layerThickness goes in layerThicknessCur which is assigned to layerThicknessNew below
+        call ocn_remap_vert_state(block, err, 1)
+        call mpas_timer_stop("vertical remap")
+      end if
 
       ! Initialize * variables that are used to compute baroclinic
       ! tendencies below.
@@ -629,7 +657,7 @@ module ocn_time_integration_split_ab2
                            normalVelocityCur, stage1_tend_time)
 
 #ifdef MPAS_OPENACC
-         !$acc enter data copyin(layerThicknessCur, normalVelocityCur, sshCur)
+         !$acc enter data copyin(layerThicknessCur, normalVelocityCur, sshCur, layerThicknessTarget)
          !$acc update device(layerThickEdgeFlux)
          if (config_use_freq_filtered_thickness .or. associated(highFreqThicknessNew) ) then
             !$acc enter data create(highFreqThicknessNew)
@@ -713,12 +741,12 @@ module ocn_time_integration_split_ab2
             call ocn_vert_transport_velocity_top( &
                  verticalMeshPool, layerThicknessCur, &
                  layerThickEdgeFlux, normalVelocityCur, sshCur, dt, &
-                 vertAleTransportTop, err, highFreqThicknessNew)
+                 layerThicknessTarget, vertAleTransportTop, err, highFreqThicknessNew)
          else
             call ocn_vert_transport_velocity_top( &
                  verticalMeshPool, layerThicknessCur, &
                  layerThickEdgeFlux, normalVelocityCur, sshCur, dt, &
-                 vertAleTransportTop, err)
+                 layerThicknessTarget, vertAleTransportTop, err)
          endif
 
 #ifdef MPAS_OPENACC
@@ -1756,7 +1784,7 @@ module ocn_time_integration_split_ab2
             call ocn_vert_transport_velocity_top( &
                  verticalMeshPool, layerThicknessCur, &
                  layerThickEdgeFlux, normalTransportVelocity, sshCur, &
-                 dt, vertAleTransportTop, err, highFreqThicknessNew)
+                 dt, layerThicknessTarget, vertAleTransportTop, err, highFreqThicknessNew)
 #ifdef MPAS_OPENACC
             !$acc exit data delete(highFreqThicknessNew)
 #endif
@@ -1764,7 +1792,7 @@ module ocn_time_integration_split_ab2
             call ocn_vert_transport_velocity_top( &
                  verticalMeshPool, layerThicknessCur, &
                  layerThickEdgeFlux, normalTransportVelocity, sshCur, &
-                 dt, vertAleTransportTop, err)
+                 dt, layerThicknessTarget, vertAleTransportTop, err)
          endif
 #ifdef MPAS_OPENACC
          !$acc exit data delete(layerThicknessCur, sshCur)
@@ -2180,7 +2208,7 @@ module ocn_time_integration_split_ab2
                call ocn_vert_transport_velocity_top( &
                     verticalMeshPool, layerThicknessCur, &
                     layerThickEdgeFlux, normalTransportVelocity,sshCur, dt, &
-                    vertAleTransportTop, err)
+                    layerThicknessTarget, vertAleTransportTop, err)
 
                call ocn_tend_thick(tendPool, forcingPool)
 
@@ -2211,6 +2239,24 @@ module ocn_time_integration_split_ab2
                !$omp end do
                !$omp end parallel
 #endif
+               if ( associated(layerThicknessLagNew) ) then
+#ifdef MPAS_OPENACC
+                 !$acc loop collapse(2)
+#else
+                 !$omp do schedule(runtime) private(k)
+#endif
+                 do iCell= 1,nCellsAll
+                 do k = 1,nVertLevels
+                    ! Store the current, Lagrangian location for computation of the
+                    ! Eulerian vertical velocity induced by remapping
+                    layerThicknessLagNew(k,iCell) = layerThicknessLagCur(k,iCell)
+                 end do
+                 end do
+#ifndef MPAS_OPENACC
+                !$omp end do
+#endif
+               endif
+
 
             endif ! nowTimeStamp
 
@@ -2748,23 +2794,6 @@ module ocn_time_integration_split_ab2
       call mpas_timer_stop('se vmix halos')
 
       call mpas_timer_stop("se implicit vert mix")
-
-      if ( configVertAdvMethod == vertAdvRemap ) then
-
-         call mpas_timer_start("vertical remap")
-
-         call mpas_pool_get_array(statePool, 'layerThicknessLag', layerThicknessLagNew, 2)
-
-         ! Store the current, Lagrangian location for computation of the
-         ! Eulerian vertical velocity induced by remapping
-         layerThicknessLagNew = layerThicknessNew
-
-         ! Perform the remapping
-         call ocn_remap_vert_state(block, err)
-
-         call mpas_timer_stop("vertical remap")
-
-      end if
 
       call mpas_timer_start('se fini')
 
