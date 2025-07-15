@@ -908,9 +908,9 @@ contains
          ! Finally, set whence to latest_before so we have piecewise-constant forcing.
          ! Could add, e.g., linear interpolation later.
 
-         ! NOTE: If any input ("forcing") files here contain fields that the coupler also passes, 
-         ! the input file versions here will clobber the fields passed from the coupler. 
-         
+         ! NOTE: If any input ("forcing") files here contain fields that the coupler also passes,
+         ! the input file versions here will clobber the fields passed from the coupler.
+
          call mpas_stream_mgr_read(domain % streamManager, whence=MPAS_STREAM_LATEST_BEFORE, saveActualWhen = .true., ierr=err_tmp)
          err = ior(err, err_tmp)
          call mpas_stream_mgr_reset_alarms(domain % streamManager, direction=MPAS_STREAM_INPUT, ierr=err_tmp)
@@ -1516,8 +1516,10 @@ contains
    real (kind=RKIND), dimension(:), pointer :: avgCalvingFlux
    real (kind=RKIND), dimension(:), pointer :: avgFaceMeltFlux
    real (kind=RKIND), dimension(:), pointer :: avgFloatingBMBFlux
+   real (kind=RKIND), dimension(:), pointer :: bedTopography
    real (kind=RKIND), dimension(:,:), pointer :: temperature
    integer, dimension(:), pointer :: cellMask
+   integer :: belowSeaLevelMask
    !-------------------------------------------------------------------
 
     errorCode = 0
@@ -1540,7 +1542,8 @@ contains
 
          call mpas_pool_get_array(geometryPool, 'upperSurface', upperSurface)
          call mpas_pool_get_array(meshPool, 'layerThicknessFractions', layerThicknessFractions)
-         call mpas_pool_get_array(geometryPool, 'thickness', Thickness, timeLevel = 1)
+         call mpas_pool_get_array(geometryPool, 'thickness', thickness, timeLevel = 1)
+         call mpas_pool_get_array(geometryPool, 'bedTopography', bedTopography)
          call mpas_pool_get_array(thermalPool, 'temperature', temperature)
 
          call mpas_pool_get_array(timeAveragingPool, 'avgBareIceAblationApplied', avgBareIceAblationApplied)
@@ -1554,11 +1557,11 @@ contains
             n = n + 1
 
             ! Fogg_rofl
-            g2x_g % rAttr(index_g2x_Fogg_rofl,n) = avgBareIceAblationApplied(i) 
+            g2x_g % rAttr(index_g2x_Fogg_rofl,n) = avgBareIceAblationApplied(i)
             ! Figg_rofi
             g2x_g % rAttr(index_g2x_Figg_rofi,n) = 0.0 ! placeholder
             ! Fogg_rofi
-            g2x_g % rAttr(index_g2x_Fogg_rofi,n) = avgCalvingFlux(i) 
+            g2x_g % rAttr(index_g2x_Fogg_rofi,n) = avgCalvingFlux(i)
             g2x_g % rAttr(index_g2x_Fogg_rofi,n) = g2x_g % rAttr(index_g2x_Fogg_rofi,n) + avgFaceMeltFlux(i)
             if (trim(config_basal_mass_bal_float) == 'ismip6') then
                ! if MALI is calculating ISMF, add that to rofl
@@ -1570,7 +1573,18 @@ contains
             g2x_g % rAttr(index_g2x_Sg_tbot, n) = temperature(nVertlevels,i) - SHR_CONST_TKTRIP
             ! layerThickness is not populated on init, so calculating like this instead:
             g2x_g % rAttr(index_g2x_Sg_dztbot, n) = layerThicknessFractions(nVertLevels) * thickness(i) / 2.0
-            g2x_g % rAttr(index_g2x_Sg_lithop, n) = Thickness(i)*SHR_CONST_RHOICE*SHR_CONST_G
+
+            ! A mask for quantities remapped to the ocean indicating where bedrock is below sea level
+            ! and thus where ocean can possibly be in contact with the ice sheet.
+            if (bedTopography(i) <= config_sea_level) then
+               belowSeaLevelMask = 1
+            else
+               belowSeaLevelMask = 0
+            endif
+            g2x_g % rAttr(index_g2x_Sg_below_sea_level_mask, n) = belowSeaLevelMask
+
+            ! mask lithostatic pressure to only locations below sea level
+            g2x_g % rAttr(index_g2x_Sg_lithop, n) = belowSeaLevelMask * thickness(i) * config_ice_density * SHR_CONST_G
 
             !!!Mask configurations
             g2x_g % rAttr(index_g2x_Sg_ice_covered, n) = li_mask_is_ice_int(cellMask(i))
@@ -1590,8 +1604,8 @@ contains
             g2x_g % rAttr(index_g2x_Sg_icemask_coupled_fluxes, n) = g2x_g % rAttr(index_g2x_Sg_icemask, n)
 
             ! Add masks used for ice shelf basal melt calculation
-            g2x_g % rAttr(index_g2x_Sg_icemask_floating, n) = li_mask_is_floating_ice_int(cellMask(i))
-            g2x_g % rAttr(index_g2x_Sg_icemask_grounded, n) = li_mask_is_grounded_ice_int(cellMask(i))
+            g2x_g % rAttr(index_g2x_Sg_icemask_below_sea_level, n) = belowSeaLevelMask * li_mask_is_ice_int(cellMask(i))
+            g2x_g % rAttr(index_g2x_Sg_icemask_floating, n) = belowSeaLevelMask * li_mask_is_floating_ice_int(cellMask(i))
 
          end do
 
@@ -1641,10 +1655,10 @@ contains
       character (len=StrKIND), intent(out) :: timeStamp
       real (kind=RKIND) :: secondsPerHour, secondsPerMinute, remaining
       integer :: minutes, hours, secondsLeft
-   
+
       secondsPerHour = 3600
       secondsPerMinute = 60
-   
+
       if(seconds < 0 .or. seconds > 86400) then
         secondsLeft = 00
         minutes = 00
@@ -1652,16 +1666,16 @@ contains
       else
         hours = int(seconds/secondsPerHour)
         remaining = seconds - real(hours) * secondsPerHour
-   
+
         minutes = int(remaining/secondsPerMinute)
         remaining = remaining - real(minutes) * secondsPerMinute
-   
+
         secondsLeft = int(remaining)
       end if
-   
+
       write(timeStamp,"(a,i2.2,a,i2.2,a,i2.2)") "00_",hours,":",minutes,":",secondsLeft
       timeStamp = trim(timeStamp)
-   
+
    end subroutine convert_seconds_to_timestamp!}}}
 
    subroutine add_stream_attributes(stream_manager, domain)!{{{
