@@ -284,7 +284,7 @@ module ocn_time_integration_split
 
       ! Remap variables
       real (kind=RKIND), dimension(:,:), pointer :: &
-         layerThicknessLagNew
+         layerThicknessLagCur, layerThicknessLagNew
 
       ! These are public variables used from the diagnostics module
       ! indexSurfaceVelocityZonal, indexSurfaceVelocityMeridional
@@ -379,6 +379,11 @@ module ocn_time_integration_split
       call mpas_pool_get_dimension_scalar(tracersPool, 'index_salinity', &
                                                         indexSalinity)
 
+      call mpas_pool_get_array(statePool, 'layerThicknessLag', &
+                                           layerThicknessLagCur, 1)
+      call mpas_pool_get_array(statePool, 'layerThicknessLag', &
+                                           layerThicknessLagNew, 2)
+
       !*** Retrieve tendency variables
 
       call mpas_pool_get_array(tendPool, 'highFreqThickness', &
@@ -426,6 +431,31 @@ module ocn_time_integration_split
          !$acc enter data create(lowFreqDivergenceNew)
       endif
 #endif
+
+      if ( configVertAdvMethod == vertAdvRemap ) then
+        if ( associated(layerThicknessLagCur) ) then
+#ifdef MPAS_OPENACC
+          !$acc loop collapse(2)
+#else
+          !$omp do schedule(runtime) private(k)
+#endif
+          do iCell= 1,nCellsAll
+          do k = 1,nVertLevels
+             ! Store the current, Lagrangian location for computation of the
+             ! Eulerian vertical velocity induced by remapping
+             layerThicknessLagCur(k,iCell) = layerThicknessCur(k,iCell)
+          end do
+          end do
+#ifndef MPAS_OPENACC
+           !$omp end do
+#endif
+        endif
+        call mpas_timer_start("vertical remap")
+        ! Perform the remapping
+        ! The updated layerThickness goes in layerThicknessCur which is assigned to layerThicknessNew below
+        call ocn_remap_vert_state(block, err, 1)
+        call mpas_timer_stop("vertical remap")
+      end if
 
       ! Initialize * variables that are used to compute baroclinic
       ! tendencies below.
@@ -705,17 +735,17 @@ module ocn_time_integration_split
          ! compute vertAleTransportTop.  Use u (rather than &
          ! normalTransportVelocity) for momentum advection.
          ! Use the most recent time level available.
-
+         ! The diagnostic variable layerThicknessTarget is updated
          if (associated(highFreqThicknessNew)) then
             call ocn_vert_transport_velocity_top( &
                  verticalMeshPool, layerThicknessCur, &
                  layerThickEdgeFlux, normalVelocityCur, sshCur, dt, &
-                 vertAleTransportTop, err, highFreqThicknessNew)
+                 layerThicknessTarget, vertAleTransportTop, err, highFreqThicknessNew)
          else
             call ocn_vert_transport_velocity_top( &
                  verticalMeshPool, layerThicknessCur, &
                  layerThickEdgeFlux, normalVelocityCur, sshCur, dt, &
-                 vertAleTransportTop, err)
+                 layerThicknessTarget, vertAleTransportTop, err)
          endif
 
 #ifdef MPAS_OPENACC
@@ -1772,16 +1802,16 @@ module ocn_time_integration_split
 #endif
             call ocn_vert_transport_velocity_top( &
                  verticalMeshPool, layerThicknessCur, &
-                 layerThickEdgeFlux, normalTransportVelocity, sshCur, &
-                 dt, vertAleTransportTop, err, highFreqThicknessNew)
+                 layerThickEdgeFlux, normalTransportVelocity, sshCur, dt, &
+                 layerThicknessTarget, vertAleTransportTop, err, highFreqThicknessNew)
 #ifdef MPAS_OPENACC
             !$acc exit data delete(highFreqThicknessNew)
 #endif
          else
             call ocn_vert_transport_velocity_top( &
                  verticalMeshPool, layerThicknessCur, &
-                 layerThickEdgeFlux, normalTransportVelocity, sshCur, &
-                 dt, vertAleTransportTop, err)
+                 layerThickEdgeFlux, normalTransportVelocity, sshCur, dt, &
+                 layerThicknessTarget, vertAleTransportTop, err)
          endif
 #ifdef MPAS_OPENACC
          !$acc exit data delete(layerThicknessCur, sshCur)
@@ -2057,6 +2087,24 @@ module ocn_time_integration_split
             !$omp end do
             !$omp end parallel
 #endif
+
+            if ( associated(layerThicknessLagNew) ) then
+#ifdef MPAS_OPENACC
+               !$acc loop collapse(2)
+#else
+               !$omp do schedule(runtime) private(k)
+#endif
+               do iCell= 1,nCellsAll
+               do k = 1,nVertLevels
+                  ! Store the current, Lagrangian location for computation of the
+                  ! Eulerian vertical velocity induced by remapping
+                  layerThicknessLagNew(k,iCell) = layerThicknessLagCur(k,iCell)
+               end do
+               end do
+#ifndef MPAS_OPENACC
+                !$omp end do
+#endif
+            endif
 
             if (config_compute_active_tracer_budgets) then
 
@@ -2575,23 +2623,6 @@ module ocn_time_integration_split
       call mpas_timer_stop('se vmix halos')
 
       call mpas_timer_stop("se implicit vert mix")
-
-      if ( configVertAdvMethod == vertAdvRemap ) then
-
-         call mpas_timer_start("vertical remap")
-
-         call mpas_pool_get_array(statePool, 'layerThicknessLag', layerThicknessLagNew, 2)
-
-         ! Store the current, Lagrangian location for computation of the
-         ! Eulerian vertical velocity induced by remapping
-         layerThicknessLagNew = layerThicknessNew
-
-         ! Perform the remapping
-         call ocn_remap_vert_state(block, err)
-
-         call mpas_timer_stop("vertical remap")
-
-      end if
 
       call mpas_timer_start('se fini')
 
