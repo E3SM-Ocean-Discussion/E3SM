@@ -783,7 +783,7 @@ contains
     units    = 'kg m-3'
     attname  = 'Sa_dens'
     call metadata_set(attname, longname, stdname, units)
-    
+
     ! UoverN for use by topounits
     if (trim(cime_model) == 'e3sm') then
        call seq_flds_add(a2x_states,"Sa_uovern")
@@ -2184,7 +2184,7 @@ contains
     endif
 
     !------------------------------
-    ! ice<->wav only exchange 
+    ! ice<->wav only exchange
     !------------------------------
 
     ! Sea ice thickness
@@ -2283,7 +2283,7 @@ contains
        units    = ' '
        attname  = 'coszen_str'
        call metadata_set(attname, longname, stdname, units)
-       
+
 	   if (rof_sed) then
           call seq_flds_add(l2x_fluxes,'Flrl_rofmud')
           call seq_flds_add(l2x_fluxes_to_rof,'Flrl_rofmud')
@@ -2297,7 +2297,7 @@ contains
 
     endif
 
-	
+
     !-----------------------------
     ! rof->ocn (runoff) and rof->lnd (flooding)
     !-----------------------------
@@ -2365,7 +2365,7 @@ contains
     units    = 'kg m-2 s-1'
     attname  = 'Flrr_supply'
     call metadata_set(attname, longname, stdname, units)
-    
+
     call seq_flds_add(r2x_fluxes,'Flrr_deficit')
     call seq_flds_add(x2l_fluxes,'Flrr_deficit')
     longname = 'River model supply deficit'
@@ -2843,9 +2843,6 @@ contains
     call seq_flds_add(g2x_states_to_lnd,trim(name))
     call seq_flds_add(x2l_states,trim(name))
     call seq_flds_add(x2l_states_from_glc,trim(name))
-    if (trim(cime_model) == 'e3sm') then
-       call seq_flds_add(x2o_states,trim(name))
-    endif
     longname = 'Ice sheet grid coverage on global grid'
     stdname  = 'ice_sheet_grid_mask'
     units    = '1'
@@ -3075,13 +3072,13 @@ contains
        attname  = 'Sg_lithop'
        call metadata_set(attname, longname, stdname, units)
 
-       name = 'Sg_icemask_grounded'
+       name = 'Sg_icemask_below_sea_level'
        call seq_flds_add(g2x_states,trim(name))
        call seq_flds_add(x2o_states,trim(name))
-       longname = 'Grounded ice mask'
-       stdname  = 'Grounded_ice_mask'
+       longname = 'ice mask where topopgrahy is below sea level'
+       stdname  = 'ice_mask_below_sea_level'
        units    = 'unitless'
-       attname  = 'Sg_icemask_grounded'
+       attname  = 'Sg_icemask_below_sea_level'
        call metadata_set(attname, longname, stdname, units)
 
        name = 'Sg_icemask_floating'
@@ -3091,6 +3088,15 @@ contains
        stdname  = 'Floating_ice_mask'
        units    = 'unitless'
        attname  = 'Sg_icemask_floating'
+       call metadata_set(attname, longname, stdname, units)
+
+      name = 'Sg_below_sea_level_mask'
+       call seq_flds_add(g2x_states,trim(name))
+       call seq_flds_add(x2o_states,trim(name))
+       longname = 'Ice sheet bedrock is below sea leve'
+       stdname  = 'below_sea_level_mask'
+       units    = 'unitless'
+       attname  = 'Sg_below_sea_level_mask'
        call metadata_set(attname, longname, stdname, units)
 
        name = 'Sg_tbot'
@@ -3901,7 +3907,7 @@ contains
 
     !-----------------------------------------------------------------------------
     ! Read namelist for FAN NH3 emissions
-    ! If specified, the NH3 surface emission is sent to CAM. 
+    ! If specified, the NH3 surface emission is sent to CAM.
     !-----------------------------------------------------------------------------
 
     call shr_fan_readnl(nlfilename='drv_flds_in', ID=ID, fan_fields=fan_fields, have_fields=fan_have_fields)
