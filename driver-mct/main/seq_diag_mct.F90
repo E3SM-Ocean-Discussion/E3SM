@@ -49,7 +49,7 @@ module seq_diag_mct
   use seq_diagBGC_mct,  only : seq_diagBGC_preprint_mct, seq_diagBGC_print_mct
 
   use prep_glc_mod,  only : prep_glc_get_l2gacc_lx_cnt_avg
-  use glc_elevclass_mod, only: glc_get_num_elevation_classes 
+  use glc_elevclass_mod, only: glc_get_num_elevation_classes
 
   implicit none
   save
@@ -269,7 +269,7 @@ module seq_diag_mct
   integer :: index_l2x_Flrl_wslake
 
   integer :: index_x2l_Sg_icemask
-  integer, allocatable :: index_l2x_Flgl_qice(:) 
+  integer, allocatable :: index_l2x_Flgl_qice(:)
   integer, allocatable :: index_x2l_Sg_ice_covered(:)
 
   integer :: index_x2l_Faxa_lwdn
@@ -347,7 +347,7 @@ module seq_diag_mct
   integer :: index_g2x_Fogg_rofi
   integer :: index_g2x_Figg_rofi
 
-  integer :: index_x2g_Flgl_qice 
+  integer :: index_x2g_Flgl_qice
   integer :: index_g2x_Sg_icemask
 
   integer :: index_x2o_Foxx_rofl_16O
@@ -889,12 +889,12 @@ contains
     logical,save             :: first_time    = .true.
     logical,save             :: flds_wiso_lnd = .false.
 
-    real(r8)                 :: l2x_Flgl_qice_col_sum ! for summing fluxes over no. of elev. classes 
+    real(r8)                 :: l2x_Flgl_qice_col_sum ! for summing fluxes over no. of elev. classes
     real(r8)                 :: effective_area
 
     character(len=64)        :: name
-    character(len= 2)        :: cnum         
-    integer(in)              :: num               
+    character(len= 2)        :: cnum
+    integer(in)              :: num
 
     !----- formats -----
     character(*),parameter :: subName = '(seq_diag_lnd_mct) '
@@ -916,7 +916,7 @@ contains
     kArea = mct_aVect_indexRA(dom_l%data,afldname)
     kl    = mct_aVect_indexRA(frac_l,lfrinname)
 
-    ! get number of elevation classes and allocate relevant sets of indices 
+    ! get number of elevation classes and allocate relevant sets of indices
     glc_nec = glc_get_num_elevation_classes()
     if (glc_nec.ge.1) then
        if (first_time) then
@@ -924,7 +924,7 @@ contains
           allocate(index_x2l_Sg_ice_covered(0:glc_nec))
        end if
     end if
-   
+
     if (present(do_l2x)) then
        if (first_time) then
           index_l2x_Fall_swnet  = mct_aVect_indexRA(l2x_l,'Fall_swnet')
@@ -989,9 +989,9 @@ contains
           l2x_Flgl_qice_col_sum = 0.0d0
           if (glc_nec.ge.1) then
              effective_area = min(frac_l%rAttr(kl,n),x2l_l%rAttr(index_x2l_Sg_icemask,n)) * dom_l%data%rAttr(kArea,n)
-             do num=0,glc_nec 
-                ! sums the contributions from fluxes in each set of elevation classes 
-                ! RHS product is flux times fraction of area in specific elevation class times land cell area 
+             do num=0,glc_nec
+                ! sums the contributions from fluxes in each set of elevation classes
+                ! RHS product is flux times fraction of area in specific elevation class times land cell area
                 l2x_Flgl_qice_col_sum = l2x_Flgl_qice_col_sum + l2x_l%rAttr(index_l2x_Flgl_qice(num),n) * &
                                                                 x2l_l%rAttr(index_x2l_Sg_ice_covered(num),n) * effective_area
              end do
@@ -1031,7 +1031,7 @@ contains
           end if
        end do
 
-       budg_dataL(f_hioff,ic,ip) = -budg_dataL(f_wioff,ic,ip)*shr_const_latice ! contribution from land ice calving currently zero 
+       budg_dataL(f_hioff,ic,ip) = -budg_dataL(f_wioff,ic,ip)*shr_const_latice ! contribution from land ice calving currently zero
        budg_dataL(f_hgsmb,ic,ip) = budg_dataL(f_wgsmb,ic,ip)*shr_const_latice
 
        ! Nneeded? Not sure if / when these should be deallocated
@@ -1321,7 +1321,7 @@ contains
   subroutine seq_diag_glc_mct( glc, frac_g, infodata, do_x2g, do_g2x )
 
     type(component_type)    , intent(in) :: glc    ! component type for instance1
-    type(mct_aVect)         , intent(in) :: frac_g ! frac bundle (may not be used / needed here) 
+    type(mct_aVect)         , intent(in) :: frac_g ! frac bundle (may not be used / needed here)
     type(seq_infodata_type) , intent(in) :: infodata
     logical                 , intent(in), optional :: do_x2g
     logical                 , intent(in), optional :: do_g2x
@@ -1391,7 +1391,7 @@ contains
 
     if( present(do_x2g))then  ! do fields from coupler to glc (x2g_)
 
-       l2gacc_lx_cnt_avg = prep_glc_get_l2gacc_lx_cnt_avg() ! counter for how many times SMB flux accumulation has occured 
+       l2gacc_lx_cnt_avg = prep_glc_get_l2gacc_lx_cnt_avg() ! counter for how many times SMB flux accumulation has occured
        ic = c_glc_gs
        kArea = mct_aVect_indexRA(dom_g%data,afldname)
        lSize = mct_avect_lSize(x2g_g)
@@ -1403,7 +1403,7 @@ contains
 
        budg_dataL(nf,ic,ip) = budg_dataL(nf,ic,ip) * l2gacc_lx_cnt_avg
 
-       budg_dataL(f_hgsmb,ic,ip) = budg_dataL(f_wgsmb,ic,ip)*shr_const_latice 
+       budg_dataL(f_hgsmb,ic,ip) = budg_dataL(f_wgsmb,ic,ip)*shr_const_latice
 
     end if ! end do fields from coupler to glc (x2g_)
 
@@ -1973,7 +1973,7 @@ contains
 
        if (plev > 0) then
           ! ---- doprint ---- doprint ---- doprint ----
-  
+
           if (.not.sumdone) then
 
              if (do_bgc_budg) then
@@ -2340,7 +2340,7 @@ contains
           ! ---- doprint ---- doprint ---- doprint ----
 
           if (do_bgc_budg) then
-             call seq_diagBGC_print_mct(EClock, ip, plev) 
+             call seq_diagBGC_print_mct(EClock, ip, plev)
           endif
 
        endif  ! plev > 0
