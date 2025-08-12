@@ -325,6 +325,8 @@ module seq_diag_mct
   integer :: index_x2o_Fioi_bergh
   integer :: index_x2o_Fioi_bergw
   integer :: index_x2o_Fioi_salt
+  integer :: index_x2o_Fogx_qiceho
+  integer :: index_x2o_Fogx_qicelo
 
   integer :: index_i2x_Fioi_melth
   integer :: index_i2x_Fioi_meltw
@@ -346,6 +348,9 @@ module seq_diag_mct
   integer :: index_g2x_Fogg_rofl
   integer :: index_g2x_Fogg_rofi
   integer :: index_g2x_Figg_rofi
+
+  integer :: index_x2g_Fogx_qicehi
+  integer :: index_x2g_Fogx_qiceli
 
   integer :: index_x2g_Flgl_qice
   integer :: index_g2x_Sg_icemask
@@ -1370,6 +1375,10 @@ contains
        index_x2g_Flgl_qice  = mct_aVect_indexRA(x2g_g,'Flgl_qice')
        index_g2x_Sg_icemask = mct_avect_indexRA(g2x_g,'Sg_icemask')
 
+       ! indices needed for ice-shelf basal melt fluxes
+       index_x2g_Fogx_qiceli = mct_aVect_indexRA(x2g_g,'Fogx_qiceli',perrwith='quiet')
+       index_x2g_Fogx_qicehi = mct_aVect_indexRA(x2g_g,'Fogx_qicehi',perrwith='quiet')
+
     end if
 
     if( present(do_g2x))then  ! do fields from glc to coupler (g2x_)
@@ -1399,10 +1408,23 @@ contains
        do n=1,lSize
           ca_g =  dom_g%data%rAttr(kArea,n)*g2x_g%rAttr(index_g2x_Sg_icemask,n)
           nf = f_wgsmb; budg_dataL(nf,ic,ip) = budg_dataL(nf,ic,ip) + ca_g*x2g_g%rAttr(index_x2g_Flgl_qice,n)
+          if (index_x2g_Fogx_qiceli /= 0) then
+             ! qiceli and qicehi are positive into glc
+             nf = f_wpolar
+             budg_dataL(nf,ic,ip) = budg_dataL(nf,ic,ip) + ca_g*x2g_g%rAttr(index_x2g_Fogx_qiceli,n)
+             ! latent heat from ice shelf melt fluxes in the coupler
+             nf = f_hpolar
+             budg_dataL(nf,ic,ip) = budg_dataL(nf,ic,ip) + ca_g*x2g_g%rAttr(index_x2g_Fogx_qiceli,n)*shr_const_latice
+          end if
+          if (index_x2g_Fogx_qicehi /= 0) then
+             ! sensible heat from ice shelf melt fluxes in the coupler
+             nf = f_hpolar
+             budg_dataL(nf,ic,ip) = budg_dataL(nf,ic,ip) + ca_g*x2g_g%rAttr(index_x2g_Fogx_qicehi,n)
+          end if
        end do
 
-       budg_dataL(nf,ic,ip) = budg_dataL(nf,ic,ip) * l2gacc_lx_cnt_avg
-
+       ! Scale only the SMB accumulation fields by the accumulation counter
+       budg_dataL(f_wgsmb,ic,ip) = budg_dataL(f_wgsmb,ic,ip) * l2gacc_lx_cnt_avg
        budg_dataL(f_hgsmb,ic,ip) = budg_dataL(f_wgsmb,ic,ip)*shr_const_latice
 
     end if ! end do fields from coupler to glc (x2g_)
@@ -1572,6 +1594,10 @@ contains
           index_x2o_Foxx_rofl   = mct_aVect_indexRA(x2o_o,'Foxx_rofl')
           index_x2o_Foxx_rofi   = mct_aVect_indexRA(x2o_o,'Foxx_rofi')
 
+          ! indices needed for ice-shelf basal melt fluxes
+          index_x2o_Fogx_qiceho = mct_avect_indexra(x2o_o,'Fogx_qiceho',perrwith='quiet')
+          index_x2o_Fogx_qicelo = mct_avect_indexra(x2o_o,'Fogx_qicelo',perrwith='quiet')
+
           if ( flds_wiso_ocn )then
              index_x2o_Fioi_meltw_16O = mct_aVect_indexRA(x2o_o,'Fioi_meltw_16O')
              index_x2o_Fioi_meltw_18O = mct_aVect_indexRA(x2o_o,'Fioi_meltw_18O')
@@ -1612,6 +1638,7 @@ contains
        do n=1,lSize
           ca_o =  dom_o%data%rAttr(kArea,n) * frac_o%rAttr(ko,n)
           ca_i =  dom_o%data%rAttr(kArea,n) * frac_o%rAttr(ki,n)
+          ca_c =  dom_o%data%rAttr(kArea,n)
           nf = f_area  ; budg_dataL(nf,ic,ip) = budg_dataL(nf,ic,ip) + ca_o
 
           nf = f_hmelt ; budg_dataL(nf,ic,ip) = budg_dataL(nf,ic,ip) + (ca_o+ca_i)*x2o_o%rAttr(index_x2o_Fioi_melth,n)
@@ -1625,6 +1652,19 @@ contains
           nf = f_wroff ; budg_dataL(nf,ic,ip) = budg_dataL(nf,ic,ip) + (ca_o+ca_i)*x2o_o%rAttr(index_x2o_Foxx_rofl,n)
           nf = f_wioff ; budg_dataL(nf,ic,ip) = budg_dataL(nf,ic,ip) + (ca_o+ca_i)*x2o_o%rAttr(index_x2o_Foxx_rofi,n)
 
+          if (index_x2o_Fogx_qicelo /= 0) then
+             ! qiceli and qicehi are positive into ocn
+             nf = f_wpolar
+             budg_dataL(nf,ic,ip) = budg_dataL(nf,ic,ip) + ca_c*x2o_o%rAttr(index_x2o_Fogx_qicelo,n)
+             ! latent heat from ice shelf melt fluxes in the coupler
+             nf = f_hpolar
+             budg_dataL(nf,ic,ip) = budg_dataL(nf,ic,ip) + ca_c*x2o_o%rAttr(index_x2o_Fogx_qicelo,n)*shr_const_latice
+          end if
+          if (index_x2o_Fogx_qiceho /= 0) then
+             ! sensible heat from ice shelf melt fluxes in the coupler
+             nf = f_hpolar
+             budg_dataL(nf,ic,ip) = budg_dataL(nf,ic,ip) + ca_c*x2o_o%rAttr(index_x2o_Fogx_qiceho,n)
+          end if
 
           if ( flds_wiso_ocn )then
              nf = f_wmelt_16O;
