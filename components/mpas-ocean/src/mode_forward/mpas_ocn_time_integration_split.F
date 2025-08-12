@@ -454,6 +454,28 @@ module ocn_time_integration_split
         ! Perform the remapping
         ! The updated layerThickness goes in layerThicknessCur which is assigned to layerThicknessNew below
         call ocn_remap_vert_state(block, err, 1)
+        ! TODO update layerThickEdgeFlux for vert velocity computation below
+        !$omp parallel
+        !$omp do schedule(runtime) &
+        !$omp private(cell1, cell2, k)
+        do iEdge = 1, nEdges
+
+           cell1 = cellsOnEdge(1,iEdge)
+           cell2 = cellsOnEdge(2,iEdge)
+           do k=1,nVertLevels
+              ! initialize layerThickEdgeFlux to avoid divide by
+              ! zero and NaN problems.
+              layerThickEdgeFlux(k,iEdge) = -1.0e34_RKIND
+           end do
+           if (thickEdgeFluxChoice == thickEdgeFluxUpwind) then
+              do k = minLevelEdgeBot(iEdge), maxLevelEdgeTop(iEdge)
+                 layerThickEdgeFlux(k,iEdge) = (layerThicknessCur(k,cell1) + layerThicknessCur(k,cell2))/2.0_RKIND
+              end do
+           else
+           endif
+        enddo
+        !$omp end do
+        !$omp end parallel
         call mpas_timer_stop("vertical remap")
       end if
 
