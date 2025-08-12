@@ -2622,6 +2622,28 @@ module ocn_time_integration_split
         ! The time level specified here is the one that will get overwritten during remapping
         call ocn_remap_vert_state(block, err, 2)
         call mpas_timer_stop("vertical remap")
+        ! TODO update layerThickEdgeFlux for vert velocity computation below
+        !$omp parallel
+        !$omp do schedule(runtime) &
+        !$omp private(cell1, cell2, k)
+        do iEdge = 1, nEdges
+
+           cell1 = cellsOnEdge(1,iEdge)
+           cell2 = cellsOnEdge(2,iEdge)
+           do k=1,nVertLevels
+              ! initialize layerThickEdgeFlux to avoid divide by
+              ! zero and NaN problems.
+              layerThickEdgeFlux(k,iEdge) = -1.0e34_RKIND
+           end do
+           if (thickEdgeFluxChoice == thickEdgeFluxUpwind) then
+              do k = minLevelEdgeBot(iEdge), maxLevelEdgeTop(iEdge)
+                 layerThickEdgeFlux(k,iEdge) = (layerThicknessCur(k,cell1) + layerThicknessCur(k,cell2))/2.0_RKIND
+              end do
+           else
+           endif
+        enddo
+        !$omp end do
+        !$omp end parallel
       end if
 
 
