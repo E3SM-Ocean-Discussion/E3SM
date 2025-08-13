@@ -283,10 +283,6 @@ module ocn_time_integration_split
 
       real (kind=RKIND), pointer :: forcingTimeIncrement
 
-      ! Remap variables
-      real (kind=RKIND), dimension(:,:), pointer :: &
-         layerThicknessLagCur, layerThicknessLagNew
-
       ! These are public variables used from the diagnostics module
       ! indexSurfaceVelocityZonal, indexSurfaceVelocityMeridional
       ! indexSSHGradientZonal, indexSSHGradientMeridional
@@ -379,11 +375,6 @@ module ocn_time_integration_split
 
       call mpas_pool_get_dimension_scalar(tracersPool, 'index_salinity', &
                                                         indexSalinity)
-
-      call mpas_pool_get_array(statePool, 'layerThicknessLag', &
-                                           layerThicknessLagCur, 1)
-      call mpas_pool_get_array(statePool, 'layerThicknessLag', &
-                                           layerThicknessLagNew, 2)
 
       !*** Retrieve tendency variables
 
@@ -2106,24 +2097,6 @@ module ocn_time_integration_split
             !$omp end parallel
 #endif
 
-            if ( associated(layerThicknessLagNew) ) then
-#ifdef MPAS_OPENACC
-               !$acc loop collapse(2)
-#else
-               !$omp do schedule(runtime) private(k)
-#endif
-               do iCell= 1,nCellsAll
-               do k = 1,nVertLevels
-                  ! Store the current, Lagrangian location for computation of the
-                  ! Eulerian vertical velocity induced by remapping
-                  layerThicknessLagNew(k,iCell) = layerThicknessLagCur(k,iCell)
-               end do
-               end do
-#ifndef MPAS_OPENACC
-                !$omp end do
-#endif
-            endif
-
             if (config_compute_active_tracer_budgets) then
 
 #ifdef MPAS_OPENACC
@@ -2643,23 +2616,6 @@ module ocn_time_integration_split
       call mpas_timer_stop("se implicit vert mix")
 
       if ( configVertAdvMethod == vertAdvRemap ) then
-        if ( associated(layerThicknessLagNew) ) then
-#ifdef MPAS_OPENACC
-          !$acc loop collapse(2)
-#else
-          !$omp do schedule(runtime) private(k)
-#endif
-          do iCell= 1,nCellsAll
-          do k = 1,nVertLevels
-             ! Store the current, Lagrangian location for computation of the
-             ! Eulerian vertical velocity induced by remapping
-             layerThicknessLagNew(k,iCell) = layerThicknessNew(k,iCell)
-          end do
-          end do
-#ifndef MPAS_OPENACC
-           !$omp end do
-#endif
-        endif
         call mpas_timer_start("vertical remap")
         ! Perform the remapping
         ! The time level specified here is the one that will get overwritten during remapping

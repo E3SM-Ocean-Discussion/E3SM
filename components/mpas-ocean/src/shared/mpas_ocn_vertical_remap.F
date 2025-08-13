@@ -140,6 +140,23 @@ module ocn_vertical_remap
       allocate(heightEdgeNew(nVertLevels + 1, nEdges))
       allocate(layerThickEdgeNew(nVertLevels, nEdges))
 
+      if ( associated(layerThicknessLag) ) then
+#ifdef MPAS_OPENACC
+        !$acc loop collapse(2)
+#else
+        !$omp do schedule(runtime) private(k)
+#endif
+        do iCell= 1,nCellsAll
+        do k = 1,nVertLevels
+           ! Store the current, Lagrangian location for computation of the
+           ! Eulerian vertical velocity induced by remapping
+           layerThicknessLag(k,iCell) = layerThicknessNew(k,iCell)
+        end do
+        end do
+#ifndef MPAS_OPENACC
+        !$omp end do
+#endif
+      endif
       ! Compute new layer thicknesses based on vertical coordinate choice
       ! Currently, zstar coordinate is hard-coded
       ! The diagnostic variable layerThicknessTarget is updated
