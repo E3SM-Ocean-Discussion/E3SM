@@ -61,6 +61,8 @@ module ocn_diagnostics
              ocn_diagnostic_solve_layerThicknessEdge, &
              ocn_diagnostic_solve_wctEdge, &
              ocn_relativeVorticity_circulation, &
+             ocn_solve_divergence_hu, &
+             ocn_layer_interface_velocity, &
              ocn_vert_transport_velocity_top, &
              ocn_fuperp, &
              ocn_filter_btr_mode_tend_vel, &
@@ -3049,29 +3051,19 @@ contains
 !
 !-----------------------------------------------------------------------
 
-   subroutine ocn_vert_transport_velocity_top(verticalMeshPool, &
-                     oldLayerThickness, layerThicknessEdgeFlux, &
-                     normalVelocity, oldSSH, dt, layerThicknessTarget, &
-                     vertAleTransportTop, err, newHighFreqThickness)!{{{
+   subroutine ocn_solve_divergence_hu(oldSSH, layerThicknessEdgeFlux, &
+                     normalVelocity, dt, div_hu, projectedSSH)!{{{
 
       !-----------------------------------------------------------------
       ! input variables
       !-----------------------------------------------------------------
 
-      type (mpas_pool_type), intent(in) :: &
-         verticalMeshPool         !< [in] vertical mesh information
-
       real (kind=RKIND), dimension(:), intent(in) :: &
          oldSSH                   !< [in] sea surface height at old time
 
       real (kind=RKIND), dimension(:,:), intent(in) :: &
-         oldLayerThickness,      &!< [in] layer thickness at old time
          layerThicknessEdgeFlux, &!< [in] layerThickness at edge
          normalVelocity           !< [in] transport
-
-      !  alters ALE thickness when freq-filtering
-      real (kind=RKIND), dimension(:,:), intent(in), optional :: &
-         newHighFreqThickness     !< [in] high frequency thickness
 
       real (kind=RKIND), intent(in) :: &
          dt     !< Input: time step
@@ -3079,53 +3071,26 @@ contains
       !-----------------------------------------------------------------
       ! output variables
       !-----------------------------------------------------------------
-
-      real (kind=RKIND), dimension(:,:), intent(inout) :: &
-         layerThicknessTarget !< [out] Update diagnostic variable
-
       real (kind=RKIND), dimension(:,:), intent(out) :: &
-         vertAleTransportTop     !< [out] vertical transport top of cell
+         div_hu       ! divergence of (thickness*velocity)
 
-      integer, intent(out) :: err !< [out] error flag
+      real (kind=RKIND), dimension(:), intent(out) :: &
+         projectedSSH ! projectedSSH: projected SSH at a new time
 
       !-----------------------------------------------------------------
-      ! local variables
+      ! Local variables
       !-----------------------------------------------------------------
-
-      integer :: &
-         iEdge, iCell, k, i, &! edge, cell, vert, nbr indices
-         nCells,             &! number of cells
-         kmin, kmax           ! min/max layer indices for active layers
 
       real (kind=RKIND) :: &
          flux,         &!
          invAreaCell1, &! 1/cell area
          div_hu_btr     ! divergence of h*u for barotropic u
 
-      real (kind=RKIND), dimension(:), allocatable :: &
-         projectedSSH ! projectedSSH: projected SSH at a new time
+      integer :: &
+         iEdge, iCell, k, i, &! edge, cell, vert, nbr indices
+         nCells,             &! number of cells
+         kmin, kmax           ! min/max layer indices for active layers
 
-      real (kind=RKIND), dimension(:,:), allocatable :: &
-         div_hu       ! divergence of (thickness*velocity)
-
-      ! End preamble
-      !-----------------------------------------------------------------
-      ! Begin code
-
-      err = 0
-
-      if (config_vert_coord_movement == 'impermeable_interfaces' .or. &
-          configVertAdvMethod == vertAdvRemap) then
-         vertAleTransportTop = 0.0_RKIND
-         !$acc update device(vertAleTransportTop)
-         return
-      end if
-
-      allocate(div_hu(nVertLevels, nCellsAll), &
-               projectedSSH(nCellsAll))
-      !$acc enter data create(projectedSSH, div_hu)
-
-      ! Only need to compute over 0 and 1 halos
       nCells = nCellsAll
 
       !
@@ -3169,17 +3134,125 @@ contains
       !$omp end do
       !$omp end parallel
 #endif
+   
+   end subroutine ocn_solve_divergence_hu!}}}
 
+   subroutine ocn_layer_interface_velocity(verticalMeshPool, &
+                        projectedSSH, oldLayerThickness, dt, &
+                        layerInterfaceVelocity, err, newHighFreqThickness)!{{{
+
+      type (mpas_pool_type), intent(in) :: &
+         verticalMeshPool         !< [in] vertical mesh information
+
+      real (kind=RKIND), dimension(:), intent(in) :: &
+         projectedSSH ! projectedSSH: projected SSH at a new time
+
+      real (kind=RKIND), dimension(:,:), intent(in) :: &
+         oldLayerThickness      !< [in] layer thickness at old time
+
+      real (kind=RKIND), intent(in) :: &
+         dt     !< Input: time step
+
+      !  alters ALE thickness when freq-filtering
+      real (kind=RKIND), dimension(:,:), intent(in), optional :: &
+         newHighFreqThickness     !< [in] high frequency thickness
+
+      real (kind=RKIND), dimension(:,:), intent(out) :: &
+         layerInterfaceVelocity !< [out] layer interface motion over the time step
+
+      integer, intent(out) :: err !< [out] error flag
+
+      !-----------------------------------------------------------------
+      ! local variables
+      !-----------------------------------------------------------------
+
+      integer :: &
+         nCells, &! number of cells
+         iCell, k ! cell, vert indices
+
+      !real (kind=RKIND), dimension(:,:) :: &
+      !   layerThicknessTarget ! This is already a diagnostic variable
+
+      err = 0
+
+      ! Only need to compute over 0 and 1 halos
+      nCells = nCellsAll
       !
       ! Compute desired thickness at new time
       !
-      if (present(newHighFreqThickness)) then
-        call ocn_ALE_thickness(verticalMeshPool, projectedSSH, &
-                               layerThicknessTarget, err, newHighFreqThickness)
+      if (configVertAdvMethod == vertAdvRemap) then
+        ! The layer does not move here
+        layerInterfaceVelocity = 0.0_RKIND
       else
-        call ocn_ALE_thickness(verticalMeshPool, projectedSSH, &
-                               layerThicknessTarget, err)
+        if (present(newHighFreqThickness)) then
+          call ocn_ALE_thickness(verticalMeshPool, projectedSSH, &
+                                 layerThicknessTarget, err, newHighFreqThickness)
+        else
+          call ocn_ALE_thickness(verticalMeshPool, projectedSSH, &
+                                 layerThicknessTarget, err)
+        endif
+#ifndef MPAS_OPENACC
+        !$omp parallel
+        !$omp do schedule(runtime) private(k)
+#endif
+        do iCell = 1,nCells
+          do k = minLevelCell(iCell), maxLevelCell(iCell)
+            layerInterfaceVelocity(k,iCell) = (layerThicknessTarget(k,iCell) - &
+                        oldLayerThickness(k,iCell))/dt
+          enddo
+        enddo
+#ifndef MPAS_OPENACC
+        !$omp end do
+        !$omp end parallel
+#endif
       endif
+
+   end subroutine ocn_layer_interface_velocity!}}}
+
+   subroutine ocn_vert_transport_velocity_top(&
+                     div_hu, layerInterfaceVelocity, &
+                     vertAleTransportTop, err)!{{{
+
+      !-----------------------------------------------------------------
+      ! input variables
+      !-----------------------------------------------------------------
+
+      real (kind=RKIND), dimension(:,:), intent(in) :: &
+         div_hu, &
+         layerInterfaceVelocity !< [in] layer interface motion over the time step
+
+      !-----------------------------------------------------------------
+      ! output variables
+      !-----------------------------------------------------------------
+
+      real (kind=RKIND), dimension(:,:), intent(out) :: &
+         vertAleTransportTop     !< [out] vertical transport top of cell
+
+      integer, intent(out) :: err !< [out] error flag
+
+      !-----------------------------------------------------------------
+      ! local variables
+      !-----------------------------------------------------------------
+
+      integer :: &
+         nCells, &! number of cells
+         iCell, k ! cell, vert indices
+
+      ! End preamble
+      !-----------------------------------------------------------------
+      ! Begin code
+
+      err = 0
+
+      if (config_vert_coord_movement == 'impermeable_interfaces') then
+         vertAleTransportTop = 0.0_RKIND
+         !$acc update device(vertAleTransportTop)
+         return
+      end if
+
+
+      ! Only need to compute over 0 and 1 halos
+      nCells = nCellsAll
 
       !
       ! Vertical transport through layer interfaces
@@ -3204,18 +3277,13 @@ contains
          do k = maxLevelCell(iCell), minLevelCell(iCell)+1, -1
             vertAleTransportTop(k,iCell) = &
                 vertAleTransportTop(k+1,iCell) - div_hu(k,iCell) &
-                     - (layerThicknessTarget(k,iCell) - &
-                        oldLayerThickness(k,iCell))/dt
+                     - layerInterfaceVelocity(k,iCell)
          end do
       end do
 #ifndef MPAS_OPENACC
       !$omp end do
       !$omp end parallel
 #endif
-
-      !$acc exit data delete(projectedSSH, div_hu)
-      deallocate(div_hu, &
-                 projectedSSH)
 
    !--------------------------------------------------------------------
 
