@@ -432,31 +432,6 @@ module ocn_time_integration_split
       endif
 #endif
 
-      if ( configVertAdvMethod == vertAdvRemap ) then
-        if ( associated(layerThicknessLagCur) ) then
-#ifdef MPAS_OPENACC
-          !$acc loop collapse(2)
-#else
-          !$omp do schedule(runtime) private(k)
-#endif
-          do iCell= 1,nCellsAll
-          do k = 1,nVertLevels
-             ! Store the current, Lagrangian location for computation of the
-             ! Eulerian vertical velocity induced by remapping
-             layerThicknessLagCur(k,iCell) = layerThicknessCur(k,iCell)
-          end do
-          end do
-#ifndef MPAS_OPENACC
-           !$omp end do
-#endif
-        endif
-        call mpas_timer_start("vertical remap")
-        ! Perform the remapping
-        ! The updated layerThickness goes in layerThicknessCur which is assigned to layerThicknessNew below
-        call ocn_remap_vert_state(block, err, 1)
-        call mpas_timer_stop("vertical remap")
-      end if
-
       ! Initialize * variables that are used to compute baroclinic
       ! tendencies below.
 
@@ -2623,6 +2598,32 @@ module ocn_time_integration_split
       call mpas_timer_stop('se vmix halos')
 
       call mpas_timer_stop("se implicit vert mix")
+
+      if ( configVertAdvMethod == vertAdvRemap ) then
+        if ( associated(layerThicknessLagNew) ) then
+#ifdef MPAS_OPENACC
+          !$acc loop collapse(2)
+#else
+          !$omp do schedule(runtime) private(k)
+#endif
+          do iCell= 1,nCellsAll
+          do k = 1,nVertLevels
+             ! Store the current, Lagrangian location for computation of the
+             ! Eulerian vertical velocity induced by remapping
+             layerThicknessLagNew(k,iCell) = layerThicknessNew(k,iCell)
+          end do
+          end do
+#ifndef MPAS_OPENACC
+           !$omp end do
+#endif
+        endif
+        call mpas_timer_start("vertical remap")
+        ! Perform the remapping
+        ! The time level specified here is the one that will get overwritten during remapping
+        call ocn_remap_vert_state(block, err, 2)
+        call mpas_timer_stop("vertical remap")
+      end if
+
 
       call mpas_timer_start('se fini')
 
