@@ -146,7 +146,7 @@ module ocn_vertical_remap
 #else
         !$omp do schedule(runtime) private(k)
 #endif
-        do iCell= 1,nCellsAll
+        do iCell= 1,nCells
         do k = 1,nVertLevels
            ! Store the current, Lagrangian location for computation of the
            ! Eulerian vertical velocity induced by remapping
@@ -244,10 +244,10 @@ module ocn_vertical_remap
 
          ! We only need to define the kBot+1 depth for one active cell
          ! as the absolute kBot+1 depth has no effect on remapping
-         if (cell1 <= nCellsAll .and. maxLevelCell(cell1) > 0) then
+         if (cell1 <= nCells .and. maxLevelCell(cell1) > 0) then
             heightEdgeNow(:, iEdge) = heightCellNow(kBot+1, cell1)
             heightEdgeNew(:, iEdge) = heightCellNew(kBot+1, cell1)
-         elseif (cell2 <= nCellsAll .and. maxLevelCell(cell2) > 0) then
+         elseif (cell2 <= nCells .and. maxLevelCell(cell2) > 0) then
             heightEdgeNow(:, iEdge) = heightCellNow(kBot+1, cell2)
             heightEdgeNew(:, iEdge) = heightCellNew(kBot+1, cell2)
          else
