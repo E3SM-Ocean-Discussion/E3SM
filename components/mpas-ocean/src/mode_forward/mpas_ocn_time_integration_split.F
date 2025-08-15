@@ -363,6 +363,11 @@ module ocn_time_integration_split
       call mpas_pool_get_array(statePool, 'layerThickness', &
                                            layerThicknessNew, 2)
 
+      call mpas_pool_get_array(statePool, 'layerThicknessLag', &
+                                           layerThicknessLagCur, 1)
+      call mpas_pool_get_array(statePool, 'layerThicknessLag', &
+                                           layerThicknessLagNew, 2)
+
       call mpas_pool_get_array(statePool, 'highFreqThickness', &
                                            highFreqThicknessCur, 1)
       call mpas_pool_get_array(statePool, 'highFreqThickness', &
@@ -487,6 +492,20 @@ module ocn_time_integration_split
       !$omp end do
       !$omp end parallel
 #endif
+      if ( configVertAdvMethod == vertAdvRemap ) then
+#ifndef MPAS_OPENACC
+         !$omp do schedule(runtime) private(k)
+#endif
+         do iCell = 1, nCellsAll
+            do k = 1,nVertLevels
+               layerThicknessLagNew(k,iCell) = layerThicknessLagCur(k,iCell)
+            end do
+         end do
+#ifndef MPAS_OPENACC
+         !$omp end do
+         !$omp end parallel
+#endif
+      endif
 
       call mpas_pool_begin_iteration(tracersPool)
       do while ( mpas_pool_get_next_member(tracersPool, groupItr))
