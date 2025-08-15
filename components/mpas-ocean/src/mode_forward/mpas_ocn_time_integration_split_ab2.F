@@ -452,11 +452,9 @@ module ocn_time_integration_split_ab2
            !$omp end do
 #endif
         endif
-        call mpas_timer_start("vertical remap")
         ! Perform the remapping
         ! The updated layerThickness goes in layerThicknessCur which is assigned to layerThicknessNew below
         call ocn_remap_vert_state(block, err, 1)
-        call mpas_timer_stop("vertical remap")
       end if
 
       ! Initialize * variables that are used to compute baroclinic
@@ -743,7 +741,7 @@ module ocn_time_integration_split_ab2
 #ifdef MPAS_OPENACC
          !$acc enter data create(projectedSSH, div_hu)
 #endif
-         call ocn_solve_divergence_hu(sshCur, layerThickEdgeFlux, &
+         call ocn_diagnostic_solve_divergence_hu(sshCur, layerThickEdgeFlux, &
                   normalVelocityCur, dt, div_hu, projectedSSH)
          if ( configVertAdvMethod == vertAdvRemap ) then
             vertAleTransportTop = 0.0_RKIND
@@ -1794,7 +1792,7 @@ module ocn_time_integration_split_ab2
 #ifdef MPAS_OPENACC
          !$acc enter data create(projectedSSH_tr, div_hu_tr)
 #endif
-         call ocn_solve_divergence_hu(sshCur, layerThickEdgeFlux, &
+         call ocn_diagnostic_solve_divergence_hu(sshCur, layerThickEdgeFlux, &
                   normalTransportVelocity, dt, div_hu_tr, projectedSSH_tr)
          if ( configVertAdvMethod == vertAdvRemap ) then
             ! This is the layerInterfaceVelocity implicit in w=0 during Stage 1
@@ -2250,7 +2248,7 @@ module ocn_time_integration_split_ab2
 #ifdef MPAS_OPENACC
                !$acc enter data create(projectedSSH_tr, div_hu_tr)
 #endif
-               call ocn_solve_divergence_hu(sshCur, layerThickEdgeFlux, &
+               call ocn_diagnostic_solve_divergence_hu(sshCur, layerThickEdgeFlux, &
                         normalTransportVelocity, dt, div_hu_tr, projectedSSH_tr)
                if ( configVertAdvMethod == vertAdvRemap ) then
                   ! This is the layerInterfaceVelocity implicit in w=0 during Stage 1

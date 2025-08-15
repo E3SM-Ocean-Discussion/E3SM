@@ -112,6 +112,7 @@ module ocn_vertical_remap
       if (itimestepLastRemap < config_vert_remap_interval) return
       itimestepLastRemap = 0
 
+      call mpas_timer_start("vertical remap")
       ! Remapping currently only supports one block for the whole domain rather
       ! than sub-blocks
       call mpas_pool_get_subpool(block % structs, 'verticalMesh', verticalMeshPool)
@@ -418,6 +419,7 @@ module ocn_vertical_remap
       deallocate(heightEdgeNow)
       deallocate(heightCellNew)
       deallocate(heightEdgeNew)
+      call mpas_timer_stop("vertical remap")
 
    end subroutine ocn_remap_vert_state
 

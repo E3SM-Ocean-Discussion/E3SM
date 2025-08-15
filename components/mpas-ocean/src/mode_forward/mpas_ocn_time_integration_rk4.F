@@ -932,7 +932,7 @@ module ocn_time_integration_rk4
 #ifdef MPAS_OPENACC
       !$acc enter data create(projectedSSH, div_hu)
 #endif
-      call ocn_solve_divergence_hu(sshCur, layerThickEdgeFlux, &
+      call ocn_diagnostic_solve_divergence_hu(sshCur, layerThickEdgeFlux, &
                normalVelocityProvis, dt, div_hu, projectedSSH)
       if ( TRIM(config_vert_advection_method) == 'remap' ) then
          vertAleTransportTop = 0.0_RKIND
@@ -1021,7 +1021,7 @@ module ocn_time_integration_rk4
       allocate(layerInterfaceVelocity(nVertLevels, nCellsAll), &
                div_hu_tr(nVertLevels, nCellsAll), &
                projectedSSH_tr(nCellsAll))
-      call ocn_solve_divergence_hu(sshCur, layerThickEdgeFlux, &
+      call ocn_diagnostic_solve_divergence_hu(sshCur, layerThickEdgeFlux, &
                normalTransportVelocity, dt, div_hu_tr, projectedSSH_tr)
       if ( TRIM(config_vert_advection_method) == 'remap' ) then
          ! This is the layerInterfaceVelocity implicit in w=0 during Stage 1
@@ -1120,7 +1120,7 @@ module ocn_time_integration_rk4
       ! The diagnostic variable layerThicknessTarget is updated
       allocate(div_hu_tr(nVertLevels, nCellsAll), &
                projectedSSH_tr(nCellsAll))
-      call ocn_solve_divergence_hu(sshCur, layerThickEdgeFlux, &
+      call ocn_diagnostic_solve_divergence_hu(sshCur, layerThickEdgeFlux, &
                normalTransportVelocity, dt, div_hu_tr, projectedSSH_tr)
       if ( TRIM(config_vert_advection_method) == 'remap' ) then
          ! This is the layerInterfaceVelocity implicit in w=0 during Stage 1
@@ -1211,7 +1211,7 @@ module ocn_time_integration_rk4
 #ifdef MPAS_OPENACC
       !$acc enter data create(projectedSSH, div_hu)
 #endif
-      call ocn_solve_divergence_hu(sshCur, layerThickEdgeFlux, &
+      call ocn_diagnostic_solve_divergence_hu(sshCur, layerThickEdgeFlux, &
                normalVelocityProvis, dt, div_hu, projectedSSH)
       if ( TRIM(config_vert_advection_method) == 'remap' ) then
          vertAleTransportTop = 0.0_RKIND
@@ -1233,7 +1233,7 @@ module ocn_time_integration_rk4
 
       allocate(div_hu_tr(nVertLevels, nCellsAll), &
                projectedSSH_tr(nCellsAll))
-      call ocn_solve_divergence_hu(sshCur, layerThickEdgeFlux, &
+      call ocn_diagnostic_solve_divergence_hu(sshCur, layerThickEdgeFlux, &
                normalTransportVelocity, dt, div_hu_tr, projectedSSH_tr)
       if ( TRIM(config_vert_advection_method) == 'remap' ) then
          ! This is the layerInterfaceVelocity implicit in w=0 during Stage 1
