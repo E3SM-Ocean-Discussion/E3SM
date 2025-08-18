@@ -3051,8 +3051,8 @@ contains
 
    subroutine ocn_vert_transport_velocity_top(verticalMeshPool, &
                      oldLayerThickness, layerThicknessEdgeFlux, &
-                     normalVelocity, oldSSH, dt, vertAleTransportTop, &
-                     err, newHighFreqThickness)!{{{
+                     normalVelocity, oldSSH, dt, layerThicknessTarget, &
+                     vertAleTransportTop, err, newHighFreqThickness)!{{{
 
       !-----------------------------------------------------------------
       ! input variables
@@ -3080,6 +3080,9 @@ contains
       ! output variables
       !-----------------------------------------------------------------
 
+      real (kind=RKIND), dimension(:,:), intent(inout) :: &
+         layerThicknessTarget !< [out] Update diagnostic variable
+
       real (kind=RKIND), dimension(:,:), intent(out) :: &
          vertAleTransportTop     !< [out] vertical transport top of cell
 
@@ -3103,8 +3106,7 @@ contains
          projectedSSH ! projectedSSH: projected SSH at a new time
 
       real (kind=RKIND), dimension(:,:), allocatable :: &
-         div_hu,       &! divergence of (thickness*velocity)
-         ALE_Thickness  ! ALE thickness at new time
+         div_hu       ! divergence of (thickness*velocity)
 
       ! End preamble
       !-----------------------------------------------------------------
@@ -3112,20 +3114,18 @@ contains
 
       err = 0
 
-      if (config_vert_coord_movement == 'impermeable_interfaces' .or. &
-          configVertAdvMethod == vertAdvRemap) then
+      if (config_vert_coord_movement == 'impermeable_interfaces') then
          vertAleTransportTop = 0.0_RKIND
          !$acc update device(vertAleTransportTop)
          return
       end if
 
       allocate(div_hu(nVertLevels, nCellsAll), &
-               projectedSSH(nCellsAll), &
-               ALE_Thickness(nVertLevels, nCellsAll))
-      !$acc enter data create(projectedSSH, ALE_Thickness, div_hu)
+               projectedSSH(nCellsAll))
+      !$acc enter data create(projectedSSH, div_hu)
 
       ! Only need to compute over 0 and 1 halos
-      nCells = nCellsHalo( 1 )
+      nCells = nCellsAll
 
       !
       ! thickness-weighted divergence and barotropic divergence
@@ -3174,10 +3174,10 @@ contains
       !
       if (present(newHighFreqThickness)) then
         call ocn_ALE_thickness(verticalMeshPool, projectedSSH, &
-                               ALE_thickness, err, newHighFreqThickness)
+                               layerThicknessTarget, err, newHighFreqThickness)
       else
         call ocn_ALE_thickness(verticalMeshPool, projectedSSH, &
-                               ALE_thickness, err)
+                               layerThicknessTarget, err)
       endif
 
       !
@@ -3186,11 +3186,11 @@ contains
       ! Vertical transport through layer interface at top and
       ! bottom is zero. Here we are using solving the continuity
       ! equation for vertAleTransportTop ($w^t$), and using
-      ! ALE_Thickness for thickness at the new time.
+      ! layerThicknessTarget for thickness at the new time.
 
 #ifdef MPAS_OPENACC
       !$acc parallel loop gang vector &
-      !$acc          present(vertAleTransportTop, ALE_Thickness, &
+      !$acc          present(vertAleTransportTop, &
       !$acc                  oldLayerThickness, div_hu, &
       !$acc                  minLevelCell, maxLevelCell)
 #else
@@ -3203,7 +3203,7 @@ contains
          do k = maxLevelCell(iCell), minLevelCell(iCell)+1, -1
             vertAleTransportTop(k,iCell) = &
                 vertAleTransportTop(k+1,iCell) - div_hu(k,iCell) &
-                     - (ALE_Thickness(k,iCell) - &
+                     - (layerThicknessTarget(k,iCell) - &
                         oldLayerThickness(k,iCell))/dt
          end do
       end do
@@ -3212,10 +3212,9 @@ contains
       !$omp end parallel
 #endif
 
-      !$acc exit data delete(projectedSSH, ALE_Thickness, div_hu)
+      !$acc exit data delete(projectedSSH, div_hu)
       deallocate(div_hu, &
-                 projectedSSH, &
-                 ALE_Thickness)
+                 projectedSSH)
 
    !--------------------------------------------------------------------
 
