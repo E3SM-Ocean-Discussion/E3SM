@@ -712,7 +712,7 @@ contains
                tridiagC(k - 1) = 2.0_RKIND*cGMphaseSpeed(iEdge)**2/layerThickEdgeMean(k, iEdge) &
                                  /(layerThickEdgeMean(k - 1, iEdge) + layerThickEdgeMean(k, iEdge))
                rightHandSide(k - 1) = gmBolusKappa(iEdge)*gmKappaScaling(k,iEdge)*gravity/rho_sw* &
-                                            gradDensityEddy(k,iEdge) 
+                                            gradDensityEddy(k,iEdge)
 
                ! Second to next to the last rows
                do k = minLevelEdgeBot(iEdge) + 2, maxLevelEdgeTop(iEdge) - 1
@@ -841,9 +841,9 @@ contains
 !
 !  routine ocn_GM_add_to_transport_velocity
 !
-!> \brief   Adds GM to transportVel 
+!> \brief   Adds GM to transportVel
 !> \details
-!>  Adds the GM bolus velocity to the normal transport velocity if enabled  
+!>  Adds the GM bolus velocity to the normal transport velocity if enabled
 !
 !-----------------------------------------------------------------------
 
@@ -859,7 +859,7 @@ contains
 
        if (.not. config_use_gm) return
 
-       !$omp parallel 
+       !$omp parallel
        !$omp do schedule(runtime) &
        !$omp private(k)
        do iEdge = 1, nEdges
