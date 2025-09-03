@@ -46,6 +46,7 @@ module ocn_constants
       rho_sw                ,&! density of salt water (kg/m^3)
       rho_ice               ,&! density of sea ice (kg/m^3)
       cp_sw                 ,&! specific heat salt water (J/kg/K)
+      cp_v                  ,&! specific heat water vapor (J/kg/K)
       cp_air                ,&! heat capacity of air (J/kg/K)
       sound                 ,&! speed of sound (m/s)
       vonkar                ,&! von Karman constant
@@ -124,6 +125,7 @@ contains
        rho_fw    = 1.0e3_RKIND                ! avg. water density (kg/m^3)
        rho_ice   = 0.917e3_RKIND              ! density of ice (kg/m^3)
        cp_sw     = 3.996e3_RKIND              ! specific heat salt water
+       cp_v      = 1.810e3_RKIND              ! specific heat water vapor
        cp_air    = 1005.0_RKIND               ! heat capacity of air (J/kg/K)
        sound     = 1.5e2_RKIND                ! speed of sound (m/s)
        vonkar    = 0.4_RKIND                  ! von Karman constant
@@ -163,6 +165,7 @@ contains
        T0_Kelvin              = SHR_CONST_TKFRZ         ! zero point for Celsius
        pi                     = SHR_CONST_PI            ! zero point for Celsius
        cp_sw                  = SHR_CONST_CPSW          ! erg/g/K
+       cp_v                   = SHR_CONST_CPWV          ! J/g/K
        cp_air                 = SHR_CONST_CPDAIR        ! J/kg/K
        rho_air                = SHR_CONST_RHODAIR       ! kg/m^3
        rho_sw                 = SHR_CONST_RHOSW         ! kg/m^3
