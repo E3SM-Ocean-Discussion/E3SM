@@ -75,7 +75,6 @@ module ocn_surface_land_ice_fluxes
 
    real (kind=RKIND) :: &
       cpLandIce,        &! specific heat for land ice
-      rhoLandIce,       &! density of land ice
       ISOMIPgammaT       ! parameter for ISOMIP formulation
 
 !***********************************************************************
@@ -524,6 +523,11 @@ contains
 
       err = 0
 
+      if (landIceCoupledOn) then
+         ! All we want to do in coupled mode is to compute the total land-ice freshwater flux
+         call compute_total_land_ice_freshwater_flux(meshPool, forcingPool)
+      end if
+
       if (.not. (landIceStandaloneOn .or. landIceDataOn)) return
 
       call mpas_timer_start("land_ice_build_arrays")
@@ -536,6 +540,7 @@ contains
       call mpas_pool_get_array(forcingPool, 'landIceFloatingMask', landIceFloatingMask)
 
       nCells = nCellsArray( size(nCellsArray) )
+
 
       if (landIceStandaloneOn) then
 
@@ -698,16 +703,9 @@ contains
 
       end if ! landIceStandaloneOn
 
-      ! Add frazil and interface melt/freeze to get total fresh water flux
-      if ( associated(frazilIceFreshwaterFlux) ) then
-          do iCell = 1, nCells
-                landIceFreshwaterFluxTotal(iCell) = landIceFreshwaterFlux(iCell) + landIceFloatingMask(iCell)*frazilIceFreshwaterFlux(iCell)
-          end do
-      else
-          do iCell = 1, nCells
-                landIceFreshwaterFluxTotal(iCell) = landIceFreshwaterFlux(iCell)
-          end do
-      end if
+      ! Okay, now if we're in standalone or data mode, time to compute
+      ! the total land-ice freshwater flux
+      call compute_total_land_ice_freshwater_flux(meshPool, forcingPool)
 
       call mpas_timer_stop("land_ice_build_arrays")
 
@@ -836,7 +834,6 @@ contains
       jenkinsOn        = .false.
       hollandJenkinsOn = .false.
       cpLandIce        = 0.0_RKIND
-      rhoLandIce       = 0.0_RKIND
       ISOMIPgammaT     = 0.0_RKIND
 
       !*** Determine whether land ice fluxes are on
@@ -902,7 +899,6 @@ contains
       !*** Set physical values
 
       cpLandIce    = config_land_ice_flux_cp_ice
-      rhoLandIce   = config_land_ice_flux_rho_ice
       ISOMIPgammaT = config_land_ice_flux_ISOMIP_gammaT
 
    !--------------------------------------------------------------------
@@ -1196,6 +1192,82 @@ contains
 
   end subroutine compute_HJ99_melt_fluxes !}}}
 
+
+!***********************************************************************
+!
+!  routine compute_total_land_ice_freshwater_flux
+!
+!> \brief   Computes total land-ice freshwater fluxes
+!> \author  Xylar Asay-Davis
+!> \date    4/26/2025
+!>  This routine computes the total land-ice freshwater flux as the sum
+!>  of the melt flux at the ice-ocean interface and the frazil ice flux
+!>  (if available).
+!
+!-----------------------------------------------------------------------
+
+
+  subroutine compute_total_land_ice_freshwater_flux( &
+    meshPool, &
+    forcingPool) !{{{
+
+    !-----------------------------------------------------------------
+    !
+    ! input variables
+    !
+    !-----------------------------------------------------------------
+
+    type (mpas_pool_type), intent(in) :: &
+       meshPool        !< Input: mesh information
+
+    !-----------------------------------------------------------------
+    !
+    ! input/output variables
+    !
+    !-----------------------------------------------------------------
+    type (mpas_pool_type), intent(inout) :: &
+       forcingPool     !< Input: Forcing information
+
+    !-----------------------------------------------------------------
+    !
+    ! local variables
+    !
+    !-----------------------------------------------------------------
+
+    integer :: iCell, nCells
+    integer, dimension(:), pointer :: nCellsArray
+
+
+    real (kind=RKIND), dimension(:), pointer :: landIceFreshwaterFlux, &
+                                                frazilIceFreshwaterFlux, &
+                                                landIceFreshwaterFluxTotal
+
+    integer, dimension(:), pointer :: landIceFloatingMask
+
+    call mpas_pool_get_dimension(meshPool, 'nCellsArray', nCellsArray)
+
+    call mpas_pool_get_array(forcingPool, 'landIceFreshwaterFlux', landIceFreshwaterFlux)
+    call mpas_pool_get_array(forcingPool, 'frazilIceFreshwaterFlux', frazilIceFreshwaterFlux)
+    call mpas_pool_get_array(forcingPool, 'landIceFreshwaterFluxTotal', landIceFreshwaterFluxTotal)
+    call mpas_pool_get_array(forcingPool, 'landIceFloatingMask', landIceFloatingMask)
+
+    nCells = nCellsArray( size(nCellsArray) )
+
+    ! Add frazil and interface melt/freeze to get total fresh water flux
+    if (associated(frazilIceFreshwaterFlux)) then
+       do iCell = 1, nCells
+          landIceFreshwaterFluxTotal(iCell) = landIceFreshwaterFlux(iCell) + &
+             landIceFloatingMask(iCell) * frazilIceFreshwaterFlux(iCell)
+       end do
+    else
+       do iCell = 1, nCells
+          landIceFreshwaterFluxTotal(iCell) = landIceFreshwaterFlux(iCell)
+       end do
+    end if
+
+    !--------------------------------------------------------------------
+
+  end subroutine compute_total_land_ice_freshwater_flux !}}}
 
 !***********************************************************************
 
