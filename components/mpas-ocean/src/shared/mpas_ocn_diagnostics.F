@@ -806,6 +806,33 @@ contains
          !$acc exit data copyout(wctEdge) delete(baroclinicThickness, deltaSSH, btrVelocity)
 #endif
 
+      case (thickEdgeFluxConstant)
+
+         ! Use centered (mean) thickness as flux value
+
+         ! Compute mean layer thickness at edge
+#ifdef MPAS_OPENACC
+         !$acc enter data copyin(baroclinicThickness, deltaSSH, wctEdge)
+         !$acc parallel loop &
+         !$acc    present(baroclinicThickness, deltaSSH, wctEdge, cellsOnEdge) &
+         !$acc    private(iEdge, cell1, cell2)
+#else
+         !$omp parallel
+         !$omp do schedule(runtime)
+#endif
+         do iEdge = 1, nEdgesAll
+            if ( maxLevelEdgeTop(iEdge) == 0 ) cycle
+            wctEdge(iEdge) = baroclinicThickness(iEdge)
+         end do
+#ifndef MPAS_OPENACC
+         !$omp end do
+         !$omp end parallel
+#endif
+
+#ifdef MPAS_OPENACC
+         !$acc exit data copyout(wctEdge) delete(baroclinicThickness, deltaSSH)
+#endif
+
       case default
          ! Should have been caught on init
          call mpas_log_write('Thickness flux option unknown', &
@@ -4714,6 +4741,8 @@ contains
                  & 'Set config_disable_vel_hadv to true for a linear test case. ', &
                  MPAS_LOG_CRIT)
          end if
+         call mpas_log_write('Thickness flux option set to ' //&
+              & trim(config_thickness_flux_type))
       elseif (trim(config_thickness_flux_type) == 'upwind') then
          thickEdgeFluxChoice = thickEdgeFluxUpwind
          call mpas_log_write('Thickness flux option set to ' //&
