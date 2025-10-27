@@ -133,6 +133,7 @@ contains
       !$omp parallel
       !$omp do schedule(runtime) private(k, iTracer, fluxTopOfCell, fluxBottomOfCell)
       do iCell = 1, nCells
+        if (maxLevelCell(iCell) == 0) cycle
         do k = minLevelCell(iCell)+1, maxLevelCell(iCell)-1
 
           ! NOTE: at the moment, all tracers are based on the flux-profile used for temperature, i.e. vertNonLocalFlux(1,:,:)

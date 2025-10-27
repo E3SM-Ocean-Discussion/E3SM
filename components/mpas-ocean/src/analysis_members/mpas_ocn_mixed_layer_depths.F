@@ -246,7 +246,7 @@ contains
 
                !Initialize RefIndex for cases of very shallow columns
                refIndex = maxLevelCell(iCell)
-
+               if (refIndex == 0) cycle
                found_temp_mld = .false.
 
                do k=1, maxLevelCell(iCell)-1

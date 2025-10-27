@@ -1854,6 +1854,7 @@ contains
             enddo
 
             k = min(ksfc+1, kmax)
+            if (k == 0) cycle
             do n=1,nTracers
                tracersSurfaceLayerValue(n,iCell) = &
               (tracersSurfaceLayerValue(n,iCell) + &
@@ -2743,6 +2744,8 @@ contains
          ! Note the negative sign, since bottomDepth is positive
          ! and z-coordinates are negative below the surface.
          k = maxLevelCell(iCell)
+         if (k == 0) cycle
+
          zMid(k:nVertLevels,iCell) = -bottomDepth(iCell) + 0.5_RKIND*layerThickness(k,iCell)
          zTop(k:nVertLevels,iCell) = -bottomDepth(iCell) + layerThickness(k,iCell)
 
