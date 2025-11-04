@@ -68,8 +68,8 @@
 	url = https://github.com/dengwirda/PPR.git
 [submodule "components/ww3/src/source/WW3"]
 	path = components/ww3/src/WW3
-	url = git@github.com:erinethomas/WW3.git
-	branch = ww3v6.07_MomentumCoupling
+	url = git@github.com:E3SM-Project/WW3.git
+	branch = e3sm
 [submodule "components/eam/src/physics/crm/pam/external"]
 	path = components/eam/src/physics/crm/pam/external
 	url = git@github.com:E3SM-Project/PAM.git
