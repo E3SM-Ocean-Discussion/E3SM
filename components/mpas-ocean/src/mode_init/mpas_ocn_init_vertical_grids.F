@@ -591,7 +591,7 @@ contains
       integer, intent(out) :: iErr
 
       integer :: k
-      real (kind=RKIND) :: layerStretch
+      real (kind=RKIND) :: layerStretch, restingThicknessSum
 
       iErr = 0
 
@@ -599,7 +599,10 @@ contains
 
       if (maxLevelCell<=0) return
 
-      layerStretch = (ssh + bottomDepth)/bottomDepth
+      do k = minLevelCell, maxLevelCell
+         restingThicknessSum = restingThicknessSum + restingThickness(k)
+      end do
+      layerStretch = (ssh + bottomDepth)/restingThicknessSum
       do k = minLevelCell, maxLevelCell
          layerThickness(k) = layerStretch * restingThickness(k)
       end do
