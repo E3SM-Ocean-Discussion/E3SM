@@ -928,10 +928,8 @@ contains
 
     call mpas_pool_get_config(domain % configs, 'config_land_ice_flux_mode', config_land_ice_flux_mode)
     if ( trim(config_land_ice_flux_mode) == 'off' .or. &
-         trim(config_land_ice_flux_mode) == 'pressure_only' .or. &
          trim(config_land_ice_flux_mode) == 'data' .or. &
-         trim(config_land_ice_flux_mode) == 'standalone' .or. &
-         trim(config_land_ice_flux_mode) .eq. 'coupled' ) then
+         trim(config_land_ice_flux_mode) == 'prognostic' ) then
        ocn_c2_glcshelf = .false.
     else
        call mpas_log_write('ERROR: unknown land_ice_flux_mode: ' // trim(config_land_ice_flux_mode), MPAS_LOG_CRIT)
@@ -3138,7 +3136,7 @@ contains
      end if
 
      ! Cryo fields
-     if (trim(config_land_ice_flux_mode) == 'standalone' .or. trim(config_land_ice_flux_mode) == 'data') then
+     if (trim(config_land_ice_flux_mode) == 'prognostic' .or. trim(config_land_ice_flux_mode) == 'data') then
         call mpas_pool_get_array(forcingPool, 'avgLandIceFreshwaterFlux', avgLandIceFreshwaterFlux)
         call mpas_pool_get_array(forcingPool, 'avgLandIceHeatFlux', avgLandIceHeatFlux)
      endif
@@ -3207,7 +3205,7 @@ contains
        o2x_o % rAttr(index_o2x_Faoo_h2otemp, n) = avgTotalFreshWaterTemperatureFlux(i) * rho_sw * cp_sw
 
        ! Cryo fields
-       if (trim(config_land_ice_flux_mode) == 'standalone' .or. trim(config_land_ice_flux_mode) == 'data') then
+       if (trim(config_land_ice_flux_mode) == 'prognostic' .or. trim(config_land_ice_flux_mode) == 'data') then
           o2x_o % rAttr(index_o2x_Foxo_ismw, n)  = avgLandIceFreshwaterFlux(i)
           o2x_o % rAttr(index_o2x_Foxo_ismh, n)  = avgLandIceHeatFlux(i)
        endif
@@ -3259,7 +3257,7 @@ contains
 
              o2x_o % rAttr(index_o2x_Fioo_q, n)  = 0.0_RKIND
              o2x_o % rAttr(index_o2x_Fioo_frazil, n) = 0.0_RKIND
-             if (trim(config_land_ice_flux_mode) == 'standalone' .or. trim(config_land_ice_flux_mode) == 'data') then
+             if (trim(config_land_ice_flux_mode) == 'prognostic' .or. trim(config_land_ice_flux_mode) == 'data') then
                 o2x_o % rAttr(index_o2x_Foxo_q_li, n) = accumulatedFrazilIceMass(i) * config_frazil_heat_of_fusion / ocn_cpl_dt
                 o2x_o % rAttr(index_o2x_Foxo_frazil_li, n) = accumulatedFrazilIceMass(i) / ocn_cpl_dt
              endif
@@ -3312,8 +3310,7 @@ contains
 !JW       o2x_o % rAttr(index_o2x_So_htv, n) = landIceHeatTransferVelocity(i)
 !JW       o2x_o % rAttr(index_o2x_So_stv, n) = landIceSaltTransferVelocity(i)
 
-       if ( trim(config_land_ice_flux_mode) .eq. 'standalone' .or. &
-            trim(config_land_ice_flux_mode) .eq. 'coupled'  ) then
+       if ( trim(config_land_ice_flux_mode) .eq. 'prognostic' ) then
           o2x_o % rAttr(index_o2x_So_blt, n) = landIceBoundaryLayerTracers(indexBLT,i)
           o2x_o % rAttr(index_o2x_So_bls, n) = landIceBoundaryLayerTracers(indexBLS,i)
           o2x_o % rAttr(index_o2x_So_htv, n) = landIceTracerTransferVelocities(indexHeatTrans,i)
@@ -4738,7 +4735,7 @@ contains
      end if
 
      ! Cryo fields
-     if (trim(config_land_ice_flux_mode) == 'standalone' .or. trim(config_land_ice_flux_mode) == 'data') then
+     if (trim(config_land_ice_flux_mode) == 'prognostic' .or. trim(config_land_ice_flux_mode) == 'data') then
         call mpas_pool_get_array(forcingPool, 'avgLandIceFreshwaterFlux', avgLandIceFreshwaterFlux)
         call mpas_pool_get_array(forcingPool, 'avgLandIceHeatFlux', avgLandIceHeatFlux)
      endif
@@ -4803,7 +4800,7 @@ contains
        o2x_om(n, index_o2x_Faoo_h2otemp) = avgTotalFreshWaterTemperatureFlux(i) * rho_sw * cp_sw
 
        ! Cryo fields
-       if (trim(config_land_ice_flux_mode) == 'standalone' .or. trim(config_land_ice_flux_mode) == 'data') then
+       if (trim(config_land_ice_flux_mode) == 'prognostic' .or. trim(config_land_ice_flux_mode) == 'data') then
           o2x_om(n, index_o2x_Foxo_ismw)  = avgLandIceFreshwaterFlux(i)
           o2x_om(n, index_o2x_Foxo_ismh)  = avgLandIceHeatFlux(i)
        endif
@@ -4856,7 +4853,7 @@ contains
 
              o2x_om(n, index_o2x_Fioo_q)  = 0.0_RKIND
              o2x_om(n, index_o2x_Fioo_frazil) = 0.0_RKIND
-             if (trim(config_land_ice_flux_mode) == 'standalone' .or. trim(config_land_ice_flux_mode) == 'data') then
+             if (trim(config_land_ice_flux_mode) == 'prognostic' .or. trim(config_land_ice_flux_mode) == 'data') then
                 if (saved_frazil_initialized .and. n <= saved_frazil_allocated_size) then
                    o2x_om(n, index_o2x_Foxo_q_li) = saved_accumulatedFrazilIceMass(n) * config_frazil_heat_of_fusion / ocn_cpl_dt
                    o2x_om(n, index_o2x_Foxo_frazil_li) = saved_accumulatedFrazilIceMass(n) / ocn_cpl_dt
@@ -4915,8 +4912,7 @@ contains
 !JW       o2x_om(n, index_o2x_So_htv) = landIceHeatTransferVelocity(i)
 !JW       o2x_om(n, index_o2x_So_stv) = landIceSaltTransferVelocity(i)
 
-       if ( trim(config_land_ice_flux_mode) .eq. 'standalone' .or. &
-            trim(config_land_ice_flux_mode) .eq. 'coupled'  ) then
+       if ( trim(config_land_ice_flux_mode) .eq. 'prognostic' ) then
           o2x_om(n, index_o2x_So_blt) = landIceBoundaryLayerTracers(indexBLT,i)
           o2x_om(n, index_o2x_So_bls) = landIceBoundaryLayerTracers(indexBLS,i)
           o2x_om(n, index_o2x_So_htv) = landIceTracerTransferVelocities(indexHeatTrans,i)
