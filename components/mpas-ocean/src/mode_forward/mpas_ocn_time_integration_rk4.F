@@ -144,6 +144,7 @@ module ocn_time_integration_rk4
       logical, pointer :: config_prevent_drying
       logical, pointer :: config_zero_drying_velocity
       character (len=StrKIND), pointer :: config_land_ice_flux_mode
+      character (len=StrKIND), pointer :: config_vert_advection_method
 
       ! Diagnostics Indices
 
@@ -201,7 +202,7 @@ module ocn_time_integration_rk4
       real (kind=RKIND), dimension(:,:,:), pointer :: activeTracersCur, activeTracersNew
 
       real(kind=RKIND), dimension(:,:), pointer :: subgridSshCellTableRange, subgridWetVolumeCellTable
-
+      real (kind=RKIND), dimension(:,:), allocatable :: div_hu
 
       ! Get config options
       call mpas_pool_get_config(domain % configs, 'config_mom_del4', config_mom_del4)
@@ -222,6 +223,7 @@ module ocn_time_integration_rk4
       call mpas_pool_get_config(domain % configs, 'config_zero_drying_velocity', config_zero_drying_velocity)
       call mpas_pool_get_config(domain % configs, 'config_use_tidal_forcing', config_use_tidal_forcing)
       call mpas_pool_get_config(domain % configs, 'config_tidal_forcing_type', config_tidal_forcing_type)
+      call mpas_pool_get_config(domain % configs, 'config_vert_advection_method', config_vert_advection_method)
 
       !
       ! Initialize time_levs(2) with state at current time
@@ -503,10 +505,14 @@ module ocn_time_integration_rk4
 
         call ocn_time_varying_forcing_get(domain % streamManager, domain, domain % clock)
 
+        allocate(div_hu(nVertLevels, nCellsAll))
         block => domain % blocklist
         do while (associated(block))
-           call ocn_time_integrator_rk4_compute_vel_tends(domain, block, dt, rk_substep_weights(rk_step), domain % dminfo, err )
-           call ocn_time_integrator_rk4_compute_thick_tends( block, dt, rk_substep_weights(rk_step), err )
+           call mpas_pool_get_dimension(block % dimensions, 'nCells', nCells)
+           allocate(div_hu(nVertLevels, nCells))
+           call ocn_time_integrator_rk4_compute_vel_tends(domain, block, dt, rk_substep_weights(rk_step), domain % dminfo, div_hu, err )
+           call ocn_time_integrator_rk4_compute_thick_tends( block, dt, div_hu, rk_substep_weights(rk_step), err )
+           deallocate(div_hu)
            block => block % next
         end do
 
@@ -525,7 +531,11 @@ module ocn_time_integration_rk4
 
         block => domain % blocklist
         do while (associated(block))
-           call ocn_time_integrator_rk4_compute_tracer_tends( block, dt, rk_substep_weights(rk_step), err )
+           call mpas_pool_get_dimension(block % dimensions, 'nCells', nCells)
+           allocate(div_hu(nVertLevels, nCells))
+           div_hu = 0.0_RKIND ! This is only needed for vertical remap and we do not support it for RK4
+           call ocn_time_integrator_rk4_compute_tracer_tends( block, dt, div_hu, rk_substep_weights(rk_step), err )
+           deallocate(div_hu)
            block => block % next
         end do
 
@@ -869,14 +879,19 @@ module ocn_time_integration_rk4
    end subroutine ocn_time_integrator_rk4!}}}
 
    subroutine ocn_time_integrator_rk4_compute_vel_tends(domain, block, dt, &
-     rkSubstepWeight, dminfo, err)!{{{
+     rkSubstepWeight, dminfo, div_hu, err)!{{{
 
       type (domain_type), intent(inout) :: domain !< Input/Output: domain information
       type (block_type), intent(in) :: block
       real (kind=RKIND), intent(in) :: dt
       real (kind=RKIND), intent(in) :: rkSubstepWeight
+      real (kind=RKIND), intent(out), dimension(:,:) :: div_hu
       integer, intent(out) :: err
       type (dm_info), intent(in) :: dminfo
+
+      real (kind=RKIND), dimension(:), allocatable :: &
+         projectedSSH ! SSH used to determine layerInterfaceVelocity
+      real (kind=RKIND), dimension(:,:), allocatable:: layerInterfaceVelocity
 
       type (mpas_pool_type), pointer :: meshPool, verticalMeshPool
       type (mpas_pool_type), pointer :: statePool, forcingPool
@@ -911,27 +926,45 @@ module ocn_time_integration_rk4
       call mpas_pool_get_array(provisStatePool, 'highFreqThickness', highFreqThicknessProvis, 1)
 
       ! advection of u uses u, while advection of layerThickness and tracers use normalTransportVelocity.
-      if (associated(highFreqThicknessProvis)) then
-         call ocn_vert_transport_velocity_top(verticalMeshPool, &
-            layerThicknessCur,layerThickEdgeFlux, normalVelocityProvis, &
-            sshCur, rkSubstepWeight, &
-            vertAleTransportTop, err, highFreqThicknessProvis)
+      ! The diagnostic variable layerThicknessTarget is updated
+      allocate(layerInterfaceVelocity(nVertLevels, nCellsAll), &
+               projectedSSH(nCellsAll))
+#ifdef MPAS_OPENACC
+      !$acc enter data create(projectedSSH, div_hu)
+#endif
+      call ocn_diagnostic_solve_divergence_hu(sshCur, layerThickEdgeFlux, &
+               normalVelocityProvis, dt, div_hu, projectedSSH)
+      if ( TRIM(config_vert_advection_method) == 'remap' ) then
+         vertAleTransportTop = 0.0_RKIND
       else
-         call ocn_vert_transport_velocity_top(verticalMeshPool, &
-            layerThicknessCur,layerThickEdgeFlux, normalVelocityProvis, &
-            sshCur, rkSubstepWeight, &
-            vertAleTransportTop, err)
+         if (associated(highFreqThicknessProvis)) then
+            call ocn_layer_interface_velocity(verticalMeshPool, &
+                        projectedSSH, layerThicknessCur, rkSubstepWeight, &
+                        layerInterfaceVelocity, err, highFreqThicknessProvis)
+         else
+            call ocn_layer_interface_velocity(verticalMeshPool, &
+                        projectedSSH, layerThicknessCur, &
+                        rkSubstepWeight, layerInterfaceVelocity, err)
+         endif
+         call ocn_vert_transport_velocity_top(div_hu, layerInterfaceVelocity, &
+              vertAleTransportTop, err)
       endif
 
       call ocn_tend_vel(domain, tendPool, provisStatePool, forcingPool, 1, dminfo, dt)
 
    end subroutine ocn_time_integrator_rk4_compute_vel_tends!}}}
 
-   subroutine ocn_time_integrator_rk4_compute_thick_tends(block, dt, rkSubstepWeight, err)!{{{
+   subroutine ocn_time_integrator_rk4_compute_thick_tends(block, dt, div_hu, rkSubstepWeight, err)!{{{
       type (block_type), intent(in) :: block
       real (kind=RKIND), intent(in) :: dt
+      real (kind=RKIND), intent(in), dimension(:,:) :: div_hu
       real (kind=RKIND), intent(in) :: rkSubstepWeight
       integer, intent(out) :: err
+
+      real (kind=RKIND), dimension(:), allocatable :: &
+         projectedSSH_tr ! SSH used to determine layerInterfaceVelocity
+      real (kind=RKIND), dimension(:,:), allocatable:: &
+         div_hu_tr, layerInterfaceVelocity
 
       type (mpas_pool_type), pointer :: meshPool, verticalMeshPool
       type (mpas_pool_type), pointer :: statePool, forcingPool
@@ -942,7 +975,7 @@ module ocn_time_integration_rk4
       real (kind=RKIND), dimension(:, :), pointer :: layerThicknessCur, normalVelocityCur
       real (kind=RKIND), dimension(:, :), pointer ::  normalVelocityProvis, highFreqThicknessProvis
 
-      integer :: iEdge
+      integer :: iEdge, k, iCell
       integer, pointer :: nEdges, nVertLevels
       logical, pointer :: config_filter_btr_mode
 
@@ -984,26 +1017,48 @@ module ocn_time_integration_rk4
       call ocn_MLE_add_to_transport_vel(normalTransportVelocity, nEdges)
 
       ! advection of u uses u, while advection of layerThickness and tracers use normalTransportVelocity.
-      if (associated(highFreqThicknessProvis)) then
-         call ocn_vert_transport_velocity_top(verticalMeshPool, &
-            layerThicknessCur, layerThickEdgeFlux, normalTransportVelocity, &
-            sshCur, rkSubstepWeight, &
-            vertAleTransportTop, err, highFreqThicknessProvis)
+      ! The diagnostic variable layerThicknessTarget is updated
+      allocate(layerInterfaceVelocity(nVertLevels, nCellsAll), &
+               div_hu_tr(nVertLevels, nCellsAll), &
+               projectedSSH_tr(nCellsAll))
+      call ocn_diagnostic_solve_divergence_hu(sshCur, layerThickEdgeFlux, &
+               normalTransportVelocity, dt, div_hu_tr, projectedSSH_tr)
+      if ( TRIM(config_vert_advection_method) == 'remap' ) then
+         ! This is the layerInterfaceVelocity implicit in w=0 during Stage 1
+         !$omp parallel
+         !$omp do schedule(runtime) &
+         !$omp private(k)
+         do iCell = 1, nCellsAll
+            do k = minLevelCell(iCell), maxLevelCell(iCell)
+               layerInterfaceVelocity(k,iCell) = div_hu(k,iCell)
+            enddo
+         enddo
+         !$omp end do
+         !$omp end parallel
       else
-         call ocn_vert_transport_velocity_top(verticalMeshPool, &
-            layerThicknessCur, layerThickEdgeFlux, normalTransportVelocity, &
-            sshCur, rkSubstepWeight, &
-            vertAleTransportTop, err)
+         if (associated(highFreqThicknessProvis)) then
+            call ocn_layer_interface_velocity(verticalMeshPool, &
+                        projectedSSH_tr, layerThicknessCur, dt, &
+                        layerInterfaceVelocity, err, highFreqThicknessProvis)
+         else
+            call ocn_layer_interface_velocity(verticalMeshPool, &
+                        projectedSSH_tr, layerThicknessCur, &
+                        dt, layerInterfaceVelocity, err)
+         endif
       endif
+      call ocn_vert_transport_velocity_top(div_hu_tr, layerInterfaceVelocity, &
+           vertAleTransportTop, err)
+      deallocate(layerInterfaceVelocity, div_hu_tr, projectedSSH_tr)
 
       call ocn_tend_thick(tendPool, forcingPool)
 
 
    end subroutine ocn_time_integrator_rk4_compute_thick_tends!}}}
 
-   subroutine ocn_time_integrator_rk4_compute_tracer_tends(block, dt, rkSubstepWeight, err)!{{{
+   subroutine ocn_time_integrator_rk4_compute_tracer_tends(block, dt, div_hu, rkSubstepWeight, err)!{{{
       type (block_type), intent(in) :: block
       real (kind=RKIND), intent(in) :: dt
+      real (kind=RKIND), intent(in), dimension(:,:) :: div_hu
       real (kind=RKIND), intent(in) :: rkSubstepWeight
       integer, intent(out) :: err
 
@@ -1012,13 +1067,15 @@ module ocn_time_integration_rk4
       type (mpas_pool_type), pointer :: scratchPool, tendPool, provisStatePool
       type (mpas_pool_type), pointer :: swForcingPool, tracersPool
 
+      real (kind=RKIND), dimension(:), allocatable :: projectedSSH_tr
+      real (kind=RKIND), dimension(:, :), allocatable :: div_hu_tr, layerInterfaceVelocity
       real (kind=RKIND), dimension(:), pointer :: sshCur
       real (kind=RKIND), dimension(:, :), pointer :: layerThicknessCur, normalVelocityCur
       real (kind=RKIND), dimension(:, :), pointer ::  normalVelocityProvis, highFreqThicknessProvis
 
       logical, pointer :: config_filter_btr_mode
 
-      integer :: iEdge
+      integer :: k, iCell, iEdge
       integer, pointer :: nEdges, nVertLevels
       err = 0
 
@@ -1060,17 +1117,37 @@ module ocn_time_integration_rk4
       call ocn_MLE_add_to_transport_vel(normalTransportVelocity, nEdges)
 
       ! advection of u uses u, while advection of layerThickness and tracers use normalTransportVelocity.
-      if (associated(highFreqThicknessProvis)) then
-         call ocn_vert_transport_velocity_top(verticalMeshPool, &
-            layerThicknessCur, layerThickEdgeFlux, normalTransportVelocity, &
-            sshCur, rkSubstepWeight, &
-            vertAleTransportTop, err, highFreqThicknessProvis)
+      ! The diagnostic variable layerThicknessTarget is updated
+      allocate(div_hu_tr(nVertLevels, nCellsAll), &
+               projectedSSH_tr(nCellsAll))
+      call ocn_diagnostic_solve_divergence_hu(sshCur, layerThickEdgeFlux, &
+               normalTransportVelocity, dt, div_hu_tr, projectedSSH_tr)
+      if ( TRIM(config_vert_advection_method) == 'remap' ) then
+         ! This is the layerInterfaceVelocity implicit in w=0 during Stage 1
+         !$omp parallel
+         !$omp do schedule(runtime) &
+         !$omp private(k)
+         do iCell = 1, nCellsAll
+            do k = minLevelCell(iCell), maxLevelCell(iCell)
+               layerInterfaceVelocity(k,iCell) = div_hu(k,iCell)
+            enddo
+         enddo
+         !$omp end do
+         !$omp end parallel
       else
-         call ocn_vert_transport_velocity_top(verticalMeshPool, &
-            layerThicknessCur, layerThickEdgeFlux, normalTransportVelocity, &
-            sshCur, rkSubstepWeight, &
-            vertAleTransportTop, err)
+         if (associated(highFreqThicknessProvis)) then
+            call ocn_layer_interface_velocity(verticalMeshPool, &
+                        projectedSSH_tr, layerThicknessCur, dt, &
+                        layerInterfaceVelocity, err, highFreqThicknessProvis)
+         else
+            call ocn_layer_interface_velocity(verticalMeshPool, &
+                        projectedSSH_tr, layerThicknessCur, &
+                        dt, layerInterfaceVelocity, err)
+         endif
       endif
+      call ocn_vert_transport_velocity_top(div_hu_tr, layerInterfaceVelocity, &
+           vertAleTransportTop, err)
+      deallocate(layerInterfaceVelocity, div_hu_tr, projectedSSH_tr)
 
       if (config_filter_btr_mode) then
           call ocn_filter_btr_mode_tend_vel(tendPool, provisStatePool, meshPool, 1)
@@ -1098,6 +1175,10 @@ module ocn_time_integration_rk4
       real (kind=RKIND), dimension(:, :), pointer :: layerThicknessCur, normalVelocityCur
       real (kind=RKIND), dimension(:, :), pointer ::  normalVelocityProvis, highFreqThicknessProvis
 
+      real (kind=RKIND), dimension(:), allocatable :: projectedSSH, projectedSSH_tr
+      real (kind=RKIND), dimension(:, :), allocatable :: div_hu, div_hu_tr, layerInterfaceVelocity
+
+      integer :: k, iCell
       logical, pointer :: config_filter_btr_mode
 
       err = 0
@@ -1123,31 +1204,63 @@ module ocn_time_integration_rk4
       call mpas_pool_get_array(provisStatePool, 'highFreqThickness', highFreqThicknessProvis, 1)
 
       ! advection of u uses u, while advection of layerThickness and tracers use normalTransportVelocity.
-      if (associated(highFreqThicknessProvis)) then
-         call ocn_vert_transport_velocity_top(verticalMeshPool, &
-            layerThicknessCur,layerThickEdgeFlux, normalVelocityProvis, &
-            sshCur, rkWeight, &
-            vertAleTransportTop, err, highFreqThicknessProvis)
+      ! The diagnostic variable layerThicknessTarget is updated
+      allocate(layerInterfaceVelocity(nVertLevels, nCellsAll), &
+               div_hu(nVertLevels, nCellsAll), &
+               projectedSSH(nCellsAll))
+#ifdef MPAS_OPENACC
+      !$acc enter data create(projectedSSH, div_hu)
+#endif
+      call ocn_diagnostic_solve_divergence_hu(sshCur, layerThickEdgeFlux, &
+               normalVelocityProvis, dt, div_hu, projectedSSH)
+      if ( TRIM(config_vert_advection_method) == 'remap' ) then
+         vertAleTransportTop = 0.0_RKIND
       else
-         call ocn_vert_transport_velocity_top(verticalMeshPool, &
-            layerThicknessCur,layerThickEdgeFlux, normalVelocityProvis, &
-            sshCur, rkWeight, &
-            vertAleTransportTop, err)
+         if (associated(highFreqThicknessProvis)) then
+            call ocn_layer_interface_velocity(verticalMeshPool, &
+                        projectedSSH, layerThicknessCur, dt, &
+                        layerInterfaceVelocity, err, highFreqThicknessProvis)
+         else
+            call ocn_layer_interface_velocity(verticalMeshPool, &
+                        projectedSSH, layerThicknessCur, &
+                        dt, layerInterfaceVelocity, err)
+         endif
+         call ocn_vert_transport_velocity_top(div_hu, layerInterfaceVelocity, &
+              vertAleTransportTop, err)
       endif
 
       call ocn_tend_vel(domain, tendPool, provisStatePool, forcingPool, 1, dminfo, dt)
 
-      if (associated(highFreqThicknessProvis)) then
-         call ocn_vert_transport_velocity_top(verticalMeshPool, &
-            layerThicknessCur, layerThickEdgeFlux, normalTransportVelocity, &
-            sshCur, rkWeight, &
-            vertAleTransportTop, err, highFreqThicknessProvis)
+      allocate(div_hu_tr(nVertLevels, nCellsAll), &
+               projectedSSH_tr(nCellsAll))
+      call ocn_diagnostic_solve_divergence_hu(sshCur, layerThickEdgeFlux, &
+               normalTransportVelocity, dt, div_hu_tr, projectedSSH_tr)
+      if ( TRIM(config_vert_advection_method) == 'remap' ) then
+         ! This is the layerInterfaceVelocity implicit in w=0 during Stage 1
+         !$omp parallel
+         !$omp do schedule(runtime) &
+         !$omp private(k)
+         do iCell = 1, nCellsAll
+            do k = minLevelCell(iCell), maxLevelCell(iCell)
+               layerInterfaceVelocity(k,iCell) = div_hu(k,iCell)
+            enddo
+         enddo
+         !$omp end do
+         !$omp end parallel
       else
-         call ocn_vert_transport_velocity_top(verticalMeshPool, &
-            layerThicknessCur, layerThickEdgeFlux, normalTransportVelocity, &
-            sshCur, rkWeight, &
-            vertAleTransportTop, err)
+         if (associated(highFreqThicknessProvis)) then
+            call ocn_layer_interface_velocity(verticalMeshPool, &
+                        projectedSSH_tr, layerThicknessCur, dt, &
+                        layerInterfaceVelocity, err, highFreqThicknessProvis)
+         else
+            call ocn_layer_interface_velocity(verticalMeshPool, &
+                        projectedSSH_tr, layerThicknessCur, &
+                        dt, layerInterfaceVelocity, err)
+         endif
       endif
+      call ocn_vert_transport_velocity_top(div_hu_tr, layerInterfaceVelocity, &
+           vertAleTransportTop, err)
+      deallocate(layerInterfaceVelocity, div_hu_tr, projectedSSH_tr)
 
       call ocn_tend_thick(tendPool, forcingPool)
 
