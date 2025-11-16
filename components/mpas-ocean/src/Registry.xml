@@ -1091,7 +1091,7 @@
 		/>
 	</nml_record>
 	<nml_record name="land_ice" mode="init;forward">
-		<nml_option name="config_use_land_ice_pressure" type="logical" default_value=".true."
+		<nml_option name="config_use_land_ice_pressure" type="logical" default_value=".false."
 					description="If .true. then applies landIcePressure field"
 					possible_values=".true. and .false."
 		/>
