@@ -2550,9 +2550,6 @@ contains
            end if
         endif
 
-        if ( landIceFreshwaterFluxField % isActive ) then
-           !landIceFreshwaterFlux(i) = x2o_o % rAttr(index_x2o_Fogx_qicelo, n)
-        end if
         if ( landIceHeatFluxField % isActive ) then
            !landIceHeatFlux(i) = x2o_o % rAttr(index_x2o_Fogx_qiceho, n)
         end if
@@ -4195,9 +4192,6 @@ contains
            end if
         endif
 
-        if ( landIceFreshwaterFluxField % isActive ) then
-           !landIceFreshwaterFlux(i) = x2o_om(n, index_x2o_Fogx_qicelo)
-        end if
         if ( landIceHeatFluxField % isActive ) then
            !landIceHeatFlux(i) = x2o_om(n, index_x2o_Fogx_qiceho)
         end if

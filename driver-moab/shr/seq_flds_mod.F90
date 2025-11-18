@@ -1637,6 +1637,7 @@ contains
 
        ! Water flux from ice shelf melt
        call seq_flds_add(o2x_fluxes,"Foxo_ismw")
+       call seq_flds_add(x2g_fluxes,"Foxo_ismw")
        longname = 'Water flux due to basal melting of ice shelves'
        stdname  = 'basal_iceshelf_melt_flux'
        units    = 'kg m-2 s-1'
@@ -3035,15 +3036,6 @@ contains
             additional_list = .true.)
     end if
 
-    name = 'Fogx_qicelo'
-    call seq_flds_add(g2x_fluxes,trim(name))
-    call seq_flds_add(x2o_fluxes,trim(name))
-    longname = 'Subshelf liquid flux for ocean'
-    stdname  = 'Subshelf_liquid_flux_for_ocean'
-    units    = 'kg m-2 s-1'
-    attname  = 'Fogx_qicelo'
-    call metadata_set(attname, longname, stdname, units)
-
     name = 'Fogx_qiceho'
     call seq_flds_add(g2x_fluxes,trim(name))
     call seq_flds_add(x2o_fluxes,trim(name))
@@ -3114,14 +3106,6 @@ contains
     stdname  = 'Bottom_layer_ice_layer_half_thickness'
     units    = 'm'
     attname  = 'Sg_dztbot'
-    call metadata_set(attname, longname, stdname, units)
-
-    name = 'Fogx_qiceli'
-    call seq_flds_add(x2g_fluxes,trim(name))
-    longname = 'Subshelf mass flux for ice sheet'
-    stdname  = 'Subshelf_mass_flux_for_ice_sheet'
-    units    = 'kg m-2 s-1'
-    attname  = 'Fogx_qiceli'
     call metadata_set(attname, longname, stdname, units)
 
     name = 'Fogx_qicehi'

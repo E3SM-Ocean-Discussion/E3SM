@@ -140,7 +140,6 @@ module mpaso_cpl_indices
 
   ! drv -> glc and internal drv fields
 
-  integer :: index_x2o_Fogx_qicelo
   integer :: index_x2o_Fogx_qiceho
   integer :: index_x2o_Sg_blit
   integer :: index_x2o_Sg_blis
@@ -332,7 +331,6 @@ contains
     index_x2o_Fioi_fed2     = mct_avect_indexra(x2o,'Fioi_fed2',perrWith='quiet')
     index_x2o_Fioi_dust1    = mct_avect_indexra(x2o,'Fioi_dust1',perrWith='quiet')
 
-    index_x2o_Fogx_qicelo = mct_avect_indexra(x2o,'Fogx_qicelo')
     index_x2o_Fogx_qiceho = mct_avect_indexra(x2o,'Fogx_qiceho')
     index_x2o_Sg_blit    = mct_avect_indexra(x2o,'Sg_blit')
     index_x2o_Sg_blis    = mct_avect_indexra(x2o,'Sg_blis')

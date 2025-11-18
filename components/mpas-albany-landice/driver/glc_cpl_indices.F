@@ -24,8 +24,8 @@ module glc_cpl_indices
   integer, public :: index_x2g_So_rhoeff = 0 !Ocean effective pressure
   integer, public :: index_x2g_So_tf3d(glc_nzoc_max)   = 0 !Ocean thermal forcing at specified z-levels
   integer, public :: index_x2g_So_tf3d_mask(glc_nzoc_max)   = 0 !mask of ocean thermal forcing at specified z-levels
-  integer, public :: index_x2g_Fogx_qiceli = 0 !Subshelf mass flux
   integer, public :: index_x2g_Fogx_qicehi = 0 !Subshelf heat flux for the ice sheet
+  integer, public :: index_x2g_Foxo_ismw  = 0 !Ice shelf meltwater flux from ocean
 
   integer, public :: index_g2x_Fogg_rofi = 0 ! frozen runoff -> ocn
   integer, public :: index_g2x_Figg_rofi = 0 ! frozen runoff -> ice
@@ -35,7 +35,6 @@ module glc_cpl_indices
   integer, public :: index_g2x_Sg_tbot = 0 !bottom-layer temperature
   integer, public :: index_g2x_Sg_dztbot = 0 !distance from bottom-layer temperature to ice-ocean interface (to compute T gradient)
   integer, public :: index_g2x_Sg_lithop = 0 !ice sheet lithostatic pressure
-  integer, public :: index_g2x_Fogx_qicelo = 0 !Subshelf liquid flux for ocean
   integer, public :: index_g2x_Fogx_qiceho = 0 !Subshelf heat flux for the ocean
   integer, public :: index_g2x_Sg_blis = 0 !Boundary layer interface salinity for ocean
   integer, public :: index_g2x_Sg_blit = 0 !Boundary layer interface temperature for ocean
@@ -75,9 +74,12 @@ contains
     index_x2g_Sl_tsrf =                   mct_avect_indexra(x2g,'Sl_tsrf',perrwith='quiet')
     ! Surface temperature (deg C)
 
-    index_x2g_Fogx_qiceli =               mct_avect_indexra(x2g,'Fogx_qiceli',perrwith='quiet')
     index_x2g_Fogx_qicehi =               mct_avect_indexra(x2g,'Fogx_qicehi',perrwith='quiet')
     index_x2g_So_rhoeff =                 mct_avect_indexra(x2g,'So_rhoeff',perrwith='quiet')
+
+    ! Sub-ice-shelf fluxes from ocean
+    index_x2g_Foxo_ismw =                 mct_avect_indexra(x2g,'Foxo_ismw',perrwith='quiet')
+
 
     if (glc_nzoc > 0) then
        do iLev = 1, glc_nzoc
@@ -152,7 +154,6 @@ contains
     ! how this should be handled in CLM and the ice sheet model.
 
     !Following block are subshelf melt routine outputs for ocean import
-    index_g2x_Fogx_qicelo = mct_avect_indexra(g2x,'Fogx_qicelo',perrwith='quiet')
     index_g2x_Fogx_qiceho = mct_avect_indexra(g2x,'Fogx_qiceho',perrwith='quiet')
     index_g2x_Sg_blis =     mct_avect_indexra(g2x,'Sg_blis',perrwith='quiet')
     index_g2x_Sg_blit =     mct_avect_indexra(g2x,'Sg_blit',perrwith='quiet')

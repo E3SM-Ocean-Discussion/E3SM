@@ -913,9 +913,9 @@ contains
          ! Finally, set whence to latest_before so we have piecewise-constant forcing.
          ! Could add, e.g., linear interpolation later.
 
-         ! NOTE: If any input ("forcing") files here contain fields that the coupler also passes, 
-         ! the input file versions here will clobber the fields passed from the coupler. 
-         
+         ! NOTE: If any input ("forcing") files here contain fields that the coupler also passes,
+         ! the input file versions here will clobber the fields passed from the coupler.
+
          call mpas_stream_mgr_read(domain % streamManager, whence=MPAS_STREAM_LATEST_BEFORE, saveActualWhen = .true., ierr=err_tmp)
          err = ior(err, err_tmp)
          call mpas_stream_mgr_reset_alarms(domain % streamManager, direction=MPAS_STREAM_INPUT, ierr=err_tmp)
@@ -1458,7 +1458,7 @@ contains
                call mpas_log_write("Unknown value for 'config_smb_source'", MPAS_LOG_ERR)
                errorCode = ior(errorCode, 1)
             endif
-            floatingBasalMassBal(i) = x2g_g % rAttr(index_x2g_Fogx_qiceli, n)
+            floatingBasalMassBal(i) = x2g_g % rAttr(index_x2g_Foxo_ismw, n)
             if (nISMIP6OceanLayers > 0) then
                do iLev = 1, nISMIP6OceanLayers
                   fractionalMaskVal = x2g_g % rAttr(index_x2g_So_tf3d_mask(iLev), n)
@@ -1559,11 +1559,11 @@ contains
             n = n + 1
 
             ! Fogg_rofl
-            g2x_g % rAttr(index_g2x_Fogg_rofl,n) = avgBareIceAblationApplied(i) 
+            g2x_g % rAttr(index_g2x_Fogg_rofl,n) = avgBareIceAblationApplied(i)
             ! Figg_rofi
             g2x_g % rAttr(index_g2x_Figg_rofi,n) = 0.0 ! placeholder
             ! Fogg_rofi
-            g2x_g % rAttr(index_g2x_Fogg_rofi,n) = avgCalvingFlux(i) 
+            g2x_g % rAttr(index_g2x_Fogg_rofi,n) = avgCalvingFlux(i)
             g2x_g % rAttr(index_g2x_Fogg_rofi,n) = g2x_g % rAttr(index_g2x_Fogg_rofi,n) + avgFaceMeltFlux(i)
             if (trim(config_basal_mass_bal_float) == 'ismip6') then
                ! if MALI is calculating ISMF, add that to rofi
@@ -1647,10 +1647,10 @@ contains
       character (len=StrKIND), intent(out) :: timeStamp
       real (kind=RKIND) :: secondsPerHour, secondsPerMinute, remaining
       integer :: minutes, hours, secondsLeft
-   
+
       secondsPerHour = 3600
       secondsPerMinute = 60
-   
+
       if(seconds < 0 .or. seconds > 86400) then
         secondsLeft = 00
         minutes = 00
@@ -1658,16 +1658,16 @@ contains
       else
         hours = int(seconds/secondsPerHour)
         remaining = seconds - real(hours) * secondsPerHour
-   
+
         minutes = int(remaining/secondsPerMinute)
         remaining = remaining - real(minutes) * secondsPerMinute
-   
+
         secondsLeft = int(remaining)
       end if
-   
+
       write(timeStamp,"(a,i2.2,a,i2.2,a,i2.2)") "00_",hours,":",minutes,":",secondsLeft
       timeStamp = trim(timeStamp)
-   
+
    end subroutine convert_seconds_to_timestamp!}}}
 
    subroutine add_stream_attributes(stream_manager, domain)!{{{
