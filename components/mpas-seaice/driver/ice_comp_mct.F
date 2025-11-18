@@ -243,8 +243,8 @@ contains
 
 #endif
     logical, pointer :: &
-         tempLogicalConfig, &
-         config_scale_dib_by_removed_ice_runoff
+         tempLogicalConfig
+    character(len=StrKIND), pointer :: config_dib_scale_mode
     character(len=StrKIND), pointer :: tempCharConfig
     real (kind=RKIND), pointer :: tempRealConfig
 
@@ -504,8 +504,8 @@ contains
 
     end if
 
-    call MPAS_pool_get_config(domain % configs, "config_scale_dib_by_removed_ice_runoff", &
-                              config_scale_dib_by_removed_ice_runoff)
+    call MPAS_pool_get_config(domain % configs, "config_dib_scale_mode", &
+                              config_dib_scale_mode)
 
     ! Setup MPASSI simulation clock
     ierr = domain % core % setup_clock(domain % clock, domain % configs)
@@ -642,7 +642,7 @@ contains
     ! Determine coupling type
     call seq_infodata_GetData(infodata, cpl_seq_option=cpl_seq_option)
 
-    if (config_scale_dib_by_removed_ice_runoff) then
+    if (trim(config_dib_scale_mode) == 'removed_ice_runoff') then
        ! independent of space so should be no need to loop over blocks
        block => domain % blocklist
        call MPAS_pool_get_subpool(block % structs, "berg_forcing", berg_forcing)
@@ -878,7 +878,7 @@ contains
 
     call t_stopf ('mpassi_mct_init')
 
-    call seq_infodata_PutData( infodata, ice_prognostic=.true.)
+    call seq_infodata_PutData( infodata, ice_prognostic=.true., iceberg_prognostic=.true.)
 
 !-----------------------------------------------------------------------
 !
@@ -1190,8 +1190,9 @@ contains
       integer :: ierr, streamDirection, iam
       logical :: streamActive, debugOn
       logical, pointer :: &
-            config_write_output_on_startup, &
-            config_scale_dib_by_removed_ice_runoff
+            config_write_output_on_startup
+      character (len=StrKIND), pointer :: &
+            config_dib_scale_mode
       logical, save :: first=.true.
       character (len=StrKIND), pointer :: &
             config_restart_timestamp_name, &
@@ -1222,8 +1223,8 @@ contains
 
       call MPAS_pool_get_config(domain % configs, 'config_restart_timestamp_name', config_restart_timestamp_name)
       call MPAS_pool_get_config(domain % configs, "config_column_physics_type", config_column_physics_type)
-      call MPAS_pool_get_config(domain % configs, "config_scale_dib_by_removed_ice_runoff", &
-                                config_scale_dib_by_removed_ice_runoff)
+      call MPAS_pool_get_config(domain % configs, "config_dib_scale_mode", &
+                                config_dib_scale_mode)
 
       ! Setup log information.
       call shr_file_getLogUnit (shrlogunit)
@@ -1259,7 +1260,7 @@ contains
       ! Post coupling calls
       block => domain % blocklist
 
-      if (config_scale_dib_by_removed_ice_runoff) then
+      if (trim(config_dib_scale_mode) == 'removed_ice_runoff') then
          ! independent of space so should be no need to loop over blocks
          call MPAS_pool_get_subpool(block % structs, "berg_forcing", berg_forcing)
          call MPAS_pool_get_array(berg_forcing, "runningMeanRemovedIceRunoff", &
@@ -2099,6 +2100,7 @@ contains
 !    The following fields are sometimes received from the coupler,
 !      depending on model options:
 !
+!    o  rofi     -- frozen water flux into sea ice
 !    o  algae1   --
 !    o  algae2   --
 !    o  algae3   --
@@ -2128,6 +2130,10 @@ contains
 !
 ! !REVISION HISTORY:
 !  same as module
+
+    use seaice_constants, only: &
+         seaiceLatentHeatMelting, & ! latent heat of melting of fresh ice (J/kg)
+         seaiceFreshIceSpecificHeat ! specific heat of fresh ice (J/kg/K)
 
 ! !INPUT/OUTPUT PARAMETERS:
 
@@ -2165,6 +2171,7 @@ contains
       aerosols,       &
       atmosCoupling,  &
       oceanCoupling,  &
+      icebergFluxes,  &
       biogeochemistry
 
    integer, pointer :: nCellsSolve
@@ -2174,12 +2181,17 @@ contains
       config_use_modal_aerosols,        &
       config_use_zaerosols,             &
       config_use_column_biogeochemistry, &
-      config_couple_biogeochemistry_fields
+      config_couple_biogeochemistry_fields, &
+      config_use_data_icebergs
+
+   real(kind=RKIND), pointer :: &
+      bergTemperature  ! iceberg temperature
 
    character(len=strKIND), pointer ::   &
       config_column_physics_type,       &
       config_thermodynamics_type,       &
-      config_ocean_surface_type
+      config_ocean_surface_type,        &
+      config_dib_scale_mode
 
    type (field1DReal), pointer ::       &
       seaSurfaceTemperatureField,       &
@@ -2205,6 +2217,8 @@ contains
       snowfallRateField,                &
       uAirVelocityField,                &
       vAirVelocityField,                &
+      bergFreshwaterFluxField,          &
+      bergLatentHeatFluxField,          &
       oceanNitrateConcField,            &
       oceanSilicateConcField,           &
       oceanAmmoniumConcField,           &
@@ -2250,6 +2264,8 @@ contains
       snowfallRate,                &
       uAirVelocity,                &
       vAirVelocity,                &
+      bergFreshwaterFlux,          &
+      bergLatentHeatFlux,          &
       oceanNitrateConc,            &
       oceanSilicateConc,           &
       oceanAmmoniumConc,           &
@@ -2295,6 +2311,9 @@ contains
       call mpas_pool_get_config(configs, "config_column_physics_type", config_column_physics_type)
       call mpas_pool_get_config(configs, "config_thermodynamics_type", config_thermodynamics_type)
       call mpas_pool_get_config(configs, "config_ocean_surface_type", config_ocean_surface_type)
+      call MPAS_pool_get_config(configs, "config_use_data_icebergs", config_use_data_icebergs)
+      call MPAS_pool_get_config(configs, "config_dib_scale_mode", config_dib_scale_mode)
+      call MPAS_pool_get_config(configs, "config_iceberg_temperature", bergTemperature)
       call mpas_pool_get_config(configs, "config_use_aerosols", config_use_aerosols)
       call mpas_pool_get_config(configs, "config_use_modal_aerosols", config_use_modal_aerosols)
       call mpas_pool_get_config(configs, "config_use_column_biogeochemistry", config_use_column_biogeochemistry)
@@ -2331,6 +2350,10 @@ contains
       call mpas_pool_get_array(atmosCoupling, 'snowfallRate', snowfallRate)
       call mpas_pool_get_array(atmosCoupling, 'uAirVelocity', uAirVelocity)
       call mpas_pool_get_array(atmosCoupling, 'vAirVelocity', vAirVelocity)
+
+      call MPAS_pool_get_subpool(block_ptr % structs, "berg_fluxes", icebergFluxes)
+      call MPAS_pool_get_array(icebergFluxes, "bergFreshwaterFlux", bergFreshwaterFlux)
+      call MPAS_pool_get_array(icebergFluxes, "bergLatentHeatFlux", bergLatentHeatFlux)
 
       if (config_use_aerosols) then
          call mpas_pool_get_subpool(block_ptr % structs, 'aerosols', aerosols)
@@ -2420,6 +2443,10 @@ contains
         snowfallRate(i)                = x2i_i % rAttr(index_x2i_Faxa_snow, n)
         uAirVelocity(i)                = x2i_i % rAttr(index_x2i_Sa_u, n)
         vAirVelocity(i)                = x2i_i % rAttr(index_x2i_Sa_v, n)
+
+        bergFreshwaterFlux(i)       = x2i_i % rAttr(index_x2i_Fixx_rofi, n)
+        bergLatentHeatFlux(i)       = bergFreshwaterFlux(i) * &
+            (seaiceLatentHeatMelting - seaiceFreshIceSpecificHeat*bergTemperature)
 
         ! set aerosols, if configured
         if (config_use_aerosols) then
@@ -2645,6 +2672,12 @@ contains
    call mpas_dmpar_exch_halo_field(uAirVelocityField)
    call mpas_dmpar_exch_halo_field(vAirVelocityField)
 
+   call mpas_pool_get_subpool(domain % blocklist % structs, 'berg_fluxes', icebergFluxes)
+   call mpas_pool_get_field(icebergFluxes, 'bergFreshwaterFlux', bergFreshwaterFluxField)
+   call mpas_pool_get_field(icebergFluxes, 'bergLatentHeatFlux', bergLatentHeatFluxField)
+   call mpas_dmpar_exch_halo_field(bergFreshwaterFluxField)
+   call mpas_dmpar_exch_halo_field(bergLatentHeatFluxField)
+
    if (config_use_aerosols) then
       call mpas_dmpar_exch_halo_field(atmosAerosolFluxField)
    endif
@@ -2670,6 +2703,10 @@ contains
       call mpas_dmpar_exch_halo_field(oceanHumicsConcField)
       call mpas_dmpar_exch_halo_field(oceanParticulateIronConcField)
       call mpas_dmpar_exch_halo_field(oceanDissolvedIronConcField)
+   endif
+
+   if (trim(config_dib_scale_mode) == 'coupler_ice_runoff') then
+      call scale_icebergs(domain)
    endif
 
 ! REVISION HISTORY:
@@ -2746,8 +2783,7 @@ contains
       config_use_column_biogeochemistry, &
       config_use_zaerosols,              &
       config_couple_biogeochemistry_fields, &
-      config_use_column_shortwave,       &
-      config_use_data_icebergs
+      config_use_column_shortwave
 
    real(kind=RKIND), pointer :: &
       sphere_radius
@@ -2822,7 +2858,6 @@ contains
       call MPAS_pool_get_config(configs, "config_use_column_biogeochemistry", config_use_column_biogeochemistry)
       call mpas_pool_get_config(configs, "config_couple_biogeochemistry_fields", config_couple_biogeochemistry_fields)
       call MPAS_pool_get_config(configs, "config_use_column_shortwave", config_use_column_shortwave)
-      call MPAS_pool_get_config(configs, "config_use_data_icebergs", config_use_data_icebergs)
 
       call MPAS_pool_get_subpool(block_ptr % structs, 'mesh', meshPool)
       call MPAS_pool_get_subpool(block_ptr % structs, "tracers_aggregate", tracersAggregate)
@@ -2876,12 +2911,10 @@ contains
       call MPAS_pool_get_array(oceanFluxes, 'oceanFreshWaterFlux', oceanFreshWaterFlux)
       call MPAS_pool_get_array(oceanFluxes, 'oceanSaltFlux', oceanSaltFlux)
 
-      if (config_use_data_icebergs) then
-         call MPAS_pool_get_subpool(block_ptr % structs, "berg_fluxes", icebergFluxes)
+      call MPAS_pool_get_subpool(block_ptr % structs, "berg_fluxes", icebergFluxes)
 
-         call MPAS_pool_get_array(icebergFluxes, "bergFreshwaterFlux", bergFreshwaterFlux)
-         call MPAS_pool_get_array(icebergFluxes, "bergLatentHeatFlux", bergLatentHeatFlux)
-      endif
+      call MPAS_pool_get_array(icebergFluxes, "bergFreshwaterFlux", bergFreshwaterFlux)
+      call MPAS_pool_get_array(icebergFluxes, "bergLatentHeatFlux", bergLatentHeatFlux)
 
       if (config_use_column_biogeochemistry .and. config_couple_biogeochemistry_fields) then
          call mpas_pool_get_subpool(block_ptr % structs, 'biogeochemistry', biogeochemistry)
@@ -2960,10 +2993,10 @@ contains
          !-------states--------------------
          i2x_i % rAttr(index_i2x_Si_ifrac ,n)    = ailohi
 
-         if (config_use_data_icebergs) then
-            i2x_i % rAttr(index_i2x_Fioi_bergw,n) = bergFreshwaterFlux(i)
-            i2x_i % rAttr(index_i2x_Fioi_bergh,n) = bergLatentHeatFlux(i)
-         endif
+         ! Always export berg fluxes - they are either from coupler or from data
+         ! but either way have been assigned at this point
+         i2x_i % rAttr(index_i2x_Fioi_bergw,n) = bergFreshwaterFlux(i)
+         i2x_i % rAttr(index_i2x_Fioi_bergh,n) = bergLatentHeatFlux(i)
 
          if ( ailohi > 0.0_RKIND ) then
 
@@ -3251,6 +3284,110 @@ contains
 !EOC
 
    end subroutine frazil_mass!}}}
+
+
+   subroutine scale_icebergs(domain)
+    use seaice_constants, only: &
+         seaiceLatentHeatMelting, & ! latent heat of melting of fresh ice (J/kg)
+         seaiceFreshIceSpecificHeat ! specific heat of fresh ice (J/kg/K)
+
+    type(domain_type), intent(inout) :: &
+         domain
+
+    type(block_type), pointer :: &
+         block
+
+    type(MPAS_pool_type), pointer :: &
+         mesh, &
+         berg_forcing, &
+         berg_fluxes
+
+    integer, pointer :: &
+         nCellsSolve
+
+    real(kind=RKIND), dimension(:), pointer :: &
+         bergFreshwaterFluxData, & ! iceberg freshwater flux read in from file (kg/m^2/s)
+         bergFreshwaterFlux, & ! iceberg freshwater flux for ocean (kg/m^2/s)
+         bergLatentHeatFlux, & ! iceberg latent heat flux for ocean (J/m^2/s)
+         areaCell, &
+         latCell
+
+    real(kind=RKIND), pointer :: &
+         bergTemperature, & ! iceberg temperature
+         areaIntegAnnMeanDataIcebergFreshwaterFlux, & ! area integrated, annual mean freshwater flux from icebegs and ice shelves (kg/s)
+         runningMeanRemovedIceRunoff ! the area integrated, running mean of removed ice runoff (kg/s)
+
+    integer :: &
+         iCell
+
+    real(kind=RKIND) :: &
+         scaling, &
+         globalBergFluxIn, &
+         globalBergFluxOut
+
+    call MPAS_pool_get_config(domain % configs, "config_iceberg_temperature", &
+                              bergTemperature)
+
+
+      ! global reudction of coupler ice runoff
+      globalBergFluxIn = 0.0_RKIND
+      globalBergFluxOut = 0.0_RKIND
+      block => domain % blocklist
+      do while (associated(block))
+
+         call MPAS_pool_get_subpool(block % structs, "mesh", mesh)
+         call MPAS_pool_get_subpool(block % structs, "berg_fluxes", berg_fluxes)
+         call MPAS_pool_get_subpool(block % structs, "berg_forcing", berg_forcing)
+
+         call MPAS_pool_get_dimension(mesh, "nCellsSolve", nCellsSolve)
+         call MPAS_pool_get_array(mesh, "areaCell", areaCell)
+         call MPAS_pool_get_array(mesh, "latCell", latCell)
+
+         call MPAS_pool_get_array(berg_fluxes, "bergFreshwaterFlux", bergFreshwaterFlux)
+         call mpas_pool_get_array(berg_forcing, 'areaIntegAnnMeanDataIcebergFreshwaterFlux', &
+                                  areaIntegAnnMeanDataIcebergFreshwaterFlux)
+
+         do iCell = 1, nCellsSolve
+            ! TODO: Generalize to both ice sheets, accounting for the possibility of rofi from
+            ! runoff model at low-mid latitudes
+            if ((latCell(iCell) < 0.0_RKIND) .and. (bergFreshwaterFlux(iCell) > 0.0_RKIND)) then
+               globalBergFluxIn = globalBergFluxIn + areaCell(iCell) * bergFreshwaterFlux(iCell)
+            endif
+         enddo
+
+         block => block % next
+      enddo
+
+      call mpas_dmpar_sum_real(domain % dminfo, globalBergFluxIn, globalBergFluxOut)
+      scaling = globalBergFluxOut / areaIntegAnnMeanDataIcebergFreshwaterFlux
+      call mpas_log_write("globalBergIn=$r, globalBergOut=$r, areaIntegAnnMeanDataIcebergFreshwaterFlux=$r, iceberg flux scaling=$r", realArgs=(/globalBergFluxIn, globalBergFluxOut, areaIntegAnnMeanDataIcebergFreshwaterFlux, scaling/))
+      if (scaling == 0.0_RKIND) scaling = 1.0_RKIND  ! coupler rofi flux may be 0 on first coupling interval
+
+      block => domain % blocklist
+      do while (associated(block))
+
+         call MPAS_pool_get_subpool(block % structs, "mesh", mesh)
+         call MPAS_pool_get_subpool(block % structs, "berg_forcing", berg_forcing)
+         call MPAS_pool_get_subpool(block % structs, "berg_fluxes", berg_fluxes)
+
+         call MPAS_pool_get_dimension(mesh, "nCellsSolve", nCellsSolve)
+
+         call MPAS_pool_get_array(berg_forcing, "bergFreshwaterFluxData", bergFreshwaterFluxData)
+         call MPAS_pool_get_array(berg_fluxes, "bergFreshwaterFlux", bergFreshwaterFlux)
+         call MPAS_pool_get_array(berg_fluxes, "bergLatentHeatFlux", bergLatentHeatFlux)
+
+         do iCell = 1, nCellsSolve
+
+            bergFreshwaterFlux(iCell) = scaling * bergFreshwaterFluxData(iCell)
+            bergLatentHeatFlux(iCell) = -scaling * bergFreshwaterFluxData(iCell) * &
+                                       (seaiceLatentHeatMelting - seaiceFreshIceSpecificHeat*bergTemperature)
+         enddo
+
+         block => block % next
+      enddo
+
+   end subroutine scale_icebergs
+
 
 !***********************************************************************
 !BOP
