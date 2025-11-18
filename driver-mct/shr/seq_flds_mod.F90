@@ -1638,6 +1638,7 @@ contains
 
        ! Ocean land ice frazil production
        call seq_flds_add(o2x_fluxes,"Foxo_frazil_li")
+       call seq_flds_add(x2g_fluxes,"Foxo_frazil_li")
        longname = 'Ocean land ice frazil production'
        stdname  = 'ocean_land_ice_frazil_ice_production'
        units    = 'kg m-2 s-1'

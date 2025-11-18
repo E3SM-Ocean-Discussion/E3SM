@@ -25,7 +25,8 @@ module glc_cpl_indices
   integer, public :: index_x2g_So_tf3d(glc_nzoc_max)   = 0 !Ocean thermal forcing at specified z-levels
   integer, public :: index_x2g_So_tf3d_mask(glc_nzoc_max)   = 0 !mask of ocean thermal forcing at specified z-levels
   integer, public :: index_x2g_Fogx_qicehi = 0 !Subshelf heat flux for the ice sheet
-  integer, public :: index_x2g_Foxo_ismw  = 0 !Ice shelf meltwater flux from ocean
+  integer, public :: index_x2g_Foxo_ismw = 0      !Ice shelf meltwater flux from ocean
+  integer, public :: index_x2g_Foxo_frazil_li = 0 !Frazil flux under ice shelves from ocean
 
   integer, public :: index_g2x_Fogg_rofi = 0 ! frozen runoff -> ocn
   integer, public :: index_g2x_Figg_rofi = 0 ! frozen runoff -> ice
@@ -79,6 +80,7 @@ contains
 
     ! Sub-ice-shelf fluxes from ocean
     index_x2g_Foxo_ismw =                 mct_avect_indexra(x2g,'Foxo_ismw',perrwith='quiet')
+    index_x2g_Foxo_frazil_li =            mct_avect_indexra(x2g,'Foxo_frazil_li',perrwith='quiet')
 
 
     if (glc_nzoc > 0) then

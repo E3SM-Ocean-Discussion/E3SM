@@ -1458,7 +1458,8 @@ contains
                call mpas_log_write("Unknown value for 'config_smb_source'", MPAS_LOG_ERR)
                errorCode = ior(errorCode, 1)
             endif
-            floatingBasalMassBal(i) = x2g_g % rAttr(index_x2g_Foxo_ismw, n)
+            floatingBasalMassBal(i) = x2g_g % rAttr(index_x2g_Foxo_ismw, n) &
+                                    + x2g_g % rAttr(index_x2g_Foxo_frazil_li, n)
             if (nISMIP6OceanLayers > 0) then
                do iLev = 1, nISMIP6OceanLayers
                   fractionalMaskVal = x2g_g % rAttr(index_x2g_So_tf3d_mask(iLev), n)
