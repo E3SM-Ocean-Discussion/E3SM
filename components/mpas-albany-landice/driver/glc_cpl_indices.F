@@ -1,5 +1,5 @@
 module glc_cpl_indices
-  
+
   use seq_flds_mod
   use mct_mod
 !  use glc_constants, only : glc_nec, glc_smb  ! TODO Will these be needed?  If so, need to add MPAS version

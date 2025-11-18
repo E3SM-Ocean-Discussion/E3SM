@@ -1873,7 +1873,7 @@ contains
 
        if (plev > 0) then
           ! ---- doprint ---- doprint ---- doprint ----
-  
+
           if (.not.sumdone) then
 
              if (do_bgc_budg) then
@@ -2240,7 +2240,7 @@ contains
           ! ---- doprint ---- doprint ---- doprint ----
 
           if (do_bgc_budg) then
-             call seq_diagBGC_print_mct(EClock, ip, plev) 
+             call seq_diagBGC_print_mct(EClock, ip, plev)
           endif
 
        endif  ! plev > 0

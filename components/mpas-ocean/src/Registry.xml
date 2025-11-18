@@ -2160,7 +2160,7 @@
 			<var name="SSHinitial" packages="scaledSFWFPKG"/>
 			<var name="SSHfinal" packages="scaledSFWFPKG"/>
 			<var name="nValidTotalfwFluxHistory" packages="scaledSFWFPKG"/>
-			<var name="SFWFScalingFactor" packages="scaledSFWFPKG"/> 
+			<var name="SFWFScalingFactor" packages="scaledSFWFPKG"/>
 		</stream>
 
 		<stream name="output"

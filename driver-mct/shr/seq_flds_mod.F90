@@ -805,7 +805,7 @@ contains
     units    = 'kg m-3'
     attname  = 'Sa_dens'
     call metadata_set(attname, longname, stdname, units)
-    
+
     ! UoverN for use by topounits
     call seq_flds_add(a2x_states,"Sa_uovern")
     call seq_flds_add(x2l_states,"Sa_uovern")
@@ -2205,7 +2205,7 @@ contains
     endif
 
     !------------------------------
-    ! ice<->wav only exchange 
+    ! ice<->wav only exchange
     !------------------------------
 
     ! Sea ice thickness
@@ -2303,7 +2303,7 @@ contains
     units    = ' '
     attname  = 'coszen_str'
     call metadata_set(attname, longname, stdname, units)
-       
+
     if (rof_sed) then
        call seq_flds_add(l2x_fluxes,'Flrl_rofmud')
        call seq_flds_add(l2x_fluxes_to_rof,'Flrl_rofmud')
@@ -2383,7 +2383,7 @@ contains
     units    = 'kg m-2 s-1'
     attname  = 'Flrr_supply'
     call metadata_set(attname, longname, stdname, units)
-    
+
     call seq_flds_add(r2x_fluxes,'Flrr_deficit')
     call seq_flds_add(x2l_fluxes,'Flrr_deficit')
     longname = 'River model supply deficit'
@@ -2671,12 +2671,12 @@ contains
     !----------------------------
     ! lnd->iac, iac->lnd, iac->atm
     !----------------------------
-    
+
     ! lnd/iac coupling needs one field in each class per pft
     ! Note that this ends up as 17*4=68 coupled fields...
     ! also send harvest fraction from iac to land
     ! use the same loop and index string
-  
+
     ! these two variables are hardcoded above because there is not an appropriate
     !    namelist to put them in: iac_npft and iac_nharvest
 
@@ -2695,7 +2695,7 @@ contains
        attname  = 'Sl_hr_pft' // pftstr
        attname  = trim(attname)
        call metadata_set(attname, longname, stdname, units)
-       
+
        if(add_iac_to_cplstate)call seq_flds_add(l2x_states,'Sl_npp_pft' // pftstr)
        call seq_flds_add(x2z_states,'Sl_npp_pft' // pftstr)
        longname = 'Net primary production for pft ' // pftstr
@@ -2703,7 +2703,7 @@ contains
        units    = 'gC/m^2/s'
        attname  = 'Sl_npp_pft' // pftstr
        call metadata_set(attname, longname, stdname, units)
-    
+
        ! Review
        if(add_iac_to_cplstate)call seq_flds_add(l2x_states,'Sl_pftwgt_pft' //pftstr)
        call seq_flds_add(x2z_states,'Sl_pftwgt_pft' //pftstr)
@@ -2713,7 +2713,7 @@ contains
        attname  = 'Sl_pftwgt_pft' //pftstr
        call metadata_set(attname, longname, stdname, units)
 
-       ! iac->lnd 
+       ! iac->lnd
 
        ! This is pft for beginning of model year + 1
        ! ts wonders if landfrac should go as well - just to
@@ -2737,8 +2737,8 @@ contains
        units    = 'percent'
        attname  = 'Sz_pct_pft_prev' //pftstr
        attname  = trim(attname)
-       call metadata_set(attname, longname, stdname, units)     
-  
+       call metadata_set(attname, longname, stdname, units)
+
        ! send the harvest data also, these are for model year
        if (i <= iac_nharvest) then
           call seq_flds_add(z2x_states,trim('Sz_harvest_frac' //pftstr))
@@ -2752,7 +2752,7 @@ contains
           call metadata_set(attname, longname, stdname, units)
        end if
 
-    end do 
+    end do
     ! iac->atm flux.
     ! Monthly values of surface, low alt, high alt co2 fluxes, so we
     ! loop over 36 total fields.
@@ -3161,15 +3161,6 @@ contains
        call set_glc_zocnclass_field(name, attname, longname, stdname, units, x2g_tf_states_from_ocn, &
             additional_list = .true.)
     end if
-
-    name = 'Fogx_qicelo'
-    call seq_flds_add(g2x_fluxes,trim(name))
-    call seq_flds_add(x2o_fluxes,trim(name))
-    longname = 'Subshelf liquid flux for ocean'
-    stdname  = 'Subshelf_liquid_flux_for_ocean'
-    units    = 'kg m-2 s-1'
-    attname  = 'Fogx_qicelo'
-    call metadata_set(attname, longname, stdname, units)
 
     name = 'Fogx_qiceho'
     call seq_flds_add(g2x_fluxes,trim(name))
@@ -4032,7 +4023,7 @@ contains
 
     !-----------------------------------------------------------------------------
     ! Read namelist for FAN NH3 emissions
-    ! If specified, the NH3 surface emission is sent to CAM. 
+    ! If specified, the NH3 surface emission is sent to CAM.
     !-----------------------------------------------------------------------------
 
     call shr_fan_readnl(nlfilename='drv_flds_in', ID=ID, fan_fields=fan_fields, have_fields=fan_have_fields)
