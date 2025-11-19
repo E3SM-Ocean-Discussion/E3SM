@@ -1501,6 +1501,23 @@
     <desc>atm2rof state mapping file decomp type</desc>
   </entry>
 
+  <entry id="ATM2IAC_SMAPNAME">
+    <type>char</type>
+    <default_value>idmap</default_value>
+    <group>run_domain</group>
+    <file>env_run.xml</file>
+    <desc>atm2iac state mapping file</desc>
+  </entry>
+
+  <entry id="ATM2IAC_SMAPTYPE">
+    <type>char</type>
+    <valid_values>X,Y</valid_values>
+    <default_value>X</default_value>
+    <group>run_domain</group>
+    <file>env_run.xml</file>
+    <desc>atm2iac state mapping file decomp type</desc>
+  </entry>
+
   <entry id="ATM2WAV_SMAPNAME">
     <type>char</type>
     <default_value>idmap</default_value>
@@ -1684,6 +1701,23 @@
     <group>run_domain</group>
     <file>env_run.xml</file>
     <desc>lnd2rof flux mapping file decomp type</desc>
+  </entry>
+
+  <entry id="LND2IAC_SMAPNAME">
+    <type>char</type>
+    <default_value>idmap</default_value>
+    <group>run_domain</group>
+    <file>env_run.xml</file>
+    <desc>lnd2iac state mapping file</desc>
+  </entry>
+  
+  <entry id="LND2IAC_SMAPTYPE">
+    <type>char</type>
+    <valid_values>X,Y</valid_values>
+    <default_value>X</default_value>
+    <group>run_domain</group>
+    <file>env_run.xml</file>
+    <desc>lnd2iac state mapping file decomp type</desc>
   </entry>
 
   <entry id="ROF2LND_FMAPNAME">
@@ -2680,7 +2714,7 @@
 
   <entry id="PIO_TYPENAME">
     <type>char</type>
-    <valid_values>netcdf,pnetcdf,netcdf4p,netcdf4c,adios,adiosc,hdf5,default</valid_values>
+    <valid_values>netcdf,pnetcdf,netcdf4p,netcdf4c,netcdf4z,adios,adiosc,hdf5,default</valid_values>
     <group>run_pio</group>
     <file>env_run.xml</file>
     <desc>pio io type</desc>
@@ -3158,15 +3192,6 @@
    <group>job_submission</group>
    <file>env_batch.xml</file>
    <desc>whether the PROJECT value is required on this machine</desc>
- </entry>
-
- <entry id="COMPARE_TO_NUOPC">
-   <type>logical</type>
-   <valid_values>TRUE,FALSE</valid_values>
-   <default_value>FALSE</default_value>
-   <group>comparison_to_nuopc</group>
-   <file>env_build.xml</file>
-   <desc>TRUE=>turn on CPP variable COMPARE_TO_NUOPC</desc>
  </entry>
 
  <help>

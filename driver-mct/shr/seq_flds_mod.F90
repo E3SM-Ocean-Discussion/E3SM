@@ -18,6 +18,7 @@ module seq_flds_mod
   !    g => glc
   !    r => rof
   !    w => wav
+  !    z => iac
   !
   !  state-name
   !    what follows state prefix
@@ -161,7 +162,7 @@ module seq_flds_mod
   logical            :: lnd_rof_two_way     ! .true. if land-river two-way coupling turned on
   logical            :: ocn_rof_two_way     ! .true. if river-ocean two-way coupling turned on
   logical            :: rof_sed             ! .true. if river model includes sediment
-
+  logical            :: add_iac_to_cplstate  ! .true. if iac fields are added to coupler history files
   character(len=CS)  :: wav_ocn_coup     ! 'twoway' if wave-ocean two-way coupling turned on
   character(len=CS)  :: wav_atm_coup     ! 'twoway' if wave-atm two-way coupling turned on
   character(len=CS)  :: wav_ice_coup     ! 'twoway' if wave-ice two-way coupling turned on
@@ -237,8 +238,8 @@ module seq_flds_mod
   character(CXX) :: seq_flds_r2o_liq_fluxes
   character(CXX) :: seq_flds_r2o_ice_fluxes
 
-  !character(CXX) :: seq_flds_x2z_states
-  !character(CXX) :: seq_flds_z2x_states
+  character(CXX) :: seq_flds_x2z_states
+  character(CXX) :: seq_flds_z2x_states
   character(CXX) :: seq_flds_z2x_fluxes
   character(CXX) :: seq_flds_x2z_fluxes
 
@@ -267,6 +268,8 @@ module seq_flds_mod
   character(CXX) :: seq_flds_w2x_fields
   character(CXX) :: seq_flds_x2w_fields
   character(CXX) :: seq_flds_o2x_fields_to_rof
+  character(CXX) :: seq_flds_z2x_fields
+  character(CXX) :: seq_flds_x2z_fields
 
   !----------------------------------------------------------------------------
   ! component names
@@ -279,6 +282,7 @@ module seq_flds_mod
   character(32) :: glcname='glc'
   character(32) :: wavname='wav'
   character(32) :: rofname='rof'
+  character(32) :: iacname='iac'
 
   ! namelist variables
   logical :: nan_check_component_fields
@@ -294,6 +298,7 @@ contains
     use shr_string_mod, only : shr_string_listIntersect
     use shr_mpi_mod,    only : shr_mpi_bcast
     use glc_elevclass_mod, only : glc_elevclass_init
+    use glc_zocnclass_mod, only : glc_zocnclass_init
     use seq_infodata_mod, only : seq_infodata_type, seq_infodata_getdata
 
     ! !INPUT/OUTPUT PARAMETERS:
@@ -370,12 +375,19 @@ contains
     character(CXX) :: r2o_liq_fluxes = ''
     character(CXX) :: r2o_ice_fluxes = ''
 
+    character(CXX) :: z2x_states = ''
+    character(CXX) :: z2x_fluxes = ''
+    character(CXX) :: x2z_states = ''
+    character(CXX) :: x2z_fluxes = ''
+
     character(CXX) :: stringtmp  = ''
 
     !------ namelist -----
     character(len=CSS)  :: fldname, fldflow
     logical :: is_state, is_flux
-    integer :: i,n
+    integer :: i,n,m
+    character(len=3) :: pftstr = ''
+    character(len=2) :: monstr = ''
 
     ! use cases namelists
     logical :: flds_co2a
@@ -387,13 +399,19 @@ contains
     logical :: flds_polar
     logical :: flds_tf
     integer :: glc_nec
+    integer :: glc_nzoc
+
+    ! set these here because the cplflds namelist is not the right place
+    !    this namelist is called only under special circumstances
+    integer :: iac_npft = 17
+    integer :: iac_nharvest = 5
 
     namelist /seq_cplflds_inparm/  &
          flds_co2a, flds_co2b, flds_co2c, flds_co2_dmsa, flds_wiso, flds_polar, flds_tf, &
-         glc_nec, ice_ncat, seq_flds_i2o_per_cat, flds_bgc_oi, &
+         glc_nec, glc_nzoc, ice_ncat, seq_flds_i2o_per_cat, flds_bgc_oi, &
          nan_check_component_fields, rof_heat, atm_flux_method, atm_gustiness, &
          rof2ocn_nutrients, lnd_rof_two_way, ocn_rof_two_way, rof_sed, &
-         wav_ocn_coup, wav_atm_coup, wav_ice_coup
+         wav_ocn_coup, wav_atm_coup, wav_ice_coup, add_iac_to_cplstate
 
     ! user specified new fields
     integer,  parameter :: nfldmax = 200
@@ -427,6 +445,7 @@ contains
        flds_polar = .false.
        flds_tf = .false.
        glc_nec   = 0
+       glc_nzoc  = 0
        ice_ncat  = 1
        seq_flds_i2o_per_cat = .false.
        nan_check_component_fields = .false.
@@ -440,6 +459,7 @@ contains
        wav_ocn_coup = 'none'
        wav_atm_coup = 'none'
        wav_ice_coup = 'none'
+       add_iac_to_cplstate = .false.
 
        unitn = shr_file_getUnit()
        write(logunit,"(A)") subname//': read seq_cplflds_inparm namelist from: '&
@@ -465,6 +485,7 @@ contains
     call shr_mpi_bcast(flds_polar   , mpicom)
     call shr_mpi_bcast(flds_tf      , mpicom)
     call shr_mpi_bcast(glc_nec      , mpicom)
+    call shr_mpi_bcast(glc_nzoc     , mpicom)
     call shr_mpi_bcast(ice_ncat     , mpicom)
     call shr_mpi_bcast(seq_flds_i2o_per_cat, mpicom)
     call shr_mpi_bcast(nan_check_component_fields, mpicom)
@@ -478,8 +499,10 @@ contains
     call shr_mpi_bcast(wav_ocn_coup, mpicom)
     call shr_mpi_bcast(wav_atm_coup, mpicom)
     call shr_mpi_bcast(wav_ice_coup, mpicom)
+    call shr_mpi_bcast(add_iac_to_cplstate, mpicom)
 
     call glc_elevclass_init(glc_nec)
+    call glc_zocnclass_init(glc_nzoc)
 
     !---------------------------------------------------------------------------
     ! Read in namelists for user specified new fields
@@ -569,6 +592,12 @@ contains
           case('x2g')
              if (is_state) call seq_flds_add(x2g_states,trim(fldname))
              if (is_flux ) call seq_flds_add(x2g_fluxes,trim(fldname))
+          case('z2x')
+             if (add_iac_to_cplstate .and. is_state) call seq_flds_add(z2x_states,trim(fldname))
+             if (add_iac_to_cplstate .and. is_flux ) call seq_flds_add(z2x_fluxes,trim(fldname))
+          case('x2z')
+             if (add_iac_to_cplstate .and. is_state) call seq_flds_add(x2z_states,trim(fldname))
+             if (add_iac_to_cplstate .and. is_flux ) call seq_flds_add(x2z_fluxes,trim(fldname))
           case default
              write(logunit,*) subname//'ERROR: ',trim(cplflds_custom(n)),&
                   ' not a recognized value'
@@ -766,9 +795,7 @@ contains
        call seq_flds_add(x2r_states,"Sa_pbot")
        call seq_flds_add(a2x_states_to_rof,"Sa_pbot")
     endif
-    if (trim(cime_model) == 'e3sm') then
-       call seq_flds_add(x2o_states,"Sa_pbot")
-    end if
+    call seq_flds_add(x2o_states,"Sa_pbot")
     longname = 'Pressure at the lowest model level'
     stdname  = 'air_pressure'
     units    = 'Pa'
@@ -785,15 +812,13 @@ contains
     call metadata_set(attname, longname, stdname, units)
     
     ! UoverN for use by topounits
-    if (trim(cime_model) == 'e3sm') then
-       call seq_flds_add(a2x_states,"Sa_uovern")
-       call seq_flds_add(x2l_states,"Sa_uovern")
-       longname = 'Froude Number'
-       stdname  = 'Froude Number'
-       units    = 'Unitless'
-       attname  = 'Sa_uovern'
-       call metadata_set(attname, longname, stdname, units)
-    end if
+    call seq_flds_add(a2x_states,"Sa_uovern")
+    call seq_flds_add(x2l_states,"Sa_uovern")
+    longname = 'Froude Number'
+    stdname  = 'Froude Number'
+    units    = 'Unitless'
+    attname  = 'Sa_uovern'
+    call metadata_set(attname, longname, stdname, units)
 
     ! convective precipitation rate
     ! large-scale (stable) snow rate (water equivalent)
@@ -1103,6 +1128,7 @@ contains
     call seq_flds_add(x2a_states,'Sf_lfrac')
     call seq_flds_add(x2a_states,'Sf_ifrac')
     call seq_flds_add(x2a_states,'Sf_ofrac')
+    if(add_iac_to_cplstate)call seq_flds_add(x2a_states,'Sf_zfrac')
     longname = 'Surface land fraction'
     stdname  = 'land_area_fraction'
     units    = '1'
@@ -1115,6 +1141,10 @@ contains
     longname = 'Surface ocean fraction'
     stdname  = 'sea_area_fraction'
     attname  = 'Sf_ofrac'
+    call metadata_set(attname, longname, stdname, units)
+    longname = 'Surface iac fraction'
+    stdname  = 'iac_area_fraction'
+    attname  = 'Sf_zfrac'
     call metadata_set(attname, longname, stdname, units)
 
     ! Direct albedo (visible radiation)
@@ -1534,16 +1564,14 @@ contains
     attname  = 'Si_ifrac'
     call metadata_set(attname, longname, stdname, units)
 
-    if (trim(cime_model) == 'e3sm') then
-       ! Sea ice basal pressure
-       call seq_flds_add(i2x_states,"Si_bpress")
-       call seq_flds_add(x2o_states,"Si_bpress")
-       longname = 'Sea ice basal pressure'
-       stdname  = 'cice_basal_pressure'
-       units    = 'Pa'
-       attname  = 'Si_bpress'
-       call metadata_set(attname, longname, stdname, units)
-    end if
+    ! Sea ice basal pressure
+    call seq_flds_add(i2x_states,"Si_bpress")
+    call seq_flds_add(x2o_states,"Si_bpress")
+    longname = 'Sea ice basal pressure'
+    stdname  = 'cice_basal_pressure'
+    units    = 'Pa'
+    attname  = 'Si_bpress'
+    call metadata_set(attname, longname, stdname, units)
 
     ! Ocean melt and freeze potential
     call seq_flds_add(o2x_fluxes,"Fioo_q")
@@ -1554,16 +1582,14 @@ contains
     attname  = 'Fioo_q'
     call metadata_set(attname, longname, stdname, units)
 
-    if (trim(cime_model) == 'e3sm') then
-       ! Ocean frazil production
-       call seq_flds_add(o2x_fluxes,"Fioo_frazil")
-       call seq_flds_add(x2i_fluxes,"Fioo_frazil")
-       longname = 'Ocean frazil production'
-       stdname  = 'ocean_frazil_ice_production'
-       units    = 'kg m-2 s-1'
-       attname  = 'Fioo_frazil'
-       call metadata_set(attname, longname, stdname, units)
-    end if
+    ! Ocean frazil production
+    call seq_flds_add(o2x_fluxes,"Fioo_frazil")
+    call seq_flds_add(x2i_fluxes,"Fioo_frazil")
+    longname = 'Ocean frazil production'
+    stdname  = 'ocean_frazil_ice_production'
+    units    = 'kg m-2 s-1'
+    attname  = 'Fioo_frazil'
+    call metadata_set(attname, longname, stdname, units)
 
     ! Heat flux from melting
     call seq_flds_add(i2x_fluxes,"Fioi_melth")
@@ -1783,7 +1809,7 @@ contains
     !------------------------------
     ! ice<->ocn only exchange - BGC
     !------------------------------
-    if (trim(cime_model) == 'e3sm' .and. flds_bgc_oi) then
+    if (flds_bgc_oi) then
 
        ! Ocean algae concentration 1 - diatoms?
        call seq_flds_add(o2x_states,"So_algae1")
@@ -2247,57 +2273,54 @@ contains
     attname  = 'Flrl_rofi'
     call metadata_set(attname, longname, stdname, units)
 
-    if (trim(cime_model) == 'e3sm') then
-       call seq_flds_add(l2x_fluxes,'Flrl_demand')
-       call seq_flds_add(l2x_fluxes_to_rof,'Flrl_demand')
-       call seq_flds_add(x2r_fluxes,'Flrl_demand')
-       longname = 'Water flux total demand in land from rof'
-       stdname  = 'water_flux_total_demand_from_runoff'
-       units    = 'kg m-2 s-1'
-       attname  = 'Flrl_demand'
-       call metadata_set(attname, longname, stdname, units)
+    call seq_flds_add(l2x_fluxes,'Flrl_demand')
+    call seq_flds_add(l2x_fluxes_to_rof,'Flrl_demand')
+    call seq_flds_add(x2r_fluxes,'Flrl_demand')
+    longname = 'Water flux total demand in land from rof'
+    stdname  = 'water_flux_total_demand_from_runoff'
+    units    = 'kg m-2 s-1'
+    attname  = 'Flrl_demand'
+    call metadata_set(attname, longname, stdname, units)
 
-       call seq_flds_add(l2x_fluxes,'Flrl_Tqsur')
-       call seq_flds_add(l2x_fluxes_to_rof,'Flrl_Tqsur')
-       call seq_flds_add(x2r_fluxes,'Flrl_Tqsur')
-       longname = 'Temperature of surface runoff'
-       stdname  = 'Temperature_of_surface_runoff'
-       units    = 'Kelvin'
-       attname  = 'Flrl_Tqsur'
-       call metadata_set(attname, longname, stdname, units)
+    call seq_flds_add(l2x_fluxes,'Flrl_Tqsur')
+    call seq_flds_add(l2x_fluxes_to_rof,'Flrl_Tqsur')
+    call seq_flds_add(x2r_fluxes,'Flrl_Tqsur')
+    longname = 'Temperature of surface runoff'
+    stdname  = 'Temperature_of_surface_runoff'
+    units    = 'Kelvin'
+    attname  = 'Flrl_Tqsur'
+    call metadata_set(attname, longname, stdname, units)
 
-       call seq_flds_add(l2x_fluxes,'Flrl_Tqsub')
-       call seq_flds_add(l2x_fluxes_to_rof,'Flrl_Tqsub')
-       call seq_flds_add(x2r_fluxes,'Flrl_Tqsub')
-       longname = 'Temperature of subsurface runoff'
-       stdname  = 'Temperature_of_subsurface_runoff'
-       units    = 'Kelvin'
-       attname  = 'Flrl_Tqsub'
-       call metadata_set(attname, longname, stdname, units)
+    call seq_flds_add(l2x_fluxes,'Flrl_Tqsub')
+    call seq_flds_add(l2x_fluxes_to_rof,'Flrl_Tqsub')
+    call seq_flds_add(x2r_fluxes,'Flrl_Tqsub')
+    longname = 'Temperature of subsurface runoff'
+    stdname  = 'Temperature_of_subsurface_runoff'
+    units    = 'Kelvin'
+    attname  = 'Flrl_Tqsub'
+    call metadata_set(attname, longname, stdname, units)
 
-       ! Cosine of Zenith angle (-)
-       call seq_flds_add(l2x_fluxes,'coszen_str')
-       call seq_flds_add(x2r_fluxes,'coszen_str')
-       longname = 'Cosine of Zenith angle'
-       stdname  = 'coszen'
-       units    = ' '
-       attname  = 'coszen_str'
-       call metadata_set(attname, longname, stdname, units)
+    ! Cosine of Zenith angle (-)
+    call seq_flds_add(l2x_fluxes,'coszen_str')
+    call seq_flds_add(x2r_fluxes,'coszen_str')
+    longname = 'Cosine of Zenith angle'
+    stdname  = 'coszen'
+    units    = ' '
+    attname  = 'coszen_str'
+    call metadata_set(attname, longname, stdname, units)
        
-	   if (rof_sed) then
-          call seq_flds_add(l2x_fluxes,'Flrl_rofmud')
-          call seq_flds_add(l2x_fluxes_to_rof,'Flrl_rofmud')
-          call seq_flds_add(x2r_fluxes,'Flrl_rofmud')
-          longname = 'Sediment flux from land (mud)'
-          stdname  = 'mud_flux_into_runoff_surface'
-          units    = 'kg m-2 s-1'
-          attname  = 'Flrl_rofmud'
-          call metadata_set(attname, longname, stdname, units)
-	   end if
+    if (rof_sed) then
+       call seq_flds_add(l2x_fluxes,'Flrl_rofmud')
+       call seq_flds_add(l2x_fluxes_to_rof,'Flrl_rofmud')
+       call seq_flds_add(x2r_fluxes,'Flrl_rofmud')
+       longname = 'Sediment flux from land (mud)'
+       stdname  = 'mud_flux_into_runoff_surface'
+       units    = 'kg m-2 s-1'
+       attname  = 'Flrl_rofmud'
+       call metadata_set(attname, longname, stdname, units)
+    end if
 
-    endif
 
-	
     !-----------------------------
     ! rof->ocn (runoff) and rof->lnd (flooding)
     !-----------------------------
@@ -2723,6 +2746,123 @@ contains
        attname  = 'Sw_Z0'
        call metadata_set(attname, longname, stdname, units)
     endif
+    !----------------------------
+    ! lnd->iac, iac->lnd, iac->atm
+    !----------------------------
+    
+    ! lnd/iac coupling needs one field in each class per pft
+    ! Note that this ends up as 17*4=68 coupled fields...
+    ! also send harvest fraction from iac to land
+    ! use the same loop and index string
+  
+    ! these two variables are hardcoded above because there is not an appropriate
+    !    namelist to put them in: iac_npft and iac_nharvest
+
+    do i = 1,iac_npft
+
+       ! Zero offset the tags, since that's how we access them in lnd and iac
+       write(pftstr,'(I0)') i-1
+       pftstr=trim(pftstr)
+
+       ! Only hr and npp matter, for now
+       if(add_iac_to_cplstate)call seq_flds_add(l2x_states,trim('Sl_hr_pft' // pftstr))
+       call seq_flds_add(x2z_states,trim('Sl_hr_pft' // pftstr))
+       longname = 'Total heterotrophic respiration' // pftstr
+       stdname  = 'lnd_total_heterotrophic_respiration' // pftstr
+       units    = 'gC/m^2/s'
+       attname  = 'Sl_hr_pft' // pftstr
+       attname  = trim(attname)
+       call metadata_set(attname, longname, stdname, units)
+       
+       if(add_iac_to_cplstate)call seq_flds_add(l2x_states,'Sl_npp_pft' // pftstr)
+       call seq_flds_add(x2z_states,'Sl_npp_pft' // pftstr)
+       longname = 'Net primary production for pft ' // pftstr
+       stdname  = 'lnd_net_primary_production_pft' // pftstr
+       units    = 'gC/m^2/s'
+       attname  = 'Sl_npp_pft' // pftstr
+       call metadata_set(attname, longname, stdname, units)
+    
+       ! Review
+       if(add_iac_to_cplstate)call seq_flds_add(l2x_states,'Sl_pftwgt_pft' //pftstr)
+       call seq_flds_add(x2z_states,'Sl_pftwgt_pft' //pftstr)
+       longname = 'PFT weight relative to gridcell for pft ' //pftstr
+       stdname  = 'lnd_pft_weight_pft' //pftstr
+       units    = ''
+       attname  = 'Sl_pftwgt_pft' //pftstr
+       call metadata_set(attname, longname, stdname, units)
+
+       ! iac->lnd 
+
+       ! This is pft for beginning of model year + 1
+       ! ts wonders if landfrac should go as well - just to
+       ! verify that we are all using the same values.
+       if(add_iac_to_cplstate)call seq_flds_add(z2x_states,trim('Sz_pct_pft' //pftstr))
+       if(add_iac_to_cplstate)call seq_flds_add(x2l_states,trim('Sz_pct_pft' //pftstr))
+       longname = 'Percent pft of vegetated land unit for pft ' //pftstr
+       stdname  = 'iac_pct_pft' //pftstr
+       stdname  = trim(stdname)
+       units    = 'percent'
+       attname  = 'Sz_pct_pft' //pftstr
+       attname  = trim(attname)
+       call metadata_set(attname, longname, stdname, units)
+
+       ! Need to send the beginning model year pft data as well
+       if(add_iac_to_cplstate)call seq_flds_add(z2x_states,trim('Sz_pct_pft_prev' //pftstr))
+       if(add_iac_to_cplstate)call seq_flds_add(x2l_states,trim('Sz_pct_pft_prev' //pftstr))
+       longname = 'Previous percent pft of vegetated land unit for pft ' //pftstr
+       stdname  = 'iac_pct_pft_prev' //pftstr
+       stdname  = trim(stdname)
+       units    = 'percent'
+       attname  = 'Sz_pct_pft_prev' //pftstr
+       attname  = trim(attname)
+       call metadata_set(attname, longname, stdname, units)     
+  
+       ! send the harvest data also, these are for model year
+       if (i <= iac_nharvest) then
+          call seq_flds_add(z2x_states,trim('Sz_harvest_frac' //pftstr))
+          if(add_iac_to_cplstate)call seq_flds_add(x2l_states,trim('Sz_harvest_frac' //pftstr))
+          longname = 'Harvest fraction of vegetated land unit for category ' //pftstr
+          stdname  = 'iac_harvest_frac' //pftstr
+          stdname  = trim(stdname)
+          units    = 'fraction'
+          attname  = 'Sz_harvest_frac' //pftstr
+          attname  = trim(attname)
+          call metadata_set(attname, longname, stdname, units)
+       end if
+
+    end do 
+    ! iac->atm flux.
+    ! Monthly values of surface, low alt, high alt co2 fluxes, so we
+    ! loop over 36 total fields.
+    do m=1,12
+       ! Month index tag
+       write(monstr,'(I0)') m
+       monstr=trim(monstr)
+
+       if(add_iac_to_cplstate)call seq_flds_add(z2x_fluxes,trim("Fazz_co2sfc_mon" //monstr))
+       if(add_iac_to_cplstate)call seq_flds_add(x2a_fluxes,trim("Fazz_co2sfc_mon" //monstr))
+       longname = trim('Surface flux of CO2 from iac for month' //monstr)
+       stdname  = trim('surface_upward_flux_of_carbon_dioxide_from_iac_mon' //monstr)
+       units    = 'moles m-2 s-1'
+       attname  = trim('Fazz_co2sfc_mon' //monstr)
+       call metadata_set(attname, longname, stdname, units)
+
+       if(add_iac_to_cplstate)call seq_flds_add(z2x_fluxes,trim("Fazz_co2airlo_mon" //monstr))
+       if(add_iac_to_cplstate)call seq_flds_add(x2a_fluxes,trim("Fazz_co2airlo_mon" //monstr))
+       longname = trim('Low altitude flux of CO2 from iac for month' //monstr)
+       stdname  = trim('low_alt_upward_flux_of_carbon_dioxide_from_iac_mon' //monstr)
+       units    = 'moles m-2 s-1'
+       attname  = trim('Fazz_co2airlo_mon' //monstr)
+       call metadata_set(attname, longname, stdname, units)
+
+       if(add_iac_to_cplstate)call seq_flds_add(z2x_fluxes,trim("Fazz_co2airhi_mon" //monstr))
+       if(add_iac_to_cplstate)call seq_flds_add(x2a_fluxes,trim("Fazz_co2airhi_mon" //monstr))
+       longname = trim('High altitude flux of CO2 from iac for month' //monstr)
+       stdname  = trim('high_alt_upward_flux_of_carbon_dioxide_from_iac_mon' //monstr)
+       units    = 'moles m-2 s-1'
+       attname  = trim('Fazz_co2airhi_mon' //monstr)
+       call metadata_set(attname, longname, stdname, units)
+    end do
     !-----------------------------
     ! New xao_states diagnostic
     ! fields for history output only
@@ -2916,9 +3056,7 @@ contains
     call seq_flds_add(g2x_states_to_lnd,trim(name))
     call seq_flds_add(x2l_states,trim(name))
     call seq_flds_add(x2l_states_from_glc,trim(name))
-    if (trim(cime_model) == 'e3sm') then
-       call seq_flds_add(x2o_states,trim(name))
-    endif
+    call seq_flds_add(x2o_states,trim(name))
     longname = 'Ice sheet grid coverage on global grid'
     stdname  = 'ice_sheet_grid_mask'
     units    = '1'
@@ -3023,168 +3161,181 @@ contains
     call set_glc_elevclass_field(name, attname, longname, stdname, units, x2l_fluxes_from_glc, &
          additional_list = .true.)
 
-    if (trim(cime_model) == 'e3sm') then
-       name = 'So_blt'
-       call seq_flds_add(o2x_states,trim(name))
-       call seq_flds_add(x2g_states,trim(name))
-       call seq_flds_add(x2g_shelf_states_from_ocn,trim(name))
-       longname = 'Ice shelf boundary layer ocean temperature'
-       stdname  = 'Ice_shelf_boundary_layer_ocean_temperature'
+    name = 'So_blt'
+    call seq_flds_add(o2x_states,trim(name))
+    call seq_flds_add(x2g_states,trim(name))
+    call seq_flds_add(x2g_shelf_states_from_ocn,trim(name))
+    longname = 'Ice shelf boundary layer ocean temperature'
+    stdname  = 'Ice_shelf_boundary_layer_ocean_temperature'
+    units    = 'C'
+    attname  = 'So_blt'
+    call metadata_set(attname, longname, stdname, units)
+
+    name = 'So_bls'
+    call seq_flds_add(o2x_states,trim(name))
+    call seq_flds_add(x2g_states,trim(name))
+    call seq_flds_add(x2g_shelf_states_from_ocn,trim(name))
+    longname = 'Ice shelf boundary layer ocean salinity'
+    stdname  = 'Ice_shelf_boundary_layer_ocean_salinity'
+    units    = 'psu'
+    attname  = 'So_bls'
+    call metadata_set(attname, longname, stdname, units)
+
+    name = 'So_htv'
+    call seq_flds_add(o2x_states,trim(name))
+    call seq_flds_add(x2g_states,trim(name))
+    call seq_flds_add(x2g_shelf_states_from_ocn,trim(name))
+    longname = 'Ice shelf ocean heat transfer velocity'
+    stdname  = 'Ice_shelf_ocean_heat_transfer_velocity'
+    units    = 'm/s'
+    attname  = 'So_htv'
+    call metadata_set(attname, longname, stdname, units)
+
+    name = 'So_stv'
+    call seq_flds_add(o2x_states,trim(name))
+    call seq_flds_add(x2g_states,trim(name))
+    call seq_flds_add(x2g_shelf_states_from_ocn,trim(name))
+    longname = 'Ice shelf ocean salinity transfer velocity'
+    stdname  = 'Ice_shelf_ocean_salinity_transfer_velocity'
+    units    = 'm/s'
+    attname  = 'So_stv'
+    call metadata_set(attname, longname, stdname, units)
+
+    name = 'So_rhoeff'
+    call seq_flds_add(o2x_states,trim(name))
+    call seq_flds_add(x2g_states,trim(name))
+    call seq_flds_add(x2g_shelf_states_from_ocn,trim(name))
+    longname = 'Ocean effective pressure'
+    stdname  = 'Ocean_effective_pressure'
+    units    = 'Pa'
+    attname  = 'So_rhoeff'
+    call metadata_set(attname, longname, stdname, units)
+
+    if ((flds_tf) .and. (glc_nzoc > 0)) then
+       ! glc fields with multiple ocn z classes: ocn->glc
+       !
+       ! Note that these fields are sent in multiple elevation classes from ocn->cpl
+       ! and cpl->ocn (which differs from glc_nec variables)
+
+       name = 'So_tf3d'
+       longname = 'ocean thermal forcing at z-level'
+       stdname  = 'ocean_thermal_forcing_at_z_level'
        units    = 'C'
-       attname  = 'So_blt'
-       call metadata_set(attname, longname, stdname, units)
+       attname  = name
+       call set_glc_zocnclass_field(name, attname, longname, stdname, units, o2x_states)
+       call set_glc_zocnclass_field(name, attname, longname, stdname, units, x2g_states, &
+            additional_list = .true.)
+       call set_glc_zocnclass_field(name, attname, longname, stdname, units, x2g_tf_states_from_ocn, &
+            additional_list = .true.)
 
-       name = 'So_bls'
-       call seq_flds_add(o2x_states,trim(name))
-       call seq_flds_add(x2g_states,trim(name))
-       call seq_flds_add(x2g_shelf_states_from_ocn,trim(name))
-       longname = 'Ice shelf boundary layer ocean salinity'
-       stdname  = 'Ice_shelf_boundary_layer_ocean_salinity'
-       units    = 'psu'
-       attname  = 'So_bls'
-       call metadata_set(attname, longname, stdname, units)
+       name = 'So_tf3d_mask'
+       longname = 'mask of valid ocean thermal forcing at z-level'
+       stdname  = 'mask_ocean_thermal_forcing_at_z_level'
+       units    = 'none'
+       attname  = name
+       call set_glc_zocnclass_field(name, attname, longname, stdname, units, o2x_states)
+       call set_glc_zocnclass_field(name, attname, longname, stdname, units, x2g_states, &
+            additional_list = .true.)
+       call set_glc_zocnclass_field(name, attname, longname, stdname, units, x2g_tf_states_from_ocn, &
+            additional_list = .true.)
+    end if
 
-       name = 'So_htv'
-       call seq_flds_add(o2x_states,trim(name))
-       call seq_flds_add(x2g_states,trim(name))
-       call seq_flds_add(x2g_shelf_states_from_ocn,trim(name))
-       longname = 'Ice shelf ocean heat transfer velocity'
-       stdname  = 'Ice_shelf_ocean_heat_transfer_velocity'
-       units    = 'm/s'
-       attname  = 'So_htv'
-       call metadata_set(attname, longname, stdname, units)
+    name = 'Fogx_qicelo'
+    call seq_flds_add(g2x_fluxes,trim(name))
+    call seq_flds_add(x2o_fluxes,trim(name))
+    longname = 'Subshelf liquid flux for ocean'
+    stdname  = 'Subshelf_liquid_flux_for_ocean'
+    units    = 'kg m-2 s-1'
+    attname  = 'Fogx_qicelo'
+    call metadata_set(attname, longname, stdname, units)
 
-       name = 'So_stv'
-       call seq_flds_add(o2x_states,trim(name))
-       call seq_flds_add(x2g_states,trim(name))
-       call seq_flds_add(x2g_shelf_states_from_ocn,trim(name))
-       longname = 'Ice shelf ocean salinity transfer velocity'
-       stdname  = 'Ice_shelf_ocean_salinity_transfer_velocity'
-       units    = 'm/s'
-       attname  = 'So_stv'
-       call metadata_set(attname, longname, stdname, units)
+    name = 'Fogx_qiceho'
+    call seq_flds_add(g2x_fluxes,trim(name))
+    call seq_flds_add(x2o_fluxes,trim(name))
+    longname = 'Subshelf heat flux for the ocean'
+    stdname  = 'Subshelf_heat_flux_for_the_ocean'
+    units    = 'W m-2'
+    attname  = 'Fogx_qiceho'
+    call metadata_set(attname, longname, stdname, units)
 
-       name = 'So_rhoeff'
-       call seq_flds_add(o2x_states,trim(name))
-       call seq_flds_add(x2g_states,trim(name))
-       call seq_flds_add(x2g_shelf_states_from_ocn,trim(name))
-       longname = 'Ocean effective pressure'
-       stdname  = 'Ocean_effective_pressure'
-       units    = 'Pa'
-       attname  = 'So_rhoeff'
-       call metadata_set(attname, longname, stdname, units)
+    name = 'Sg_blit'
+    call seq_flds_add(g2x_states,trim(name))
+    call seq_flds_add(x2o_states,trim(name))
+    longname = 'Boundary layer interface temperature for ocean'
+    stdname  = 'Boundary_layer_interface_temperature_for_ocean'
+    units    = 'C'
+    attname  = 'Sg_blit'
+    call metadata_set(attname, longname, stdname, units)
 
-       if (flds_tf) then
+    name = 'Sg_blis'
+    call seq_flds_add(g2x_states,trim(name))
+    call seq_flds_add(x2o_states,trim(name))
+    longname = 'Boundary layer interface salinity for ocean'
+    stdname  = 'Boundary_layer_interface_salinity_for_ocean'
+    units    = 'psu'
+    attname  = 'Sg_blis'
+    call metadata_set(attname, longname, stdname, units)
 
-          name = 'So_tf2d'
-          call seq_flds_add(o2x_states,trim(name))
-          call seq_flds_add(x2g_states,trim(name))
-          call seq_flds_add(x2g_tf_states_from_ocn,trim(name))
-          longname = 'ocean thermal forcing at predefined critical depth'
-          stdname  = 'ocean_thermal_forcing_at_critical_depth'
-          units    = 'C'
-          attname  = name
-          call metadata_set(attname, longname, stdname, units)
+    name = 'Sg_lithop'
+    call seq_flds_add(g2x_states,trim(name))
+    call seq_flds_add(x2o_states,trim(name))
+    longname = 'Ice sheet lithostatic pressure'
+    stdname  = 'Ice_sheet_lithostatic_pressure'
+    units    = 'Pa'
+    attname  = 'Sg_lithop'
+    call metadata_set(attname, longname, stdname, units)
 
-       end if
+    name = 'Sg_icemask_grounded'
+    call seq_flds_add(g2x_states,trim(name))
+    call seq_flds_add(x2o_states,trim(name))
+    longname = 'Grounded ice mask'
+    stdname  = 'Grounded_ice_mask'
+    units    = 'unitless'
+    attname  = 'Sg_icemask_grounded'
+    call metadata_set(attname, longname, stdname, units)
 
-       name = 'Fogx_qicelo'
-       call seq_flds_add(g2x_fluxes,trim(name))
-       call seq_flds_add(x2o_fluxes,trim(name))
-       longname = 'Subshelf liquid flux for ocean'
-       stdname  = 'Subshelf_liquid_flux_for_ocean'
-       units    = 'kg m-2 s-1'
-       attname  = 'Fogx_qicelo'
-       call metadata_set(attname, longname, stdname, units)
+    name = 'Sg_icemask_floating'
+    call seq_flds_add(g2x_states,trim(name))
+    call seq_flds_add(x2o_states,trim(name))
+    longname = 'Floating ice mask'
+    stdname  = 'Floating_ice_mask'
+    units    = 'unitless'
+    attname  = 'Sg_icemask_floating'
+    call metadata_set(attname, longname, stdname, units)
 
-       name = 'Fogx_qiceho'
-       call seq_flds_add(g2x_fluxes,trim(name))
-       call seq_flds_add(x2o_fluxes,trim(name))
-       longname = 'Subshelf heat flux for the ocean'
-       stdname  = 'Subshelf_heat_flux_for_the_ocean'
-       units    = 'W m-2'
-       attname  = 'Fogx_qiceho'
-       call metadata_set(attname, longname, stdname, units)
+    name = 'Sg_tbot'
+    call seq_flds_add(g2x_states,trim(name))
+    call seq_flds_add(x2o_states,trim(name))
+    longname = 'Bottom layer ice temperature'
+    stdname  = 'Bottom_layer_ice_temperature'
+    units    = 'C'
+    attname  = 'Sg_tbot'
+    call metadata_set(attname, longname, stdname, units)
 
-       name = 'Sg_blit'
-       call seq_flds_add(g2x_states,trim(name))
-       call seq_flds_add(x2o_states,trim(name))
-       longname = 'Boundary layer interface temperature for ocean'
-       stdname  = 'Boundary_layer_interface_temperature_for_ocean'
-       units    = 'C'
-       attname  = 'Sg_blit'
-       call metadata_set(attname, longname, stdname, units)
+    name = 'Sg_dztbot'
+    call seq_flds_add(g2x_states,trim(name))
+    call seq_flds_add(x2o_states,trim(name))
+    longname = 'Bottom layer ice layer half thickness'
+    stdname  = 'Bottom_layer_ice_layer_half_thickness'
+    units    = 'm'
+    attname  = 'Sg_dztbot'
+    call metadata_set(attname, longname, stdname, units)
 
-       name = 'Sg_blis'
-       call seq_flds_add(g2x_states,trim(name))
-       call seq_flds_add(x2o_states,trim(name))
-       longname = 'Boundary layer interface salinity for ocean'
-       stdname  = 'Boundary_layer_interface_salinity_for_ocean'
-       units    = 'psu'
-       attname  = 'Sg_blis'
-       call metadata_set(attname, longname, stdname, units)
+    name = 'Fogx_qiceli'
+    call seq_flds_add(x2g_fluxes,trim(name))
+    longname = 'Subshelf mass flux for ice sheet'
+    stdname  = 'Subshelf_mass_flux_for_ice_sheet'
+    units    = 'kg m-2 s-1'
+    attname  = 'Fogx_qiceli'
+    call metadata_set(attname, longname, stdname, units)
 
-       name = 'Sg_lithop'
-       call seq_flds_add(g2x_states,trim(name))
-       call seq_flds_add(x2o_states,trim(name))
-       longname = 'Ice sheet lithostatic pressure'
-       stdname  = 'Ice_sheet_lithostatic_pressure'
-       units    = 'Pa'
-       attname  = 'Sg_lithop'
-       call metadata_set(attname, longname, stdname, units)
-
-       name = 'Sg_icemask_grounded'
-       call seq_flds_add(g2x_states,trim(name))
-       call seq_flds_add(x2o_states,trim(name))
-       longname = 'Grounded ice mask'
-       stdname  = 'Grounded_ice_mask'
-       units    = 'unitless'
-       attname  = 'Sg_icemask_grounded'
-       call metadata_set(attname, longname, stdname, units)
-
-       name = 'Sg_icemask_floating'
-       call seq_flds_add(g2x_states,trim(name))
-       call seq_flds_add(x2o_states,trim(name))
-       longname = 'Floating ice mask'
-       stdname  = 'Floating_ice_mask'
-       units    = 'unitless'
-       attname  = 'Sg_icemask_floating'
-       call metadata_set(attname, longname, stdname, units)
-
-       name = 'Sg_tbot'
-       call seq_flds_add(g2x_states,trim(name))
-       call seq_flds_add(x2o_states,trim(name))
-       longname = 'Bottom layer ice temperature'
-       stdname  = 'Bottom_layer_ice_temperature'
-       units    = 'C'
-       attname  = 'Sg_tbot'
-       call metadata_set(attname, longname, stdname, units)
-
-       name = 'Sg_dztbot'
-       call seq_flds_add(g2x_states,trim(name))
-       call seq_flds_add(x2o_states,trim(name))
-       longname = 'Bottom layer ice layer half thickness'
-       stdname  = 'Bottom_layer_ice_layer_half_thickness'
-       units    = 'm'
-       attname  = 'Sg_dztbot'
-       call metadata_set(attname, longname, stdname, units)
-
-       name = 'Fogx_qiceli'
-       call seq_flds_add(x2g_fluxes,trim(name))
-       longname = 'Subshelf mass flux for ice sheet'
-       stdname  = 'Subshelf_mass_flux_for_ice_sheet'
-       units    = 'kg m-2 s-1'
-       attname  = 'Fogx_qiceli'
-       call metadata_set(attname, longname, stdname, units)
-
-       name = 'Fogx_qicehi'
-       call seq_flds_add(x2g_fluxes,trim(name))
-       longname = 'Subshelf heat flux for ice sheet'
-       stdname  = 'Subshelf_heat_flux_for_ice_sheet'
-       units    = 'W m-2'
-       attname  = 'Fogx_qicehi'
-       call metadata_set(attname, longname, stdname, units)
-    endif
+    name = 'Fogx_qicehi'
+    call seq_flds_add(x2g_fluxes,trim(name))
+    longname = 'Subshelf heat flux for ice sheet'
+    stdname  = 'Subshelf_heat_flux_for_ice_sheet'
+    units    = 'W m-2'
+    attname  = 'Fogx_qicehi'
+    call metadata_set(attname, longname, stdname, units)
 
     ! Done glc fields
 
@@ -4048,6 +4199,8 @@ contains
     seq_flds_x2r_states = trim(x2r_states)
     seq_flds_w2x_states = trim(w2x_states)
     seq_flds_x2w_states = trim(x2w_states)
+    seq_flds_x2z_states = trim(x2z_states)
+    seq_flds_z2x_states = trim(z2x_states)
 
     seq_flds_dom_other  = trim(dom_other )
     seq_flds_a2x_fluxes = trim(a2x_fluxes)
@@ -4073,6 +4226,8 @@ contains
     seq_flds_x2r_fluxes = trim(x2r_fluxes)
     seq_flds_w2x_fluxes = trim(w2x_fluxes)
     seq_flds_x2w_fluxes = trim(x2w_fluxes)
+    seq_flds_z2x_fluxes = trim(z2x_fluxes)
+    seq_flds_x2z_fluxes = trim(x2z_fluxes)
     seq_flds_r2o_liq_fluxes = trim(r2o_liq_fluxes)
     seq_flds_r2o_ice_fluxes = trim(r2o_ice_fluxes)
     seq_flds_o2x_states_to_rof = trim(o2x_states_to_rof)
@@ -4128,6 +4283,10 @@ contains
        write(logunit,*) subname//': seq_flds_x2w_states= ',trim(seq_flds_x2w_states)
        write(logunit,*) subname//': seq_flds_x2w_fluxes= ',trim(seq_flds_x2w_fluxes)
        write(logunit,*) subname//': seq_flds_o2x_states_to_rof=',trim(seq_flds_o2x_states_to_rof)
+       write(logunit,*) subname//': seq_flds_z2x_states= ',trim(seq_flds_z2x_states)
+       write(logunit,*) subname//': seq_flds_z2x_fluxes= ',trim(seq_flds_z2x_fluxes)
+       write(logunit,*) subname//': seq_flds_x2z_states= ',trim(seq_flds_x2z_states)
+       write(logunit,*) subname//': seq_flds_x2z_fluxes= ',trim(seq_flds_x2z_fluxes)
     end if
 
     call catFields(seq_flds_dom_fields, seq_flds_dom_coord , seq_flds_dom_other )
@@ -4153,6 +4312,8 @@ contains
     call catFields(seq_flds_w2x_fields, seq_flds_w2x_states, seq_flds_w2x_fluxes)
     call catFields(seq_flds_x2w_fields, seq_flds_x2w_states, seq_flds_x2w_fluxes)
     call catFields(seq_flds_o2x_fields_to_rof, seq_flds_o2x_states_to_rof, seq_flds_o2x_fluxes_to_rof)
+    call catFields(seq_flds_z2x_fields, seq_flds_z2x_states, seq_flds_z2x_fluxes)
+    call catFields(seq_flds_x2z_fields, seq_flds_x2z_states, seq_flds_x2z_fluxes)
 
   end subroutine seq_flds_set
 
@@ -4406,6 +4567,66 @@ contains
        end do
     end if
   end subroutine set_glc_elevclass_field
+
+  !===============================================================================
+
+  subroutine set_glc_zocnclass_field(name, attname, longname, stdname, units, fieldlist, &
+       additional_list)
+
+    ! Sets a coupling field for all ocn z classes (1:glc_nzoc)
+    !
+    ! Note that, if glc_nzoc = 0, then we don't create any coupling fields
+    !
+    ! Puts the coupling fields in the given fieldlist, and also does the appropriate
+    ! metadata_set calls.
+    !
+    ! additional_list should be .false. (or absent) the first time this is called for a
+    ! given set of coupling fields. However, if this same set of coupling fields is being
+    ! added to multiple field lists, then additional_list should be set to true for the
+    ! second and subsequent calls; in this case, the metadata_set calls are not done
+    ! (because they have already been done).
+    !
+    ! name, attname and longname give the base name of the field; the ocn z class
+    ! index will be appended as a suffix
+
+    ! !USES:
+    use glc_zocnclass_mod, only : glc_get_num_zocn_classes, glc_zocnclass_as_string
+
+    ! !INPUT/OUTPUT PARAMETERS:
+    character(len=*), intent(in) :: name     ! base field name to add to fieldlist
+    character(len=*), intent(in) :: attname  ! base field name for metadata
+    character(len=*), intent(in) :: longname ! base long name for metadata
+    character(len=*), intent(in) :: stdname  ! standard name for metadata
+    character(len=*), intent(in) :: units    ! units for metadata
+    character(len=*), intent(inout) :: fieldlist  ! field list into which the fields should be added
+
+    logical, intent(in), optional :: additional_list  ! whether this is an additional list for the same set of coupling fields (see above for details; defaults to false)
+
+    !EOP
+    integer            :: num
+    character(len= 16) :: cnum
+    logical :: l_additional_list  ! local version of the optional additional_list argument
+
+    l_additional_list = .false.
+    if (present(additional_list)) then
+       l_additional_list = additional_list
+    end if
+
+    if (glc_get_num_zocn_classes() > 0) then
+       do num = 1, glc_get_num_zocn_classes()
+          cnum = glc_zocnclass_as_string(num)
+
+          call seq_flds_add(fieldlist, trim(name) // trim(cnum))
+
+          if (.not. l_additional_list) then
+             call metadata_set(attname  = trim(attname) // trim(cnum), &
+                  longname = trim(longname) // ' of thermal forcing class ' // trim(cnum), &
+                  stdname  = stdname, &
+                  units    = units)
+          end if
+       end do
+    end if
+  end subroutine set_glc_zocnclass_field
 
   !===============================================================================
 

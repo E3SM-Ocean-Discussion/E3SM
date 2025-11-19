@@ -2,7 +2,7 @@
 
 #include "share/field/field_utils.hpp"
 
-#include <ekat/ekat_assert.hpp>
+#include <ekat_assert.hpp>
 
 #include <algorithm>
 #include <cstring>
@@ -11,17 +11,13 @@
 namespace scream
 {
 // Constructor(s) & Destructor
-AbstractGrid::
-AbstractGrid (const std::string& name,
-              const GridType type,
-              const int num_local_dofs,
-              const int num_vertical_lev,
-              const ekat::Comm& comm)
- : m_type (type)
- , m_name (name)
- , m_num_local_dofs (num_local_dofs)
- , m_num_vert_levs  (num_vertical_lev)
- , m_comm (comm)
+AbstractGrid::AbstractGrid(const std::string &name, const GridType type, const int num_local_dofs,
+                           const int num_vertical_lev, const ekat::Comm &comm)
+ : m_type(type),
+   m_name(name),
+   m_num_local_dofs(num_local_dofs),
+   m_num_vert_levs(num_vertical_lev),
+   m_comm(comm)
 {
   // Sanity checks
   EKAT_REQUIRE_MSG (m_num_local_dofs>=0, "Error! Number of local dofs must be non-negative.\n");
@@ -81,7 +77,7 @@ get_vertical_layout (const bool midpoints,
 {
   using namespace ShortFieldTagsNames;
   auto l = get_vertical_layout(midpoints);
-  l.append_dim(CMP,vector_dim,vec_dim_name);
+  l.prepend_dim(CMP,vector_dim,vec_dim_name);
   return l;
 }
 
@@ -257,9 +253,10 @@ is_valid_layout (const FieldLayout& layout) const
     case LayoutType::Tensor0D:
       // 0d quantities are always ok
       return true;
-    case LayoutType::Scalar1D: [[fallthrough]];
-    case LayoutType::Vector1D:
+    case LayoutType::Scalar1D:
       return layout.congruent(get_vertical_layout(midpoints));
+    case LayoutType::Vector1D:
+        return layout.congruent(get_vertical_layout(midpoints,layout.get_vector_dim()));
     case LayoutType::Scalar2D:
       return layout.congruent(get_2d_scalar_layout());
     case LayoutType::Vector2D:
@@ -284,7 +281,7 @@ get_global_min_dof_gid () const ->gid_type
   std::lock_guard<std::mutex> lock(m_mutex); // Lock the mutex
   // Lazy calculation
   if (m_global_min_dof_gid==std::numeric_limits<gid_type>::max()) {
-    m_global_min_dof_gid = field_min<gid_type>(m_dofs_gids,&get_comm());
+    m_global_min_dof_gid = field_min(m_dofs_gids,&get_comm()).as<gid_type>();
   }
   return m_global_min_dof_gid;
 }
@@ -295,7 +292,7 @@ get_global_max_dof_gid () const ->gid_type
   std::lock_guard<std::mutex> lock(m_mutex); // Lock the mutex
   // Lazy calculation
   if (m_global_max_dof_gid==-std::numeric_limits<gid_type>::max()) {
-    m_global_max_dof_gid = field_max<gid_type>(m_dofs_gids,&get_comm());
+    m_global_max_dof_gid = field_max(m_dofs_gids,&get_comm()).as<gid_type>();
   }
   return m_global_max_dof_gid;
 }
@@ -306,7 +303,7 @@ get_global_min_partitioned_dim_gid () const ->gid_type
   std::lock_guard<std::mutex> lock(m_mutex); // Lock the mutex
   // Lazy calculation
   if (m_global_min_partitioned_dim_gid==std::numeric_limits<gid_type>::max()) {
-    m_global_min_partitioned_dim_gid = field_min<gid_type>(m_partitioned_dim_gids,&get_comm());
+    m_global_min_partitioned_dim_gid = field_min(m_partitioned_dim_gids,&get_comm()).as<gid_type>();
   }
   return m_global_min_partitioned_dim_gid;
 }
@@ -317,7 +314,7 @@ get_global_max_partitioned_dim_gid () const ->gid_type
   std::lock_guard<std::mutex> lock(m_mutex); // Lock the mutex
   // Lazy calculation
   if (m_global_max_partitioned_dim_gid==-std::numeric_limits<gid_type>::max()) {
-    m_global_max_partitioned_dim_gid = field_max<gid_type>(m_partitioned_dim_gids,&get_comm());
+    m_global_max_partitioned_dim_gid = field_max(m_partitioned_dim_gids,&get_comm()).as<gid_type>();
   }
   return m_global_max_partitioned_dim_gid;
 }
@@ -465,6 +462,31 @@ AbstractGrid::get_unique_gids () const
   }
 
   return unique_dofs;
+}
+
+std::shared_ptr<AbstractGrid>
+AbstractGrid::get_aux_grid(const std::string& data_layout) const
+{
+  if (m_aux_grids.count(data_layout)==1) {
+    return m_aux_grids.at(data_layout);
+  } else {
+    return nullptr;
+  }
+}
+
+void AbstractGrid::
+set_aux_grid (const std::string& data_layout, const std::shared_ptr<AbstractGrid>& aux_grid)
+{
+  m_aux_grids[data_layout] = aux_grid;
+}
+
+std::vector<std::string> AbstractGrid::get_aux_grids_keys () const
+{
+  std::vector<std::string> keys;
+  for (const auto& it : m_aux_grids) {
+    keys.push_back(it.first);
+  }
+  return keys;
 }
 
 std::vector<int> AbstractGrid::

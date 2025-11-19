@@ -7,60 +7,9 @@ module zm_aero
    use ppgrid,           only: pcols, pver, pverp
    use cam_abortutils,   only: endrun
    use cam_logfile,      only: iulog
+   use zm_aero_type,     only: zm_aero_t
 
-   public :: zm_aero_t     ! structure to hold aerosol state information for ZM microphysics
    public :: zm_aero_init  ! aerosol stype initialization
-
-!===================================================================================================
-
-! generic 2D pointer type for zm_aero_t
-type, public :: ptr2d
-   real(r8), pointer :: val(:,:)
-end type ptr2d
-
-! structure to hold aerosol state information for ZM microphysics
-type :: zm_aero_t
-
-   ! Aerosol treatment
-   character(len=5) :: scheme  ! either 'bulk' or 'modal'
-
-   ! Bulk aerosols
-   integer :: nbulk    =  0 ! number of bulk aerosols affecting climate
-   integer :: idxsul   = -1 ! index in aerosol list for sulfate
-   integer :: idxdst1  = -1 ! index in aerosol list for dust1
-   integer :: idxdst2  = -1 ! index in aerosol list for dust2
-   integer :: idxdst3  = -1 ! index in aerosol list for dust3
-   integer :: idxdst4  = -1 ! index in aerosol list for dust4
-   integer :: idxbcphi = -1 ! index in aerosol list for Soot (BCPHI)
-
-   real(r8),    allocatable :: num_to_mass_aer(:)  ! conversion of mmr to number conc for bulk aerosols
-   type(ptr2d), allocatable :: mmr_bulk(:)         ! array of pointers to bulk aerosol mmr
-   real(r8),    allocatable :: mmrg_bulk(:,:,:)    ! gathered bulk aerosol mmr
-
-   ! Modal aerosols
-   integer                  :: nmodes = 0      ! number of modes
-   integer,     allocatable :: nspec(:)        ! number of species in each mode
-   type(ptr2d), allocatable :: num_a(:)        ! number mixing ratio of modes (interstitial phase)
-   type(ptr2d), allocatable :: mmr_a(:,:)      ! species mmr in each mode (interstitial phase)
-   real(r8),    allocatable :: numg_a(:,:,:)   ! gathered number mixing ratio of modes (interstitial phase)
-   real(r8),    allocatable :: mmrg_a(:,:,:,:) ! gathered species mmr in each mode (interstitial phase)
-   real(r8),    allocatable :: voltonumblo(:)  ! volume to number conversion (lower bound) for each mode
-   real(r8),    allocatable :: voltonumbhi(:)  ! volume to number conversion (upper bound) for each mode
-   real(r8),    allocatable :: specdens(:,:)   ! density of modal species
-   real(r8),    allocatable :: spechygro(:,:)  ! hygroscopicity of modal species
-
-   integer :: mode_accum_idx  = -1  ! index of accumulation mode
-   integer :: mode_aitken_idx = -1  ! index of aitken mode
-   integer :: mode_coarse_idx = -1  ! index of coarse mode
-   integer :: coarse_dust_idx = -1  ! index of dust in coarse mode
-   integer :: coarse_nacl_idx = -1  ! index of nacl in coarse mode
-
-   type(ptr2d), allocatable :: dgnum(:)        ! mode dry radius
-   real(r8),    allocatable :: dgnumg(:,:,:)   ! gathered mode dry radius
-
-   real(r8) :: sigmag_aitken
-
-end type zm_aero_t
 
 !===================================================================================================
 contains
@@ -131,16 +80,49 @@ subroutine zm_aero_init(nmodes, nbulk, aero)
             aero%coarse_dust_idx = l
          case ('seasalt')
             aero%coarse_nacl_idx = l
+         case ('sulfate')
+            aero%coarse_so4_idx = l
+#if ( defined MODAL_AERO_4MODE_MOM  || defined MODAL_AERO_5MODE )
+         case ('m-organic')
+            aero%coarse_mom_idx  = l
+#endif
+#if ( defined RAIN_EVAP_TO_COARSE_AERO )
+         case ('black-c')
+            aero%coarse_bc_idx   = l
+         case ('p-organic')
+            aero%coarse_pom_idx  = l
+         case ('s-organic')
+            aero%coarse_soa_idx  = l
+#endif
          end select
       end do
 
       ! Check that required modal species types were found
       if (aero%coarse_dust_idx == -1 .or. &
-          aero%coarse_nacl_idx == -1) then
+          aero%coarse_nacl_idx == -1 .or. &
+          aero%coarse_so4_idx == -1) then
          write(iulog,*) routine//': ERROR required mode-species type not found - indicies:', &
-            aero%coarse_dust_idx, aero%coarse_nacl_idx
+            aero%coarse_dust_idx, aero%coarse_nacl_idx, aero%coarse_so4_idx
          call endrun(routine//': ERROR required mode-species type not found')
       end if
+
+#if ( defined MODAL_AERO_4MODE_MOM  || defined MODAL_AERO_5MODE )
+      if (aero%coarse_mom_idx == -1) then
+         write(iulog,*) routine//': ERROR required mode-species type not found - indicies:', &
+            aero%coarse_mom_idx
+         call endrun(routine//': ERROR required mode-species type not found')
+      end if
+#endif
+
+#if ( defined RAIN_EVAP_TO_COARSE_AERO )
+      if (aero%coarse_bc_idx == -1 .or. &
+          aero%coarse_pom_idx == -1 .or. &
+          aero%coarse_soa_idx == -1) then
+         write(iulog,*) routine//': ERROR required mode-species type not found - indicies:', &
+            aero%coarse_bc_idx, aero%coarse_pom_idx, aero%coarse_soa_idx
+         call endrun(routine//': ERROR required mode-species type not found')
+      end if
+#endif
 
       allocate( &
          aero%num_a(nmodes), &

@@ -2,7 +2,7 @@
 #define SHOC_SHOC_ASSUMED_PDF_IMPL_HPP
 
 #include "shoc_functions.hpp" // for ETI only but harmless for GPU
-#include "physics/share/physics_functions.hpp"
+#include "share/physics/physics_functions.hpp"
 
 #include <iomanip>
 
@@ -47,6 +47,8 @@ void Functions<S,D>::shoc_assumed_pdf(
   const uview_1d<const Spack>& w_field,
   const uview_1d<const Spack>& thl_sec,
   const uview_1d<const Spack>& qw_sec,
+  const Scalar&                dtime,
+  const bool&                  extra_diags,
   const uview_1d<const Spack>& wthl_sec,
   const uview_1d<const Spack>& w_sec,
   const uview_1d<const Spack>& wqw_sec,
@@ -56,6 +58,8 @@ void Functions<S,D>::shoc_assumed_pdf(
   const uview_1d<const Spack>& zt_grid,
   const uview_1d<const Spack>& zi_grid,
   const Workspace&             workspace,
+  const uview_1d<Spack>&       shoc_cond,
+  const uview_1d<Spack>&       shoc_evap,
   const uview_1d<Spack>&       shoc_cldfrac,
   const uview_1d<Spack>&       shoc_ql,
   const uview_1d<Spack>&       wqls,
@@ -233,6 +237,13 @@ void Functions<S,D>::shoc_assumed_pdf(
 
       // Compute SGS cloud fraction
       shoc_cldfrac(k) = ekat::min(1, a*C1 + (1 - a)*C2);
+
+     // Compute cond and evap tendencies
+      if (extra_diags) {
+        auto dum     = ekat::max(0, a * ql1 + (1 - a) * ql2);
+        shoc_cond(k) = ekat::max(0, (dum - shoc_ql(k)) / dtime);
+        shoc_evap(k) = ekat::max(0, (shoc_ql(k) - dum) / dtime);
+      } 
 
       // Compute SGS liquid water mixing ratio
       shoc_assumed_pdf_compute_sgs_liquid(a, ql1, ql2, shoc_ql(k));

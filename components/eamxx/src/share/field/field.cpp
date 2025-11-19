@@ -5,10 +5,12 @@ namespace scream
 {
 
 Field::
-Field (const identifier_type& id)
- : m_header (create_header(id))
+Field (const identifier_type& id, bool allocate)
 {
-  // Nothing to do here
+  m_header = std::make_shared<FieldHeader>(id);
+  if (allocate) {
+    allocate_view();
+  }
 }
 
 Field
@@ -58,8 +60,8 @@ Field::clone(const std::string& name, const std::string& grid_name) const {
   f.get_header().get_tracking().update_time_stamp(ts);
 
   // Deep copy
-  f.deep_copy<Device>(*this);
-  f.deep_copy<Host>(*this);
+  f.deep_copy(*this);
+  f.sync_to_host();
 
   return f;
 }
@@ -167,7 +169,7 @@ Field Field::subfield(const int idim, const int index_beg,
 }
 
 Field Field::
-get_component (const int i, const bool dynamic) {
+get_component (const int i, const bool dynamic) const {
   const auto& layout = get_header().get_identifier().get_layout();
   const auto& fname = get_header().get_identifier().name();
   EKAT_REQUIRE_MSG (layout.is_vector_layout(),
@@ -183,7 +185,7 @@ get_component (const int i, const bool dynamic) {
   return subfield (fname + "_" + std::to_string(i),idim,i,dynamic);
 }
 
-Field Field::get_components(const int beg, const int end) {
+Field Field::get_components(const int beg, const int end) const {
   const auto& layout = get_header().get_identifier().get_layout();
   const auto& fname = get_header().get_identifier().name();
   EKAT_REQUIRE_MSG(layout.is_vector_layout(),
@@ -238,6 +240,11 @@ void Field::allocate_view ()
 
   m_data.d_view = decltype(m_data.d_view)(id.name(),view_dim);
   m_data.h_view = Kokkos::create_mirror_view(m_data.d_view);
+}
+
+void Field::deep_copy (const Field& src)
+{
+  update<CombineMode::Replace>(src,1,0);
 }
 
 } // namespace scream

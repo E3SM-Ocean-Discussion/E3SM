@@ -4,17 +4,21 @@ module zm_transport
    ! Transport routines for the Zhang-McFarlane deep convection scheme
    !
    !----------------------------------------------------------------------------
-   use shr_kind_mod,    only: r8 => shr_kind_r8
+#ifdef SCREAM_CONFIG_IS_CMAKE
+   use zm_eamxx_bridge_params, only: r8
+#else
+   use shr_kind_mod,     only: r8=>shr_kind_r8
    use ppgrid
-   use cam_abortutils,  only: endrun
-   use constituents,    only: cnst_get_type_byind
-   use zm_conv,         only: zm_microp
-   use cam_logfile,     only: iulog
+   use cam_abortutils,   only: endrun
+   use cam_logfile,      only: iulog
+#endif
 
    implicit none
 
    ! public methods
+#ifndef SCREAM_CONFIG_IS_CMAKE
    public :: zm_transport_tracer    ! convective tracer transport
+#endif
    public :: zm_transport_momentum  ! convective momentum transport
 
    private
@@ -25,16 +29,24 @@ contains
 
 !===================================================================================================
 
-subroutine zm_transport_tracer( doconvtran, q, ncnst, &
+! We need to avoid building this for now when bridging from EAMxx
+#ifndef SCREAM_CONFIG_IS_CMAKE
+
+subroutine zm_transport_tracer( pcols, ncol, pver, &
+                                doconvtran, q, ncnst, &
                                 mu, md, du, eu, ed, dp, &
                                 jt, mx, ideep, il1g, il2g, &
                                 fracis, dqdt, dpdry, dt ) 
    !---------------------------------------------------------------------------- 
    ! Purpose: Convective transport of tracer species
    !----------------------------------------------------------------------------
-   implicit none
+   use zm_conv,         only: zm_param
+   use constituents,    only: cnst_get_type_byind
    !----------------------------------------------------------------------------
    ! Arguments
+   integer,                               intent(in)  :: pcols       ! maximum number of columns
+   integer,                               intent(in)  :: ncol        ! actual number of columns
+   integer,                               intent(in)  :: pver        ! number of mid-point levels
    integer,                               intent(in)  :: ncnst       ! number of tracers to transport
    logical,  dimension(ncnst),            intent(in)  :: doconvtran  ! flag for doing convective transport
    real(r8), dimension(pcols,pver,ncnst), intent(in)  :: q           ! tracer array (including water vapor)
@@ -238,7 +250,7 @@ subroutine zm_transport_tracer( doconvtran, q, ncnst, &
          end do
 
          ! Conservation check for ZM microphysics
-         if (zm_microp) then
+         if (zm_param%zm_microp) then
             do i = il1g,il2g
                do k = jt(i),mx(i)
                   if (dcondt(i,k)*dt+const(i,k)<0._r8) then
@@ -296,19 +308,24 @@ subroutine zm_transport_tracer( doconvtran, q, ncnst, &
 
 end subroutine zm_transport_tracer
 
+#endif /* SCREAM_CONFIG_IS_CMAKE */
+
 !===================================================================================================
 
-subroutine zm_transport_momentum( ncol, wind_in, nwind, &
+subroutine zm_transport_momentum( pcols, ncol, pver, pverp, wind_in, nwind, &
                                   mu, md, du, eu, ed, dp, &
                                   jt, mx, ideep, il1g, il2g, &
                                   wind_tend, pguall, pgdall, icwu, icwd, dt, seten )
    !---------------------------------------------------------------------------- 
    ! Purpose: Convective transport of momentum
    !----------------------------------------------------------------------------
-   implicit none
+   use zm_conv,         only: zm_param
    !----------------------------------------------------------------------------
    ! Arguments
-   integer,                               intent(in)  :: ncol        ! number of atmospheric columns
+   integer,                               intent(in)  :: pcols       ! maximum number of columns
+   integer,                               intent(in)  :: ncol        ! actual number of columns
+   integer,                               intent(in)  :: pver        ! number of mid-point levels
+   integer,                               intent(in)  :: pverp       ! number of interface levels
    integer,                               intent(in)  :: nwind       ! number of tracers to transport
    real(r8), dimension(pcols,pver,nwind), intent(in)  :: wind_in     ! input Momentum array
    real(r8), dimension(pcols,pver),       intent(in)  :: mu          ! mass flux up
