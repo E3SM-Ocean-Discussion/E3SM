@@ -149,7 +149,7 @@ mpas_ocn_tracer_hmix_redi.o: mpas_ocn_constants.o mpas_ocn_config.o
 
 mpas_ocn_high_freq_thickness_hmix_del2.o: mpas_ocn_constants.o mpas_ocn_config.o mpas_ocn_mesh.o
 
-mpas_ocn_tracer_nonlocalflux.o: mpas_ocn_constants.o mpas_ocn_config.o
+mpas_ocn_tracer_nonlocalflux.o: mpas_ocn_constants.o mpas_ocn_config.o mpas_ocn_diagnostics_variables.o mpas_ocn_mesh.o
 
 mpas_ocn_tracer_short_wave_absorption.o: mpas_ocn_tracer_short_wave_absorption_jerlov.o mpas_ocn_tracer_short_wave_absorption_variable.o mpas_ocn_constants.o mpas_ocn_config.o
 
