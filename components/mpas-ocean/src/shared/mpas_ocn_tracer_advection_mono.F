@@ -180,11 +180,11 @@ module ocn_tracer_advection_mono
       !$acc            nEdgesOnCell, edgesOnCell, edgeSignOnCell, &
       !$acc            layerThickness, normalThicknessFlux, w, &
       !$acc            hProv, hProvInv, hNewInv) &
-      !$acc    private(k,kmin,kmax,i,iEdge, invAreaCell1, signedFactor) 
+      !$acc    private(k,kmin,kmax,i,iEdge, invAreaCell1, signedFactor)
 #else
       !$omp parallel
       !$omp do schedule(runtime) &
-      !$omp    private(k,kmin,kmax,i,iEdge, invAreaCell1, signedFactor) 
+      !$omp    private(k,kmin,kmax,i,iEdge, invAreaCell1, signedFactor)
 #endif
       do iCell = 1, nCellsAll
          invAreaCell1 = dt/areaCell(iCell)
@@ -305,7 +305,7 @@ module ocn_tracer_advection_mono
 #ifdef MPAS_OPENACC
         !$acc parallel loop &
         !$acc    present(minLevelCell, maxLevelCell, minLevelEdgeBot, &
-        !$acc            maxLevelEdgeTop, nAdvCellsForEdge, & 
+        !$acc            maxLevelEdgeTop, nAdvCellsForEdge, &
         !$acc            advCellsForEdge, cellsOnEdge, dvEdge, &
         !$acc            advMaskHighOrder, advCoefs, advCoefs3rd, &
         !$acc            tracerCur, normalThicknessFlux, &
@@ -517,11 +517,11 @@ module ocn_tracer_advection_mono
         !$acc            nEdgesOnCell, edgesOnCell, edgeSignOnCell, &
         !$acc            workTend, highOrderFlx, layerThickness, &
         !$acc            tracerCur, hProvInv, tend) &
-        !$acc    private(i, k, iEdge, invAreaCell1, signedFactor) 
+        !$acc    private(i, k, iEdge, invAreaCell1, signedFactor)
 #else
         !$omp parallel
         !$omp do schedule(runtime) &
-        !$omp    private(i, k, iEdge, invAreaCell1, signedFactor) 
+        !$omp    private(i, k, iEdge, invAreaCell1, signedFactor)
 #endif
         do iCell = 1, nCellsOwned
            invAreaCell1 = 1.0_RKIND / areaCell(iCell)
@@ -687,6 +687,7 @@ module ocn_tracer_advection_mono
         do iCell = 1, nCells
            kmin = minLevelCell(iCell)
            kmax = maxLevelCell(iCell)
+           if (kmax == 0) cycle
 
            ! take care of top cell
            tracerMax(kmin,iCell) = max(tracerCur(1,iCell), &
@@ -792,7 +793,7 @@ module ocn_tracer_advection_mono
         !$acc            tracerCur, tracerMax, tracerMin, &
         !$acc            workTend, flxIn, flxOut) &
         !$acc    private(k, tracerMinNew, tracerMaxNew, &
-        !$acc            tracerUpwindNew, scaleFactor) 
+        !$acc            tracerUpwindNew, scaleFactor)
 #else
         !$omp parallel
         !$omp do schedule(runtime) &
