@@ -90,10 +90,12 @@ contains
                                   seq_infodata_start_type_start, seq_infodata_start_type_cont,   &
                                   seq_infodata_start_type_brnch
     use seq_comm_mct     , only : seq_comm_suffix, seq_comm_inst, seq_comm_name
-    use seq_flds_mod     , only : seq_flds_x2l_fields, seq_flds_l2x_fields, lnd_rof_two_way
+    use seq_flds_mod     , only : seq_flds_x2l_fields, seq_flds_l2x_fields
+    use seq_flds_mod     , only : lnd_rof_two_way, ocn_lnd_one_way
     use spmdMod          , only : masterproc, npes, spmd_init
-    use elm_varctl       , only : nsrStartup, nsrContinue, nsrBranch, use_lnd_rof_two_way
+    use elm_varctl       , only : nsrStartup, nsrContinue, nsrBranch
     use elm_varctl       , only:  elm_varctl_set_iac_flag
+    use elm_varctl       , only : use_lnd_rof_two_way, use_ocn_lnd_one_way
     use elm_cpl_indices  , only : elm_cpl_indices_set
     use perf_mod         , only : t_startf, t_stopf
     use mct_mod
@@ -291,6 +293,8 @@ contains
 
     use_lnd_rof_two_way = lnd_rof_two_way
 
+    use_ocn_lnd_one_way = ocn_lnd_one_way
+    
     ! Read namelist, grid and surface data
 
     call initialize1( )
@@ -317,6 +321,7 @@ contains
     call get_proc_bounds( bounds )
 
     call lnd_SetgsMap_mct( bounds, mpicom_lnd, LNDID, gsMap_lnd )
+
     lsz = mct_gsMap_lsize(gsMap_lnd, mpicom_lnd)
 
     call lnd_domain_mct( bounds, lsz, gsMap_lnd, dom_l )
@@ -378,7 +383,7 @@ contains
 
     ! Fill in infodata settings
 
-    call seq_infodata_PutData(infodata, lnd_prognostic=.true.)
+    call seq_infodata_PutData(infodata, lnd_prognostic=.true., lndocn_prognostic=use_ocn_lnd_one_way)
     call seq_infodata_PutData(infodata, lnd_nx=ldomain%ni, lnd_ny=ldomain%nj, precip_downscaling_method = precip_downscaling_method)
 
 #ifdef HAVE_MOAB
@@ -435,7 +440,7 @@ contains
     ! !USES:
     use shr_kind_mod    ,  only : r8 => shr_kind_r8
     use elm_instMod     , only : lnd2atm_vars, atm2lnd_vars, lnd2glc_vars, glc2lnd_vars
-    use elm_instMod     , only : lnd2iac_vars, iac2lnd_vars
+    use elm_instMod     , only : lnd2iac_vars, iac2lnd_vars, ocn2lnd_vars
     use elm_driver      ,  only : elm_drv
     use elm_time_manager,  only : get_curr_date, get_nstep, get_curr_calday, get_step_size
     use elm_time_manager,  only : advance_timestep, set_nextsw_cday,update_rad_dtime
@@ -555,7 +560,7 @@ contains
     ! Map to elm (only when state and/or fluxes need to be updated)
 
     call t_startf ('lc_lnd_import')
-    call lnd_import( bounds, x2l_l%rattr, atm2lnd_vars, glc2lnd_vars, lnd2atm_vars, iac2lnd_vars)
+    call lnd_import( bounds, x2l_l%rattr, atm2lnd_vars, glc2lnd_vars, ocn2lnd_vars, lnd2atm_vars, iac2lnd_vars)
 #ifdef HAVE_MOAB
 ! calling MOAB's import last means this is what the model will use.
     call lnd_import_moab( EClock, bounds, atm2lnd_vars, glc2lnd_vars)
@@ -1046,7 +1051,7 @@ contains
     ! !USES:
     use shr_kind_mod       , only : r8 => shr_kind_r8
     use shr_kind_mod       , only : CXX => SHR_KIND_CXX
-    use elm_varctl         , only : iulog, create_glacier_mec_landunit
+    use elm_varctl         , only : iulog, create_glacier_mec_landunit, use_finetop_rad
     use elm_time_manager   , only : get_nstep, get_step_size
     use domainMod          , only : ldomain
     use seq_drydep_mod     , only : n_drydep
@@ -1083,10 +1088,19 @@ contains
        i = 1 + (g-bounds%begg)
        l2x_lm(i,index_l2x_Sl_t)        =  lnd2atm_vars%t_rad_grc(g)
        l2x_lm(i,index_l2x_Sl_snowh)    =  lnd2atm_vars%h2osno_grc(g)
-       l2x_lm(i,index_l2x_Sl_avsdr)    =  lnd2atm_vars%albd_grc(g,1)
-       l2x_lm(i,index_l2x_Sl_anidr)    =  lnd2atm_vars%albd_grc(g,2)
-       l2x_lm(i,index_l2x_Sl_avsdf)    =  lnd2atm_vars%albi_grc(g,1)
-       l2x_lm(i,index_l2x_Sl_anidf)    =  lnd2atm_vars%albi_grc(g,2)
+
+       if (use_finetop_rad) then
+          l2x_lm(i,index_l2x_Sl_avsdr)    =  lnd2atm_vars%apparent_albd_grc(g,1)
+          l2x_lm(i,index_l2x_Sl_anidr)    =  lnd2atm_vars%apparent_albd_grc(g,2)
+          l2x_lm(i,index_l2x_Sl_avsdf)    =  lnd2atm_vars%apparent_albi_grc(g,1)
+          l2x_lm(i,index_l2x_Sl_anidf)    =  lnd2atm_vars%apparent_albi_grc(g,2)
+       else
+          l2x_lm(i,index_l2x_Sl_avsdr)    =  lnd2atm_vars%albd_grc(g,1)
+          l2x_lm(i,index_l2x_Sl_anidr)    =  lnd2atm_vars%albd_grc(g,2)
+          l2x_lm(i,index_l2x_Sl_avsdf)    =  lnd2atm_vars%albi_grc(g,1)
+          l2x_lm(i,index_l2x_Sl_anidf)    =  lnd2atm_vars%albi_grc(g,2)
+       end if
+       
        l2x_lm(i,index_l2x_Sl_tref)     =  lnd2atm_vars%t_ref2m_grc(g)
        l2x_lm(i,index_l2x_Sl_qref)     =  lnd2atm_vars%q_ref2m_grc(g)
        l2x_lm(i,index_l2x_Sl_u10)      =  lnd2atm_vars%u_ref10m_grc(g)
@@ -1205,6 +1219,7 @@ contains
     use fileutils        , only: getavu, relavu
     use spmdmod          , only: masterproc, mpicom, iam, npes, MPI_REAL8, MPI_INTEGER, MPI_STATUS_SIZE
     use elm_nlUtilsMod   , only : find_nlgroup_name
+    use FrictionVelocityMod, only: implicit_stress, atm_gustiness
     use seq_timemgr_mod, only : seq_timemgr_eclockgetdata
     use netcdf
     !
@@ -1425,9 +1440,21 @@ contains
          top_as%ubot(topo)    = x2l_lm(i,index_x2l_Sa_u)         ! forc_uxy  Atm state m/s
          top_as%vbot(topo)    = x2l_lm(i,index_x2l_Sa_v)         ! forc_vxy  Atm state m/s
          top_as%zbot(topo)    = x2l_lm(i,index_x2l_Sa_z)         ! zgcmxy    Atm state m
+         if (implicit_stress) then
+            top_as%wsresp(topo)  = x2l_lm(i,index_x2l_Sa_wsresp) !           Atm state m/s/Pa
+            top_as%tau_est(topo) = x2l_lm(i,index_x2l_Sa_tau_est)!           Atm state Pa
+         end if
+         if (atm_gustiness) then
+            top_as%ugust(topo)  = x2l_lm(i,index_x2l_Sa_ugust)   !           Atm state m/s
+         else
+            top_as%ugust(topo) = 0._r8
+         end if
          ! assign the state forcing fields derived from other inputs
          ! Horizontal windspeed (m/s)
          top_as%windbot(topo) = sqrt(top_as%ubot(topo)**2 + top_as%vbot(topo)**2)
+         if (atm_gustiness) then
+            top_as%windbot(topo) = sqrt(top_as%windbot(topo)**2 + top_as%ugust(topo)**2)
+         end if
          ! Relative humidity (percent)
          if (top_as%tbot(topo) > SHR_CONST_TKFRZ) then
             e = esatw(tdc(top_as%tbot(topo)))

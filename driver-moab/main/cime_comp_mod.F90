@@ -120,7 +120,7 @@ module cime_comp_mod
   use seq_infodata_mod, only: seq_infodata_print, seq_infodata_init2
 
   ! domain related routines
-  use seq_domain_mct, only : seq_domain_check
+  use seq_domain_mct, only : seq_domain_check_moab
 
   ! history file routines
   use seq_hist_mod, only : seq_hist_write, seq_hist_writeavg, seq_hist_writeaux
@@ -1853,9 +1853,6 @@ contains
     if (single_column         ) domain_check = .false.
     if (dead_comps            ) domain_check = .false.
 
-    ! for MOAB
-    domain_check = .false.
-
     ! set skip_ocean_run flag, used primarily for ocn run on first timestep
     ! use reading a restart as a surrogate from whether this is a startup run
 
@@ -2137,12 +2134,12 @@ contains
        if (domain_check) then
           if (iamroot_CPLID) then
              write(logunit,*) ' '
-             write(logunit,F00) 'Performing domain checking'
+             write(logunit,F00) 'Performing MOAB domain checking'
              call shr_sys_flush(logunit)
           endif
 
-          call seq_domain_check( infodata,                                             &
-               atm(ens1), ice(ens1), lnd(ens1), ocn(ens1), rof(ens1), glc(ens1),       &
+          ! MOAB-based domain checking
+          call seq_domain_check_moab( infodata,                                         &
                samegrid_al, samegrid_ao, samegrid_ro, samegrid_lg)
 
        endif
@@ -2182,28 +2179,28 @@ contains
     call mpi_barrier(mpicom_GLOID,ierr)
     if (atm_present) call component_init_areacor(atm, areafact_samegrid, seq_flds_a2x_fluxes)
     ! send initial data to coupler
-    if (atm_present) call component_init_areacor_moab(atm, mphaid, mbaxid, seq_flds_a2x_fluxes, seq_flds_a2x_fields)
+    if (atm_present) call component_init_areacor_moab(atm, areafact_samegrid, mphaid, mbaxid, seq_flds_a2x_fluxes, seq_flds_a2x_fields)
     ! component_exch_moab(atm(1), mphaid, mbaxid, 0, seq_flds_a2x_fields)
 
     call mpi_barrier(mpicom_GLOID,ierr)
     if (lnd_present) call component_init_areacor(lnd, areafact_samegrid, seq_flds_l2x_fluxes)
     ! MOABTODO : lnd is vertex or cell ?
-    if (lnd_present) call component_init_areacor_moab(lnd, mlnid, mblxid, seq_flds_l2x_fluxes, seq_flds_l2x_fields)
+    if (lnd_present) call component_init_areacor_moab(lnd, areafact_samegrid, mlnid, mblxid, seq_flds_l2x_fluxes, seq_flds_l2x_fields)
     !component_exch_moab(lnd(1), mlnid, mblxid, 0, seq_flds_l2x_fields)
 
     call mpi_barrier(mpicom_GLOID,ierr)
     if (rof_present) call component_init_areacor(rof, areafact_samegrid, seq_flds_r2x_fluxes)
-    if (rof_present) call component_init_areacor_moab(rof, mrofid, mbrxid, seq_flds_r2x_fluxes, seq_flds_r2x_fields)
+    if (rof_present) call component_init_areacor_moab(rof, areafact_samegrid, mrofid, mbrxid, seq_flds_r2x_fluxes, seq_flds_r2x_fields)
     !component_exch_moab(rof(1), mrofid, mbrxid, 0, seq_flds_r2x_fields)
 
     call mpi_barrier(mpicom_GLOID,ierr)
     if (ocn_present) call component_init_areacor(ocn, areafact_samegrid, seq_flds_o2x_fluxes)
-    if (ocn_present) call component_init_areacor_moab(ocn, mpoid, mboxid, seq_flds_o2x_fluxes, seq_flds_o2x_fields)
+    if (ocn_present) call component_init_areacor_moab(ocn, areafact_samegrid, mpoid, mboxid, seq_flds_o2x_fluxes, seq_flds_o2x_fields)
     ! component_exch_moab(ocn(1), mpoid, mboxid, 0, seq_flds_o2x_fields)
 
     call mpi_barrier(mpicom_GLOID,ierr)
     if (ice_present) call component_init_areacor(ice, areafact_samegrid, seq_flds_i2x_fluxes)
-    if (ice_present) call component_init_areacor_moab(ice, mpsiid, mbixid, seq_flds_i2x_fluxes, seq_flds_i2x_fields)
+    if (ice_present) call component_init_areacor_moab(ice, areafact_samegrid, mpsiid, mbixid, seq_flds_i2x_fluxes, seq_flds_i2x_fields)
     !component_exch_moab(ice(1), mpsiid, mbixid, 0, seq_flds_i2x_fields)
 
     call mpi_barrier(mpicom_GLOID,ierr)
@@ -2707,7 +2704,7 @@ contains
     logical               :: prep_glc_accum_avg_called ! Whether prep_glc_accum_avg has been called this timestep
     integer               :: i, nodeId
     character(len=15)     :: c_ymdtod
-    character(len=18)     :: c_mprof_file
+    character(len=28)     :: c_mprof_file
     integer               :: cur_step_no ! step number
 
 101 format( A, i10.8, i8, 12A, A, F8.2, A, F8.2 )
@@ -2797,8 +2794,13 @@ contains
        ! write to standalone file
        if ( iamroot_CPLID) then
           mlog = shr_file_getUnit()
-          ! log-name: memory.{0,1,2,3,4}.$nsecs.log
-          write(c_mprof_file,'(a7,i1,a1,i0,a4)') 'memory.',info_mprof,'.',info_mprof_dt,'.log'
+          ! log-name: memory.{0,1,2,3,4}.$nsecs.log (single instance)
+          !       or: memory_$ninst_driver.{0,1,2,3,4}.$nsecs.log (multiple instances)
+          if (num_inst_driver > 1) then
+             write(c_mprof_file,'(a7,i4.4,a1,i1,a1,i0,a4)') 'memory_',driver_id,'.',info_mprof,'.',info_mprof_dt,'.log'
+          else
+             write(c_mprof_file,'(a7,i1,a1,i0,a4)') 'memory.',info_mprof,'.',info_mprof_dt,'.log'
+          endif
           inquire(file=trim(c_mprof_file),exist=exists)
           if (exists) then
              open(mlog, file=trim(c_mprof_file), status='old', position='append')
@@ -3091,9 +3093,9 @@ contains
 
        !----------------------------------------------------------
        !| ATM/OCN SETUP (rasm_option1)
+       ! map i,w to ocean, calc atmocn fluxes, do merge, accum,
+       !    calc ocn albedos
        !----------------------------------------------------------
-       ! The following maps to the ocean, computes atm/ocn fluxes, merges to the ocean,
-       ! accumulates ocn input and computes ocean albedos
        if (ocn_present) then
           if (trim(cpl_seq_option) == 'RASM_OPTION1') then
              call cime_run_atmocn_setup(hashint)
@@ -3102,6 +3104,7 @@ contains
 
        !----------------------------------------------------------
        !| OCN SETUP-SEND (cesm1_mod, cesm1_mod_tight, or rasm_option1)
+       ! make ocean time average, send.
        !----------------------------------------------------------
        if (ocn_present .and. ocnrun_alarm) then
           if (trim(cpl_seq_option) == 'CESM1_MOD'       .or. &
@@ -3113,9 +3116,11 @@ contains
 
        !----------------------------------------------------------
        !| MAP ATM to OCN
-       !  update mboxid with latest atm data
-       !  This will be used later in the ice prep and in the
-       !  atm/ocn flux calculation
+       !  map a 2 o again only for CESM1_MOD and CESM1_MOD_TIGHT where
+       !  the a2o map above was undone.
+       !  This will be used later in the atm/ocn flux calculation
+       !  form a2i by mapping the output of a2o to i.
+       !  This will be used later in the ice prep
        !----------------------------------------------------------
        if (trim(cpl_seq_option) == 'CESM1_MOD'       .or. &
            trim(cpl_seq_option) == 'CESM1_MOD_TIGHT') then
@@ -3140,6 +3145,7 @@ contains
 
        !----------------------------------------------------------
        !| LND SETUP-SEND
+       ! map a2l, merge land, diag, send
        !----------------------------------------------------------
        if (lnd_present .and. lndrun_alarm) then
           call cime_run_lnd_setup_send()
@@ -3147,6 +3153,9 @@ contains
 
        !----------------------------------------------------------
        !| ICE SETUP-SEND
+       !  map o2i (o2x_ox to o2x_ix)
+       !  MCT ONLY:  map a2x_ox to a2x_i
+       !  mrg ice, diag, send
        !----------------------------------------------------------
        if (ice_present .and. icerun_alarm) then
           call cime_run_ice_setup_send()
@@ -3161,6 +3170,7 @@ contains
 
        !----------------------------------------------------------
        !| ROF SETUP-SEND
+       !  avg rof, map l2r, a2r, o2r, mrg, diag send
        !----------------------------------------------------------
        if (rof_present .and. rofrun_alarm) then
           call cime_run_rof_setup_send()

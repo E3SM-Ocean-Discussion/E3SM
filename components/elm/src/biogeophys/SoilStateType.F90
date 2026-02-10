@@ -331,6 +331,7 @@ contains
     use SharedParamsMod   , only : ParamsShareInst
     use FuncPedotransferMod , only : pedotransf, get_ipedof
     use RootBiophysMod      , only : init_vegrootfr
+    use, intrinsic :: ieee_exceptions
     !
     ! !ARGUMENTS:
     class(soilstate_type) :: this
@@ -408,9 +409,9 @@ contains
 
     do c = bounds%begc,bounds%endc
        this%rootfr_col (c,nlevsoi+1:nlevgrnd) = 0._r8
-       if (lun_pp%itype(l) == istsoil .or. lun_pp%itype(l) == istcrop) then
+       if (col_pp%is_soil(c) .or. col_pp%is_crop(c)) then
           this%rootfr_col (c,nlevsoi+1:nlevgrnd) = 0._r8
-       else if (lun_pp%itype(l) == istdlak .and. allowlakeprod) then
+       else if (col_pp%is_lake(c) .and. allowlakeprod) then
           this%rootfr_col (c,:) = spval
        else  ! Inactive CH4 columns
           this%rootfr_col (c,:) = spval
@@ -468,10 +469,15 @@ contains
     ! Try to read soil information from the file.
     call ncd_io(ncid=ncid, varname='ZSOI', flag='read', data=zsoifl, dim1name=grlnd, readvar=readvar)
     if (.not. readvar ) then
-       !    Variable ZSOI not found, use the ELM parameters.
+ 
+#ifdef CPRNVIDIA
+       !NOTE:  Workaround due to compiler issue with nvhpc 25.x when using -Ktrap=fp
+       call ieee_set_flag(ieee_all,.false.)
+       call ieee_set_halting_mode(ieee_inexact, .false.)
+#endif
        do j = 1, nlevsoifl
-          zsoifl(j) = scalez*(exp(zecoeff*(j-0.5_r8))-1._r8)    !node depths
-       end do
+          zsoifl(j) = scalez*(exp(zecoeff*(dble(j)-0.5_r8))-1._r8)    !node depths
+       enddo
     end if
 
     dzsoifl(1) = 0.5_r8*(zsoifl(1)+zsoifl(2))             !thickness b/n two interfaces
@@ -605,7 +611,7 @@ contains
        topi = grc_pp%topi(g)
        ti = t - topi + 1
 
-       if (lun_pp%itype(l)==istwet .or. lun_pp%itype(l)==istice .or. lun_pp%itype(l)==istice_mec) then
+       if (lun_pp%itype(l) == istwet .or. lun_pp%itype(l) == istice .or. lun_pp%itype(l) == istice_mec) then
 
           do lev = 1,nlevgrnd
              this%bsw_col(c,lev)    = spval
@@ -630,7 +636,7 @@ contains
              this%tkmg_col(c,lev)   = spval
              this%tksatu_col(c,lev) = spval
              this%tkdry_col(c,lev)  = spval
-             if (lun_pp%itype(l)==istwet .and. lev > nlevbed) then
+             if (lun_pp%itype(l) == istwet .and. lev > nlevbed) then
                 this%csol_col(c,lev) = csol_bedrock
              else
                 this%csol_col(c,lev)= spval
@@ -707,7 +713,7 @@ contains
                 endif
              end if
 
-             if (lun_pp%itype(l) == istdlak) then
+             if (col_pp%is_lake(c)) then
 
                 if (lev <= nlevsoi) then
                    this%cellsand_col(c,lev) = sand
@@ -827,7 +833,7 @@ contains
        g = col_pp%gridcell(c)
        l = col_pp%landunit(c)
 
-       if (lun_pp%itype(l)==istdlak) then
+       if (col_pp%is_lake(c)) then
 
           do lev = 1,nlevgrnd
              if ( lev <= nlevsoi )then

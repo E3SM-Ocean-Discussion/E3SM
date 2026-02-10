@@ -53,7 +53,7 @@ module controlMod
   use elm_varctl              , only: startdate_add_temperature, startdate_add_co2
   use elm_varctl              , only: add_temperature, add_co2
   use elm_varctl              , only: const_climate_hist
-  use elm_varctl              , only: use_top_solar_rad
+  use elm_varctl              , only: use_top_solar_rad, use_finetop_rad
   use elm_varctl              , only: snow_shape, snicar_atm_type, use_dust_snow_internal_mixing
   use EcosystemBalanceCheckMod, only: bgc_balance_check_tolerance => balance_check_tolerance
 
@@ -342,7 +342,7 @@ contains
          use_erosion, ero_ccycle
 
     namelist /elm_inparm/ &
-         use_top_solar_rad
+         use_top_solar_rad, use_finetop_rad
 
     namelist /elm_mosart/ &
          lnd_rof_coupling_nstep
@@ -925,6 +925,7 @@ contains
     call mpi_bcast (more_vertlayers,1, MPI_LOGICAL, 0, mpicom, ier)
     call mpi_bcast (const_climate_hist, 1, MPI_LOGICAL, 0, mpicom, ier)
     call mpi_bcast (use_top_solar_rad, 1, MPI_LOGICAL, 0, mpicom, ier)  ! TOP solar radiation parameterization
+    call mpi_bcast (use_finetop_rad, 1, MPI_LOGICAL, 0, mpicom, ier)  ! fineTOP radiation parameterization
     
     ! glacier_mec variables
     call mpi_bcast (create_glacier_mec_landunit, 1, MPI_LOGICAL, 0, mpicom, ier)
@@ -1023,12 +1024,13 @@ contains
     ! land river two way coupling
     call mpi_bcast (use_lnd_rof_two_way   , 1, MPI_LOGICAL, 0, mpicom, ier)
     call mpi_bcast (lnd_rof_coupling_nstep, 1, MPI_INTEGER, 0, mpicom, ier)
+    ! ocean land one way coupling
+    call mpi_bcast (use_ocn_lnd_one_way   , 1, MPI_LOGICAL, 0, mpicom, ier)
 
     !SNICAR-AD
     call mpi_bcast (snow_shape, len(snow_shape), MPI_CHARACTER, 0, mpicom, ier)
     call mpi_bcast (snicar_atm_type, len(snicar_atm_type), MPI_CHARACTER, 0, mpicom, ier)
     call mpi_bcast (use_dust_snow_internal_mixing, 1, MPI_LOGICAL, 0, mpicom, ier)
-	
     call mpi_bcast (mpi_sync_nstep_freq, 1, MPI_INTEGER, 0, mpicom, ier)
     
     ! use modified infiltration scheme in surface water storage
@@ -1121,9 +1123,19 @@ contains
     if (use_top_solar_rad) then
         write(iulog,*) '  use TOP solar radiation parameterization instead of PP'
     else
-        write(iulog,*) '   use_top_solar_rad is False, so do not run TOP solar radiation parameterization'
+        write(iulog,*) '  use_top_solar_rad is False, so do not run TOP solar radiation parameterization'
     end if
-    
+
+    if (use_finetop_rad .and. use_top_solar_rad) then
+        write(iulog,*) '  cannot use both TOP and fineTOP radiation parameterizations simultaneously'
+        call endrun(msg=' ERROR: use_finetop_rad and use_top_solar_rad cannot both be set to true.'//&
+             errMsg(__FILE__, __LINE__))
+    else if (use_finetop_rad .and. (.not. use_top_solar_rad)) then
+        write(iulog,*) '  use fineTOP radiation parameterization instead of PP'
+    else
+        write(iulog,*) '  use_finetop_rad is False, so do not run fineTOP radiation parameterization'
+    end if
+
     if (use_cn) then
        if (suplnitro /= suplnNon)then
           write(iulog,*) '   Supplemental Nitrogen mode is set to run over Patches: ', &
@@ -1242,7 +1254,8 @@ contains
     write(iulog,*) '   more vertical layers = ', more_vertlayers
     
     write(iulog,*) '   Sub-grid topographic effects on solar radiation   = ', use_top_solar_rad  ! TOP solar radiation parameterization
-     
+    write(iulog,*) '   Grid-scale topographic effects on radiation (fineTOP)  = ', use_finetop_rad   ! fineTOP radiation parameterization
+
     if (nsrest == nsrContinue) then
        write(iulog,*) 'restart warning:'
        write(iulog,*) '   Namelist not checked for agreement with initial run.'
@@ -1320,6 +1333,9 @@ contains
     ! land river two way coupling
     write(iulog,*) '    use_lnd_rof_two_way    = ', use_lnd_rof_two_way
     write(iulog,*) '    lnd_rof_coupling_nstep = ', lnd_rof_coupling_nstep
+
+    write(iulog,*) '    use_ocn_lnd_one_way    = ', use_ocn_lnd_one_way
+
     write(iulog,*) '    mpi_sync_nstep_freq    = ', mpi_sync_nstep_freq
     
     write(iulog,*) '    use_modified_infil = ', use_modified_infil
