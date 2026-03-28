@@ -76,6 +76,7 @@ module ocn_diagnostics
    !
    !--------------------------------------------------------------------
 
+   logical :: landIcePressureInitialized
    integer :: ke_cell_flag, ke_vertex_flag
    real (kind=RKIND) ::  fCoef
    real (kind=RKIND) ::  landIceTopDragCoeff
@@ -804,6 +805,33 @@ contains
 
 #ifdef MPAS_OPENACC
          !$acc exit data copyout(wctEdge) delete(baroclinicThickness, deltaSSH, btrVelocity)
+#endif
+
+      case (thickEdgeFluxConstant)
+
+         ! Use centered (mean) thickness as flux value
+
+         ! Compute mean layer thickness at edge
+#ifdef MPAS_OPENACC
+         !$acc enter data copyin(baroclinicThickness, deltaSSH, wctEdge)
+         !$acc parallel loop &
+         !$acc    present(baroclinicThickness, deltaSSH, wctEdge, cellsOnEdge) &
+         !$acc    private(iEdge, cell1, cell2)
+#else
+         !$omp parallel
+         !$omp do schedule(runtime)
+#endif
+         do iEdge = 1, nEdgesAll
+            if ( maxLevelEdgeTop(iEdge) == 0 ) cycle
+            wctEdge(iEdge) = baroclinicThickness(iEdge)
+         end do
+#ifndef MPAS_OPENACC
+         !$omp end do
+         !$omp end parallel
+#endif
+
+#ifdef MPAS_OPENACC
+         !$acc exit data copyout(wctEdge) delete(baroclinicThickness, deltaSSH)
 #endif
 
       case default
@@ -2594,6 +2622,8 @@ contains
 
       integer :: iCell ! cell loop index
 
+      real (kind=RKIND) :: h_crit, ssh_crit, landIcePressureMax
+      real (kind=RKIND), dimension(:), allocatable :: landIcePressureApplied
       real (kind=RKIND), dimension(:), pointer :: &
          frazilSurfacePressure, &! frazil ice pressure from forcing
          landIcePressure         ! land ice pressure
@@ -2608,6 +2638,13 @@ contains
                                              frazilSurfacePressure)
       call mpas_pool_get_array(forcingPool, 'landIcePressure', &
                                              landIcePressure)
+
+      allocate(landIcePressureApplied(nCellsAll))
+      ! First initialize landIcePressure unchanged, then modify in grounded regions
+      if (landIcePressureOn .and. .not. landIcePressureInitialized) then
+         landIcePressureApplied(:) = landIcePressure(:)
+         landIcePressureInitialized = .true.
+      endif
 
       ! Compute pressure for generalized coordinates.
       ! Pressure at top surface may be due to atmospheric pressure,
@@ -2659,11 +2696,36 @@ contains
          !! an issue, probably with the re-retrieval of pointer
          !!acc    present(surfacePressure, landIcePressure)
 #else
+         !$omp parallel
+         !$omp do schedule(runtime) private(h_crit, ssh_crit, landIcePressureMax)
+#endif
+         do iCell = 1, nCellsAll
+            ! the maximum pressure is the one that results in ssh at the critical
+            ! thickness (gravity is positive), but we also allow some amount of overburden
+            ! because rho may deviate significantly from rho_sw
+            h_crit = config_drying_min_cell_height * (maxLevelCell(iCell) - minLevelCell(iCell) + 1)
+            ssh_crit = bottomDepth(iCell) - h_crit + config_land_ice_overburden_height
+            landIcePressureMax = gravity * rho_sw * ssh_crit
+            landIcePressureApplied(iCell) = &
+               min(landIcePressureMax, landIcePressure(iCell))
+         end do
+#ifndef M_OPENACC
+         !$omp end do
+         !$omp end parallel
+#endif
+
+#ifdef MPAS_OPENACC
+         !$acc parallel loop &
+         !$acc    present(surfacePressure)
+         !! need this eventually, but there is currently
+         !! an issue, probably with the re-retrieval of pointer
+         !!acc    present(surfacePressure, landIcePressure)
+#else
          !$omp do schedule(runtime)
 #endif
          do iCell = 1, nCellsAll
             surfacePressure(iCell) = surfacePressure(iCell) &
-                                   + landIcePressure(iCell)
+                                   + landIcePressureApplied(iCell)
          end do
 #ifndef MPAS_OPENACC
          !$omp end do
@@ -4714,6 +4776,8 @@ contains
                  & 'Set config_disable_vel_hadv to true for a linear test case. ', &
                  MPAS_LOG_CRIT)
          end if
+         call mpas_log_write('Thickness flux option set to ' //&
+              & trim(config_thickness_flux_type))
       elseif (trim(config_thickness_flux_type) == 'upwind') then
          thickEdgeFluxChoice = thickEdgeFluxUpwind
          call mpas_log_write('Thickness flux option set to ' //&
@@ -4749,6 +4813,12 @@ contains
            trim(config_sgr_flux_vertical_location) /= 'bottom' ) then
         call mpas_log_write("config_sgr_flux_vertical_location not one of 'bottom', 'uniform', 'top'.", MPAS_LOG_CRIT)
       end if
+
+      if (config_do_restart) then
+         landIcePressureInitialized = .true.
+      else
+         landIcePressureInitialized = .false.
+      endif
 
     end subroutine ocn_diagnostics_init!}}}
 
