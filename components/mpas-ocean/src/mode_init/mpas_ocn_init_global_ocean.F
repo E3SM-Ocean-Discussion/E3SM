@@ -1069,12 +1069,13 @@ contains
        type (mpas_pool_type), pointer :: meshPool, forcingPool, tracersPool, &
                                          statePool, tracersSurfaceRestoringFieldsPool
 
-       integer, pointer :: nCells, tracerIndex
+       integer, pointer :: nCells, tempIndex, saltIndex
        integer, dimension(:), pointer :: maxLevelCell, landIceMask
+       real (kind=RKIND), dimension(:), pointer :: landIceFloatingFraction, landIcePressure
        real (kind=RKIND), dimension(:,:,:), pointer :: activeTracers
        real (kind=RKIND), dimension(:, :), pointer ::    activeTracersPistonVelocity
 
-       integer :: iCell
+       integer :: iCell, n_subglacial
 
        iErr = 0
 
@@ -1089,23 +1090,42 @@ contains
           call mpas_pool_get_array(meshPool, 'maxLevelCell', maxLevelCell)
 
           call mpas_pool_get_array(tracersPool, 'activeTracers', activeTracers, 1)
-          call mpas_pool_get_dimension(tracersPool, 'index_temperature', tracerIndex)
+          call mpas_pool_get_dimension(tracersPool, 'index_temperature', tempIndex)
+          call mpas_pool_get_dimension(tracersPool, 'index_salinity', saltIndex)
 
           call mpas_pool_get_subpool(forcingPool, 'tracersSurfaceRestoringFields', tracersSurfaceRestoringFieldsPool)
           call mpas_pool_get_array(tracersSurfaceRestoringFieldsPool, 'activeTracersPistonVelocity', &
                                    activeTracersPistonVelocity, 1)
 
           call mpas_pool_get_array(forcingPool, 'landIceMask', landIceMask)
+          call mpas_pool_get_array(forcingPool, 'landIceFloatingFraction', landIceFloatingFraction)
+          call mpas_pool_get_array(forcingPool, 'landIcePressure', landIcePressure)
 
           if (config_global_ocean_use_constant_land_ice_cavity_temperature &
                 .and. associated(activeTracers) .and. associated(landIceMask)) then
              do iCell = 1, nCells
                 if((maxLevelCell(iCell) < 1) .or. (landIceMask(iCell) == 0)) cycle ! nothing to modify
 
-                activeTracers(tracerIndex, 1:maxLevelCell(iCell), iCell) = &
+                activeTracers(tempIndex, 1:maxLevelCell(iCell), iCell) = &
                    config_global_ocean_constant_land_ice_cavity_temperature
 
              end do
+          end if
+
+          if (config_global_ocean_use_subglacial_water &
+                .and. associated(activeTracers) .and. associated(landIceMask)) then
+             n_subglacial = 0
+             do iCell = 1, nCells
+                if((maxLevelCell(iCell) < 1) .or. (landIceMask(iCell) == 0) .or. (landIceFloatingFraction(iCell) > 1.0e-5_RKIND)) cycle ! nothing to modify
+                n_subglacial = n_subglacial +1
+                activeTracers(saltIndex, 1:maxLevelCell(iCell), iCell) = &
+                   0.0_RKIND
+                activeTracers(tempIndex, 1:maxLevelCell(iCell), iCell) = &
+                  config_land_ice_cavity_freezing_temperature_coeff_0 + &
+                  config_land_ice_cavity_freezing_temperature_coeff_p * landIcePressure(iCell)
+
+             end do
+             call mpas_log_write('Number of subglacial cells with modified properties $i', intArgs=(/n_subglacial/))
           end if
 
           if ( associated(activeTracersPistonVelocity) .and. associated(landIceMask) ) then
