@@ -1,0 +1,2 @@
+config_vert_advection_method = 'remap'
+config_vert_remap_interval = 3

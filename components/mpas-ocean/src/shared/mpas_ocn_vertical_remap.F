@@ -75,11 +75,13 @@ module ocn_vertical_remap
 !
 !-----------------------------------------------------------------------
 
-   subroutine ocn_remap_vert_state(block, err)
+   subroutine ocn_remap_vert_state(block, err, timeLevel)
 
       type (block_type), intent(in) :: block
+      integer, intent(in) :: timeLevel
       integer, intent(out) :: err
 
+      real (kind=RKIND) :: predSSH
       integer :: nCells, nEdges
       integer :: nLayers, nLevels, nVars, nDoFs, nTracers
       integer :: cell1, cell2, iCell, jCell, iEdge, iTrac
@@ -95,12 +97,11 @@ module ocn_vertical_remap
 
       real (kind=RKIND), dimension(:, :, :), allocatable :: dataNow, dataNew
       real (kind=RKIND), dimension(:, :), allocatable :: &
-         layerThicknessNew,            & ! layerThickness (new target grid)
          layerThickEdgeNew,            & ! layerThickness at edges (new target grid)
          heightCellNow, heightEdgeNow, & ! depth at layer interfaces (lagrangian grid)
          heightCellNew, heightEdgeNew    ! depth at layer interfaces (new target grid)
 
-      real (kind=RKIND), dimension(:, :), pointer :: layerThickness, restingThickness
+      real (kind=RKIND), dimension(:, :), pointer :: layerThicknessLag, restingThickness, layerThicknessNew
       real (kind=RKIND), dimension(:, :), pointer :: normalVelocity
       real (kind=RKIND), dimension(:, :), pointer :: highFreqThickness,lowFreqDivergence
       real (kind=RKIND), dimension(:, :, :), pointer :: tracersGroup
@@ -111,6 +112,7 @@ module ocn_vertical_remap
       if (itimestepLastRemap < config_vert_remap_interval) return
       itimestepLastRemap = 0
 
+      call mpas_timer_start("vertical remap")
       ! Remapping currently only supports one block for the whole domain rather
       ! than sub-blocks
       call mpas_pool_get_subpool(block % structs, 'verticalMesh', verticalMeshPool)
@@ -120,11 +122,12 @@ module ocn_vertical_remap
 
       call mpas_pool_get_array(verticalMeshPool, 'restingThickness', restingThickness)
 
-      call mpas_pool_get_array(statePool, 'layerThickness', layerThickness, 2)
-      call mpas_pool_get_array(statePool, 'normalVelocity', normalVelocity, 2)
+      call mpas_pool_get_array(statePool, 'layerThicknessLag', layerThicknessLag, timeLevel)
+      call mpas_pool_get_array(statePool, 'layerThickness', layerThicknessNew, timeLevel)
+      call mpas_pool_get_array(statePool, 'normalVelocity', normalVelocity, timeLevel)
       if (config_use_freq_filtered_thickness) then
-         call mpas_pool_get_array(statePool, 'highFreqThickness', highFreqThickness, 2)
-         call mpas_pool_get_array(statePool, 'lowFreqDivergence', lowFreqDivergence, 2)
+         call mpas_pool_get_array(statePool, 'highFreqThickness', highFreqThickness, timeLevel)
+         call mpas_pool_get_array(statePool, 'lowFreqDivergence', lowFreqDivergence, timeLevel)
       end if
 
       nCells = nCellsAll
@@ -136,49 +139,79 @@ module ocn_vertical_remap
       allocate(heightCellNew(nVertLevels + 1, nCells))
       allocate(heightEdgeNow(nVertLevels + 1, nEdges))
       allocate(heightEdgeNew(nVertLevels + 1, nEdges))
-      allocate(layerThicknessNew(nVertLevels, nCells + 1))
       allocate(layerThickEdgeNew(nVertLevels, nEdges))
 
+      if ( associated(layerThicknessLag) ) then
+#ifdef MPAS_OPENACC
+        !$acc loop collapse(2)
+#else
+        !$omp do schedule(runtime) private(k)
+#endif
+        do iCell= 1,nCells
+        do k = 1,nVertLevels
+           ! Store the current, Lagrangian location for computation of the
+           ! Eulerian vertical velocity induced by remapping
+           layerThicknessLag(k,iCell) = layerThicknessNew(k,iCell)
+        end do
+        end do
+#ifndef MPAS_OPENACC
+        !$omp end do
+#endif
+      endif
       ! Compute new layer thicknesses based on vertical coordinate choice
       ! Currently, zstar coordinate is hard-coded
-      call ocn_vert_regrid(restingThickness, layerThickness, &
-                           layerThicknessNew, err)
-
-      ! Compute the layer interface locations between bottomDepth and -ssh
+      ! The diagnostic variable layerThicknessTarget is updated
+      if (associated(highFreqThickness)) then
+         call ocn_vert_regrid(verticalMeshPool, layerThicknessLag, &
+                              layerThicknessTarget, err, highFreqThickness)
+      else
+         call ocn_vert_regrid(verticalMeshPool, layerThicknessLag, &
+                              layerThicknessTarget, err)
+      endif
+      ! Compute the depth of the top of each layer between bottomDepth and -ssh
       ! (rather than between -bottomDepth and ssh due to PPR limitations)
 
       !$omp parallel
-      !$omp do schedule(runtime) private(k)
+      !$omp do schedule(runtime) private(k, predSSH)
       do iCell = 1, nCells
-         heightCellNow(:, iCell) = bottomDepth(iCell)
-         heightCellNew(:, iCell) = bottomDepth(iCell)
+         if (maxLevelCell(iCell) < 1) cycle
+         heightCellNow(maxLevelCell(iCell) + 1:, iCell) = bottomDepth(iCell)
+         heightCellNew(maxLevelCell(iCell) + 1:, iCell) = bottomDepth(iCell)
 
          ! reconstruct "now" heights
          do k = maxLevelCell(iCell), minLevelCell(iCell), -1
             heightCellNow(k, iCell) = &
-               heightCellNow(k + 1, iCell) - layerThickness(k, iCell)
+               heightCellNow(k + 1, iCell) - layerThicknessLag(k, iCell)
          end do
 
          ! reconstruct "new" heights
-         heightCellNew(minLevelCell(iCell), iCell) = heightCellNow(minLevelCell(iCell), iCell)
-         do k = maxLevelCell(iCell), minLevelCell(iCell)+1, -1
+         do k = maxLevelCell(iCell), minLevelCell(iCell) + 1, -1
             heightCellNew(k, iCell) = &
-               heightCellNew(k + 1, iCell) - layerThicknessNew(k, iCell)
+               heightCellNew(k + 1, iCell) - layerThicknessTarget(k, iCell)
          end do
+
+         ! We force the reconstruction to agree on the total baroclinic depth so we don't have propagagtion of floating point errors
+         heightCellNew(minLevelCell(iCell), iCell) = heightCellNow(minLevelCell(iCell), iCell)
+
+         predSSH = heightCellNew(minLevelCell(iCell)+1, iCell) - layerThicknessTarget(minLevelCell(iCell), iCell)
       end do
       !$omp end do
       !$omp end parallel
 
+      ! Assign new layerThicknesses
+
+      layerThicknessNew = layerThicknessTarget
+
 #ifdef MPAS_OPENACC
       !$acc parallel loop &
-      !$acc    present(layerThickness, layerThickEdgeMean, &
+      !$acc    present(layerThicknessNew, layerThickEdgeMean, &
       !$acc            minLevelEdgeBot, maxLevelEdgeTop, cellsOnEdge) &
       !$acc    private(k, kmin, kmax, cell1, cell2)
 #else
       !$omp parallel
       !$omp do schedule(runtime) private(k, kmin, kmax, cell1, cell2)
 #endif
-      do iEdge = 1, nEdgesAll
+      do iEdge = 1, nEdges
          kmin = minLevelEdgeBot(iEdge)
          kmax = maxLevelEdgeTop(iEdge)
          cell1 = cellsOnEdge(1,iEdge)
@@ -212,10 +245,10 @@ module ocn_vertical_remap
 
          ! We only need to define the kBot+1 depth for one active cell
          ! as the absolute kBot+1 depth has no effect on remapping
-         if (cell1 <= nCellsAll .and. maxLevelCell(cell1) > 0) then
+         if (cell1 <= nCells .and. maxLevelCell(cell1) > 0) then
             heightEdgeNow(:, iEdge) = heightCellNow(kBot+1, cell1)
             heightEdgeNew(:, iEdge) = heightCellNew(kBot+1, cell1)
-         elseif (cell2 <= nCellsAll .and. maxLevelCell(cell2) > 0) then
+         elseif (cell2 <= nCells .and. maxLevelCell(cell2) > 0) then
             heightEdgeNow(:, iEdge) = heightCellNow(kBot+1, cell2)
             heightEdgeNew(:, iEdge) = heightCellNew(kBot+1, cell2)
          else
@@ -232,9 +265,6 @@ module ocn_vertical_remap
       end do
       !$omp end do
       !$omp end parallel
-
-      ! Assign new layerThicknesses
-      layerThickness = layerThicknessNew
 
       !----------------------------------------------------------------------------
       ! ACTUAL REMAPPING FROM HERE
@@ -330,7 +360,7 @@ module ocn_vertical_remap
       call mpas_pool_begin_iteration(tracersPool)
       do while ( mpas_pool_get_next_member(tracersPool, groupItr) )
          if ( groupItr % memberType == MPAS_POOL_FIELD ) then
-            call mpas_pool_get_array(tracersPool, groupItr % memberName, tracersGroup, 2)
+            call mpas_pool_get_array(tracersPool, groupItr % memberName, tracersGroup, timeLevel)
             if ( associated(tracersGroup) ) then
 
                nTracers = size(tracersGroup, dim=1)
@@ -389,6 +419,7 @@ module ocn_vertical_remap
       deallocate(heightEdgeNow)
       deallocate(heightCellNew)
       deallocate(heightEdgeNew)
+      call mpas_timer_stop("vertical remap")
 
    end subroutine ocn_remap_vert_state
 
