@@ -2680,7 +2680,7 @@ contains
       allocate(landIcePressureApplied(nCellsAll))
       ! First initialize landIcePressure unchanged, then modify in grounded regions
       if (landIcePressureOn .and. .not. landIcePressureInitialized) then
-         landIcePressureApplied(:) = landIcePressure(:)
+         landIcePressureApplied(1:nCellsAll) = landIcePressure(1:nCellsAll)
          landIcePressureInitialized = .true.
       endif
 
