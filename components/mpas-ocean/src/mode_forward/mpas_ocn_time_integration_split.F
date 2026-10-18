@@ -864,9 +864,9 @@ module ocn_time_integration_split
                   !        {\bf u}^{'}_{k,n} +{\bf u}'_{k,n+1}\right)
                   ! so that normalBaroclinicVelocityNew is at time n+1/2
                   ! normalBaroclinicVelocityCur already has wettingVelocity applied from the previous time step
-                  normalBaroclinicVelocityNew(k,iEdge) = 0.5_RKIND * &
-                     ( normalBaroclinicVelocityCur(k,iEdge) + &
-                       ( uTemp(k,iEdge) - dt * barotropicForcing(iEdge)))
+                  normalBaroclinicVelocityNew(k,iEdge) = 0.5_RKIND*( &
+                  normalBaroclinicVelocityCur(k,iEdge) + uTemp(k,iEdge) - &
+                         dt * barotropicForcing(iEdge))
 
                enddo
 
