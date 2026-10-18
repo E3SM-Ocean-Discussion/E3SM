@@ -3089,6 +3089,18 @@ module ocn_time_integration_split
 
       end select
 
+      !*** Subgrid and SSH-gradient wetting and drying are only
+      !*** implemented for RK4
+
+      if (config_use_wetting_drying .and. &
+          (config_use_subgrid_wetting_drying .or. &
+           config_use_ssh_gradient_wetting_drying)) then
+         call mpas_log_write('config_use_subgrid_wetting_drying and ' // &
+                             'config_use_ssh_gradient_wetting_drying ' // &
+                             'require config_time_integrator = ''RK4''', &
+                             MPAS_LOG_CRIT)
+      end if
+
       if (trim(config_thickness_flux_type) == 'upwind') then
          thickEdgeFluxChoice = thickEdgeFluxUpwind
       else
