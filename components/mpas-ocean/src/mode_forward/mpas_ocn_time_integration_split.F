@@ -2153,21 +2153,6 @@ module ocn_time_integration_split
             call ocn_diagnostic_solve(dt, statePool, forcingPool, &
                                       meshPool, verticalMeshPool, scratchPool, &
                                       tracersPool, 2, full=.false.)
-            baroclinicThickness(:) = 0.0_RKIND
-            !$omp parallel
-            !$omp do schedule(runtime) &
-            !$omp private(cell1, cell2, k)
-            do iEdge = 1, nEdgesHalo(config_num_halos+1)
-               cell1 = cellsOnEdge(1,iEdge)
-               cell2 = cellsOnEdge(2,iEdge)
-               baroclinicThickness(iEdge) = layerThickEdgeFlux(minLevelEdgeBot(iEdge),iEdge)
-               do k = minLevelEdgeBot(iEdge)+1, maxLevelEdgeTop(iEdge)
-                  baroclinicThickness(iEdge) = baroclinicThickness(iEdge) + &
-                                 layerThickEdgeFlux(k,iEdge)
-               enddo
-            enddo ! iEdge
-            !$omp end do
-            !$omp end parallel
 
          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
          ! If large iteration complete, compute all variables at
@@ -2859,21 +2844,6 @@ module ocn_time_integration_split
 
       call ocn_diagnostic_solve(dt, statePool, forcingPool, meshPool, verticalMeshPool, &
                                 scratchPool, tracersPool, 2)
-      baroclinicThickness(:) = 0.0_RKIND
-      !$omp parallel
-      !$omp do schedule(runtime) &
-      !$omp private(cell1, cell2, k)
-      do iEdge = 1, nEdgesHalo(config_num_halos+1)
-         cell1 = cellsOnEdge(1,iEdge)
-         cell2 = cellsOnEdge(2,iEdge)
-         baroclinicThickness(iEdge) = layerThickEdgeFlux(minLevelEdgeBot(iEdge),iEdge)
-         do k = minLevelEdgeBot(iEdge)+1, maxLevelEdgeTop(iEdge)
-            baroclinicThickness(iEdge) = baroclinicThickness(iEdge) + &
-                           layerThickEdgeFlux(k,iEdge)
-         enddo
-      enddo ! iEdge
-      !$omp end do
-      !$omp end parallel
 
       call mpas_timer_start('se final mpas reconstruct', .false.)
 
