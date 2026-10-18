@@ -57,6 +57,7 @@ module ocn_wetting_drying
              ocn_wetting_velocity_factor_on_cell_edges
    public :: ocn_wetting_drying_update_land_ice
    public :: ocn_compute_land_ice_ssh_adjustment
+   public :: ocn_compute_land_ice_pressure_head
 
    !--------------------------------------------------------------------
    !
@@ -181,6 +182,49 @@ contains
       !$omp end parallel
 
    end subroutine ocn_compute_land_ice_ssh_adjustment
+
+!***********************************************************************
+!
+!  routine ocn_compute_land_ice_pressure_head
+!
+!> \brief   Land-ice pressure applied to the ocean, in m of seawater
+!> \details
+!>  The land-ice pressure after the cap in
+!>  ocn_diagnostic_solve_surface_pressure, divided by rho_sw * gravity.
+!>  Added to the SSH, it gives the head that drives flow between cells
+!>  under land ice.
+!
+!-----------------------------------------------------------------------
+   subroutine ocn_compute_land_ice_pressure_head(landIcePressure, &
+                                                 pressureHead)!{{{
+
+      real (kind=RKIND), dimension(:), intent(in) :: &
+         landIcePressure !< Input: land-ice pressure before the cap
+
+      real (kind=RKIND), dimension(:), intent(inout) :: &
+         pressureHead !< Output: capped land-ice pressure in m of seawater
+
+      integer :: iCell
+      real (kind=RKIND) :: hCrit
+
+      pressureHead(:) = 0.0_RKIND
+
+      if ( .not. landIcePressureOn ) return
+
+      !$omp parallel
+      !$omp do schedule(runtime) private(hCrit)
+      do iCell = 1, nCellsAll
+         hCrit = config_drying_min_cell_height * &
+                 (maxLevelCell(iCell) - minLevelCell(iCell) + 1)
+         pressureHead(iCell) = min(gravity * config_land_ice_rho_ocean * &
+                                   (bottomDepth(iCell) - hCrit + &
+                                    config_land_ice_overburden_height), &
+                                   landIcePressure(iCell)) / (rho_sw * gravity)
+      end do
+      !$omp end do
+      !$omp end parallel
+
+   end subroutine ocn_compute_land_ice_pressure_head !}}}
 
 !***********************************************************************
 !
@@ -430,7 +474,8 @@ contains
 !
 !-----------------------------------------------------------------------
    subroutine ocn_wetting_drying_outflux_barotropic_factor(sshCur, btrVelocity, wctEdge, &
-                     sshLandIceAdjustment, dt, wettingVelocityBarotropic, err)!{{{
+                     sshLandIceAdjustment, landIcePressureHead, dt, &
+                     wettingVelocityBarotropic, err)!{{{
 
       !-----------------------------------------------------------------
       !
@@ -442,8 +487,10 @@ contains
          sshCur, &      !< current SSH
          btrVelocity, & !< barotropic velocity on edges used to predict sshNew from only outflux
          wctEdge,     & !< column thickness on edges used to predict the outflux
-         sshLandIceAdjustment !< SSH equivalent (<= 0) of the land-ice
-                              !< pressure removed by its cap in grounded cells
+         sshLandIceAdjustment, & !< SSH equivalent (<= 0) of the land-ice
+                                 !< pressure removed by its cap in grounded cells
+         landIcePressureHead !< land-ice pressure after its cap, in m of
+                             !< seawater
 
       real (kind=RKIND), intent(in) :: dt !< time step in s
 
@@ -475,7 +522,7 @@ contains
       real (kind=RKIND) :: divFlux, divOutFlux
       real (kind=RKIND) :: wct, wctNei, sshNei
       real (kind=RKIND) :: hCrit, hRampMin, hRampMax, hRampFactor
-      real (kind=RKIND), dimension(:), allocatable :: sshNew
+      real (kind=RKIND), dimension(:), allocatable :: sshNew, head
 
       character (len=100) :: log_string
 
@@ -596,6 +643,32 @@ contains
       !$omp end do
       !$omp end parallel
 
+      ! Water flows into a cell under ice heavier than flotation only where
+      ! the neighbor's head exceeds the head that would lift the ice, the
+      ! cell's head plus the excess.  Otherwise the cell, which looks dry and
+      ! so cannot drain, would trap the water.
+      if (landIcePressureOn) then
+        allocate(head(nCellsAll))
+        do iCell = 1, nCellsAll
+          head(iCell) = sshCur(iCell) + landIcePressureHead(iCell)
+        end do
+        do iCell = 1, nCellsAll
+          if (sshLandIceAdjustment(iCell) >= 0.0_RKIND) cycle
+          do i = 1, nEdgesOnCell(iCell)
+            iEdge = edgesOnCell(i, iCell)
+            if (iEdge > nEdgesAll) cycle
+            ! only flow into the cell
+            if ( btrVelocity(iEdge) * edgeSignOnCell(i, iCell) <= 0.0_RKIND ) cycle
+            cellNei = merge( cellsOnEdge(2, iEdge), cellsOnEdge(1, iEdge), &
+                             iCell == cellsOnEdge(1, iEdge) )
+            if ( cellNei < 1 .or. cellNei > nCellsAll ) cycle
+            if ( head(cellNei) > head(iCell) - sshLandIceAdjustment(iCell) ) cycle
+            wettingVelocityBarotropic(iEdge) = 0.0_RKIND
+          end do
+        end do
+        deallocate(head)
+      end if
+
    end subroutine ocn_wetting_drying_outflux_barotropic_factor !}}}
 
 
@@ -685,6 +758,7 @@ contains
                               !< amount by which to adjust ssh related to
                               !< the initial adjustment of land ice pressure
                               !< effects on ssh
+      real (kind=RKIND), dimension(:), allocatable :: head, landIcePressureHead
 
 
       err = 0
@@ -747,6 +821,41 @@ contains
       end do
       !$omp end do
       !$omp end parallel
+
+      ! Water flows into a cell under ice heavier than flotation only where
+      ! the neighbor's head exceeds the head that would lift the ice, the
+      ! cell's head plus the excess.  Otherwise the cell, which looks dry and
+      ! so cannot drain, would trap the water.
+      if (landIcePressureOn .and. .not. config_use_ssh_gradient_wetting_drying) then
+        allocate(head(nCellsAll), landIcePressureHead(nCellsAll))
+        call ocn_compute_land_ice_pressure_head(landIcePressure, landIcePressureHead)
+        do iCell = 1, nCellsAll
+          columnThickness = 0.0_RKIND
+          do k = minLevelCell(iCell), maxLevelCell(iCell)
+            columnThickness = columnThickness + layerThicknessProvis(k, iCell)
+          end do
+          head(iCell) = columnThickness - bottomDepth(iCell) + landIcePressureHead(iCell)
+        end do
+        do iCell = 1, nCellsAll
+          if (sshLandIceAdjustment(iCell) >= 0.0_RKIND) cycle
+          do i = 1, nEdgesOnCell(iCell)
+            iEdge = edgesOnCell(i, iCell)
+            if (iEdge > nEdgesAll) cycle
+            cellNei = merge( cellsOnEdge(2, iEdge), cellsOnEdge(1, iEdge), &
+                             iCell == cellsOnEdge(1, iEdge) )
+            if ( cellNei < 1 .or. cellNei > nCellsAll ) cycle
+            if ( head(cellNei) > head(iCell) - sshLandIceAdjustment(iCell) ) cycle
+            do k = minLevelCell(iCell), maxLevelCell(iCell)
+              if (k > maxLevelEdgeTop(iEdge) .or. k < minLevelEdgeBot(iEdge)) cycle
+              ! only flow into the cell
+              if ( normalVelocity(k, iEdge) * edgeSignOnCell(i, iCell) > 0.0_RKIND ) then
+                wettingVelocityFactor(k, iEdge) = 1.0_RKIND
+              end if
+            end do
+          end do
+        end do
+        deallocate(head, landIcePressureHead)
+      end if
 
       call mpas_dmpar_field_halo_exch(domain, 'layerThicknessCellWetDry')
 
