@@ -773,18 +773,11 @@ module ocn_time_integration_split
          endif
 #endif
 
-         ! TODO replace wettingVelocityFactor with wettingBaroclinicFactor so that this isn't necessary
-         ! wetting factor here is determined by the average velocity over btr subcycles and the average wctEdge over all btr subcycles
-         ! normalVelocity is limited in velocity tendency with 1 minus the factors used here
-         ! Here, factor = 1 allows flow
-         ! In vel tend, factor = 0 allows flow
-         !$omp parallel
-         !$omp do schedule(runtime)
-         do iEdge = 1, nEdgesAll
-            wettingVelocityFactor(:, iEdge) = 1.0_RKIND - wettingVelocityBaroclinicCur(:, iEdge)
-         end do
-         !$omp end do
-         !$omp end parallel
+         ! The wetting factors scale velocities, not the velocity tendency:
+         ! under an ice shelf, the land-ice pressure gradient in the
+         ! tendency nearly cancels the SSH gradient, and the barotropic
+         ! forcing computed from it must stay in balance with the SSH
+         ! gradient in the barotropic subcycles.
          ! eq:tend_vel
          call ocn_tend_vel(domain, tendPool, statePool, forcingPool, &
                            stage1_tend_time, domain % dminfo, dt)
@@ -838,13 +831,11 @@ module ocn_time_integration_split
                   !                    + T(u*,w*,p*) + g*grad(SSH*) )
                   ! Here uNew is a work variable containing
                   !  -fEdge(iEdge)*normalBaroclinicVelocityPerp(k,iEdge)
-                  ! wettingVelocity here is determined by the last set of barotropic iterations
                   ! eq:u_bcl_subiter
-                  uTemp(k,iEdge) = wettingVelocityBaroclinicCur(k,iEdge) * &
-                         ( normalBaroclinicVelocityCur(k,iEdge)            &
-                           + dt * (normalVelocityTend(k,iEdge)             &
-                                   + normalVelocityNew(k,iEdge)            &
-                                   + wettingVelocityBaroclinicCur(k,iEdge) * sshGrad ))
+                  uTemp(k,iEdge) = normalBaroclinicVelocityCur(k,iEdge) &
+                           + dt * (normalVelocityTend(k,iEdge) &
+                           + normalVelocityNew(k,iEdge) &
+                           + sshGrad )
                enddo ! vertical
 
                ! thicknessSum is initialized outside the loop because
@@ -871,10 +862,16 @@ module ocn_time_integration_split
                   !{\bf u}'_{k,n+1/2} = \frac{1}{2}\left(
                   !        {\bf u}^{'}_{k,n} +{\bf u}'_{k,n+1}\right)
                   ! so that normalBaroclinicVelocityNew is at time n+1/2
-                  ! normalBaroclinicVelocityCur already has wettingVelocity applied from the previous time step
+                  ! The wetting factor scales the change in the baroclinic
+                  ! velocity over the step, so that the full velocity at
+                  ! n+1 is the barotropic velocity on an edge that is
+                  ! closed to flow.  The barotropic forcing is computed
+                  ! from the full forces above.
                   normalBaroclinicVelocityNew(k,iEdge) = 0.5_RKIND*( &
-                  normalBaroclinicVelocityCur(k,iEdge) + uTemp(k,iEdge) - &
-                         dt * barotropicForcing(iEdge))
+                  normalBaroclinicVelocityCur(k,iEdge) + &
+                  wettingVelocityBaroclinicCur(k,iEdge)*uTemp(k,iEdge) - &
+                  dt * wettingVelocityBaroclinicCur(k,iEdge) * &
+                  barotropicForcing(iEdge))
 
                enddo
 
@@ -1178,17 +1175,20 @@ module ocn_time_integration_split
                                        fEdge(eoe)
                      end do
 
-                     ! wettingVelocity here is the barotropic factor from the previous btr iteration
-                     ! normalBarotropicVelocitySubcycleNew here is scaled by wetting factor
+                     ! The predictor is not limited: its velocity sets the
+                     ! direction of the flux from which the wetting factor
+                     ! is computed, and the factor then limits the flux and
+                     ! the corrected velocity.  Scaling the SSH gradient
+                     ! alone would unbalance it against the land-ice
+                     ! pressure gradient in barotropicForcing.
                      ! eq:btr_u_pred
                      normalBarotropicVelocitySubcycleNew(iEdge) = &
-                           temp_mask * &
-                           ( normalBarotropicVelocitySubcycleCur(iEdge) + &
-                             dt / nBtrSubcycles * &
-                              ( CoriolisTerm - &
-                                ( gravity * wettingVelocityBarotropicSubcycle(iEdge) * &
-                                  (sshSubcycleCur(cell2) - sshSubcycleCur(cell1)) / dcEdge(iEdge) ) + &
-                                barotropicForcing(iEdge)))
+                           temp_mask* &
+                           (normalBarotropicVelocitySubcycleCur(iEdge) &
+                            + dt/nBtrSubcycles*(CoriolisTerm - gravity &
+                             *(sshSubcycleCur(cell2) - &
+                               sshSubcycleCur(cell1))/dcEdge(iEdge) + &
+                               barotropicForcing(iEdge)))
 
 
                   end do ! edges
@@ -1497,17 +1497,18 @@ module ocn_time_integration_split
                      ! normalBarotropicVelocityOld + dt/J*
                      !     (-f*normalBarotropicVelocityoldPerp
                      !      - g*grad(SSH) + G)
-                     ! wettingVelocity here is determined by the predicted velocity and the current SSH (previous btr subcycle)
-                     ! TODO We could instead use the predicted velocity and the linear combination of current SSH and predicted SSH
+                     ! The wetting factor from the SSH predictor of this
+                     ! subcycle scales the corrected velocity, not the SSH
+                     ! gradient alone, which would unbalance it against the
+                     ! land-ice pressure gradient in barotropicForcing.
                      normalBarotropicVelocitySubcycleNew(iEdge) = &
                           temp_mask * &
                           wettingVelocityBarotropicSubcycle(iEdge) * &
-                          ( normalBarotropicVelocitySubcycleCur(iEdge) + &
-                            dt / nBtrSubcycles * &
-                             ( CoriolisTerm - &
-                               ( gravity * wettingVelocityBarotropicSubcycle(iEdge) * &
-                                (sshCell2 - sshCell1) / dcEdge(iEdge) ) + &
-                               barotropicForcing(iEdge)))
+                          (normalBarotropicVelocitySubcycleCur(iEdge) &
+                           + dt/nBtrSubcycles &
+                           *(CoriolisTerm - gravity* &
+                             (sshCell2 - sshCell1)/dcEdge(iEdge) &
+                           + barotropicForcing(iEdge)))
 
                   end do
                   !$omp end do
