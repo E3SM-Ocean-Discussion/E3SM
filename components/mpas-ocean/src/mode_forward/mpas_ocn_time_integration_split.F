@@ -285,6 +285,12 @@ module ocn_time_integration_split
       real (kind=RKIND), dimension(:), pointer :: &
         frazilSurfacePressure, landIcePressure, landIceDraft
 
+      integer, dimension(:), pointer :: landIceMask
+
+      real (kind=RKIND), dimension(:), allocatable :: &
+         sshLandIceAdjustment ! SSH equivalent of the land-ice pressure
+                              ! removed by its cap in grounded cells
+
       real (kind=RKIND), dimension(:,:,:), pointer :: activeTracersNew
 
       real (kind=RKIND), pointer :: forcingTimeIncrement
@@ -618,6 +624,16 @@ module ocn_time_integration_split
       if (landIcePressureOn) then 
          call mpas_pool_get_array(forcingPool, 'landIcePressure', landIcePressure)
          call mpas_pool_get_array(forcingPool, 'landIceDraft', landIceDraft)
+      endif
+
+      ! The wetting factors see grounded ice through the SSH equivalent
+      ! of the land-ice pressure that the cap on it removed, as in RK4
+      allocate(sshLandIceAdjustment(nCellsAll+1))
+      sshLandIceAdjustment(:) = 0.0_RKIND
+      if (landIcePressureOn .and. config_use_wetting_drying) then
+         call mpas_pool_get_array(forcingPool, 'landIceMask', landIceMask)
+         call ocn_compute_land_ice_ssh_adjustment(landIcePressure, &
+                 landIceMask, sshLandIceAdjustment, err)
       endif
 
 #ifdef MPAS_OPENACC
@@ -1256,7 +1272,8 @@ module ocn_time_integration_split
                ! This update is stored in the newBtrSubcycleTime
                ! eq:btr-factor-ssh-pred
                call ocn_wetting_drying_outflux_barotropic_factor(sshSubcycleCur, &
-                         btrvel_temp, wctEdge, dt/nBtrSubcycles, &
+                         btrvel_temp, wctEdge, sshLandIceAdjustment, &
+                         dt/nBtrSubcycles, &
                          wettingVelocityBarotropicSubcycle, err)
 
                !$omp parallel
@@ -1626,7 +1643,8 @@ module ocn_time_integration_split
                   ! corrected SSH
                   ! It doesn't get used until the next subcycle's velocity predictor step
                   call ocn_wetting_drying_outflux_barotropic_factor(sshSubcycleCur, &
-                            btrvel_temp, wctEdge, dt/nBtrSubcycles, &
+                            btrvel_temp, wctEdge, sshLandIceAdjustment, &
+                            dt/nBtrSubcycles, &
                             wettingVelocityBarotropicSubcycle, err)
 
                   ! compute barotropic thickness flux on edges
@@ -2181,7 +2199,8 @@ module ocn_time_integration_split
             ! Wetting factor is determined by the final barotropic velocity, barotropic thickness, and SSH 
             ! eq:bcl-factor-from-btr
             call ocn_wetting_drying_outflux_barotropic_factor(sshNew, &
-                      normalBarotropicVelocityNew, wctEdgeBarotropicMean, dt, &
+                      normalBarotropicVelocityNew, wctEdgeBarotropicMean, &
+                      sshLandIceAdjustment, dt, &
                       wettingVelocityBaroclinicTemp, err)
             ! We update both time levels because the time levels don't seem to get swapped and there's no harm
 #ifndef MPAS_OPENACC
@@ -2951,7 +2970,8 @@ module ocn_time_integration_split
          call ocn_reconstruct_eddy_vectors(meshPool)
       end if
 
-      deallocate(baroclinicThickness, wctEdgeBarotropicMean)
+      deallocate(baroclinicThickness, wctEdgeBarotropicMean, &
+                 sshLandIceAdjustment)
 
       call mpas_timer_stop('se fini')
       call mpas_timer_stop("se timestep")
