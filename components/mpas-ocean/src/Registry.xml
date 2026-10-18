@@ -2740,12 +2740,12 @@
 			 description="baroclinic velocity, used in split-explicit time-stepping"
 			 packages="splitTimeIntegrator"
 		/>
-		<var name="wettingVelocityBarotropicSubcycle" type="real" dimensions="nEdges Time" units="m s^-1"
-			 description="barotropic wetting velocity factor, used in split-explicit time-stepping"
+		<var name="wettingVelocityBarotropicSubcycle" type="real" dimensions="nEdges Time" units="unitless"
+			 description="Scaling factor for the barotropic velocity, its tendency and the barotropic thickness flux on a barotropic subcycle of split-explicit time stepping, to prevent drying of a cell, between 0 (set to 0) and 1 (no scaling)."
 			 packages="splitTimeIntegrator"
 		/>
-		<var name="wettingVelocityBaroclinic" type="real" dimensions="nVertLevels nEdges Time" units="m s^-1"
-			 description="baroclinic wetting velocity factor, used in split-explicit time-stepping"
+		<var name="wettingVelocityBaroclinic" type="real" dimensions="nVertLevels nEdges Time" units="unitless"
+			 description="Scaling factor for the baroclinic velocity and its tendency in split-explicit time stepping, to prevent drying of a cell, between 0 (set to 0) and 1 (no scaling)."
 			 packages="splitTimeIntegrator"
 		/>
 
@@ -3332,7 +3332,7 @@
 			 packages="forwardMode;analysisMode"
 		/>
 		<var name="wettingVelocityFactor" type="real" dimensions="nVertLevels nEdges Time"
-			 description="Scaling factor for normalVelocity and its tendency to prevent drying of cell between 0 (normalVelocity and tendency set to 0) and 1 (no scaling). Used in RK4 time stepping"
+			 description="Scaling factor for normalVelocity and its tendency to prevent drying of cell between 0 (no scaling) and 1 (normalVelocity and tendency set to 0)."
 			 packages="forwardMode"
 		/>
 		<var name="vertAleTransportTop" type="real" dimensions="nVertLevelsP1 nCells Time" units="m s^-1"
