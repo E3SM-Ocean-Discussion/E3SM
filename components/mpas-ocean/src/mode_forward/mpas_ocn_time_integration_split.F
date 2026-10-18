@@ -2203,6 +2203,16 @@ module ocn_time_integration_split
                       normalBarotropicVelocityNew, wctEdgeBarotropicMean, &
                       sshLandIceAdjustment, dt, &
                       wettingVelocityBaroclinicTemp, err)
+            ! An edge closed to the barotropic flow in the last subcycle is
+            ! closed to the baroclinic velocity too.  Otherwise a cell whose
+            ! water column is only just above the critical height, closed by
+            ! the outflow predicted in the subcycles, looks wet without the
+            ! outflow and opens all its layers.
+            do iEdge = 1, nEdgesAll
+               wettingVelocityBaroclinicTemp(iEdge) = &
+                  min(wettingVelocityBaroclinicTemp(iEdge), &
+                      wettingVelocityBarotropicSubcycle(iEdge))
+            end do
             ! We update both time levels because the time levels don't seem to get swapped and there's no harm
 #ifndef MPAS_OPENACC
             !$omp parallel
