@@ -3188,12 +3188,6 @@ module ocn_time_integration_split
                                               normalBarotropicVelocity, 1)
          call mpas_pool_get_array(statePool, 'normalBaroclinicVelocity', &
                                               normalBaroclinicVelocity, 1)
-         call mpas_pool_get_array(statePool, 'wettingVelocityBarotropicSubcycle', &
-                                              wettingVelocityBarotropicSubcycleCur, 1)
-         call mpas_pool_get_array(statePool, 'wettingVelocityBarotropicSubcycle', &
-                                              wettingVelocityBarotropicSubcycleNew, 2)
-         call mpas_pool_get_array(statePool, 'wettingVelocityBaroclinic', &
-                                              wettingVelocityBaroclinic, 1)
 
          call mpas_pool_get_array(meshPool, 'refBottomDepth', refBottomDepth)
          call mpas_pool_get_array(meshPool, 'cellsOnEdge', cellsOnEdge)
@@ -3282,10 +3276,23 @@ module ocn_time_integration_split
 
          endif ! split explicit
 
-         wettingVelocityBarotropicSubcycleCur(:) = 1.0_RKIND
-         wettingVelocityBarotropicSubcycleNew(:) = 1.0_RKIND
-         wettingVelocityBaroclinic(:,:) = 1.0_RKIND
       end if ! not restart
+
+      !*** The wetting-and-drying factors are not in the restart stream,
+      !*** so they start with no limiting on a restart, too
+
+      block => domain % blocklist
+      call mpas_pool_get_subpool(block%structs, 'state', statePool)
+      call mpas_pool_get_array(statePool, 'wettingVelocityBarotropicSubcycle', &
+                                           wettingVelocityBarotropicSubcycleCur, 1)
+      call mpas_pool_get_array(statePool, 'wettingVelocityBarotropicSubcycle', &
+                                           wettingVelocityBarotropicSubcycleNew, 2)
+      call mpas_pool_get_array(statePool, 'wettingVelocityBaroclinic', &
+                                           wettingVelocityBaroclinic, 1)
+
+      wettingVelocityBarotropicSubcycleCur(:) = 1.0_RKIND
+      wettingVelocityBarotropicSubcycleNew(:) = 1.0_RKIND
+      wettingVelocityBaroclinic(:,:) = 1.0_RKIND
 
       ! Create reusable halo exchange for subcycling
       call mpas_dmpar_exch_group_create(domain, subcycleGroupName)
