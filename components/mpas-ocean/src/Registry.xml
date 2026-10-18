@@ -2303,6 +2303,8 @@
 			<var name="highFreqThickness"/>
 			<var name="lowFreqDivergence"/>
 			<var name="normalBarotropicVelocity"/>
+			<var name="wettingVelocityBaroclinic" packages="splitTimeIntegrator"/>
+			<var name="wettingVelocityBarotropicSubcycle" packages="splitTimeIntegrator"/>
 			<var name="vertCoordMovementWeights"/>
                         <var name="totalParamEddyEnergy" packages="gmGeometric" />
 			<var name="xtime"/>

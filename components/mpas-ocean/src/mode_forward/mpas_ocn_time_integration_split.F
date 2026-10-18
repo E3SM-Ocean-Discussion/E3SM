@@ -222,7 +222,8 @@ module ocn_time_integration_split
          sshNew,                      &! sea sfc height at new     time
          normalBarotropicVelocityCur, &! barotropic vel at current time
          normalBarotropicVelocityNew, &! barotropic vel at new     time
-         wettingVelocityBarotropicSubcycle  ! wetting factor
+         wettingVelocityBarotropicSubcycle, &! wetting factor
+         wettingVelocityBarotropicSubcycleOther ! factor, other time level
 
       real (kind=RKIND), dimension(:,:), pointer :: &
          normalBaroclinicVelocityCur, &! baroclinic vel at current time
@@ -1723,6 +1724,21 @@ module ocn_time_integration_split
             end do ! j=1,nBtrSubcycles
             call mpas_timer_stop('btr se subcycle loop')
 
+            ! The next barotropic stage starts from the wetting factor of
+            ! the last subcycle, which is now in the old time level. Copy
+            ! it to the other level, so it survives the time-level shift at
+            ! the end of the step and is the one in the restart stream.
+            call mpas_pool_get_array(statePool, &
+                            'wettingVelocityBarotropicSubcycle', &
+                             wettingVelocityBarotropicSubcycle, &
+                             oldBtrSubcycleTime)
+            call mpas_pool_get_array(statePool, &
+                            'wettingVelocityBarotropicSubcycle', &
+                             wettingVelocityBarotropicSubcycleOther, &
+                             newBtrSubcycleTime)
+            wettingVelocityBarotropicSubcycleOther(:) = &
+               wettingVelocityBarotropicSubcycle(:)
+
             deallocate(btrvel_temp)
             deallocate(wctEdge)
             deallocate(deltaSSH)
@@ -3075,6 +3091,7 @@ module ocn_time_integration_split
          layerThickness,           &! layer thickness cell center
          normalBaroclinicVelocity, &! normal baroclinic velocity
          wettingVelocityBaroclinic,&! wetting factor at current time
+         wettingVelocityBaroclinicNew,&! wetting factor at new time
          normalVelocity             ! normal velocity (total)
 
       type (mpas_time_type) :: &
@@ -3276,8 +3293,10 @@ module ocn_time_integration_split
 
       end if ! not restart
 
-      !*** The wetting-and-drying factors are not in the restart stream,
-      !*** so they start with no limiting on a restart, too
+      !*** The wetting-and-drying factors start with no limiting, except on
+      !*** a restart with wetting and drying, which reads them from the
+      !*** restart stream into the first time level.  Without wetting and
+      !*** drying, they are always 1, so the restart file need not have them.
 
       block => domain % blocklist
       call mpas_pool_get_subpool(block%structs, 'state', statePool)
@@ -3287,10 +3306,17 @@ module ocn_time_integration_split
                                            wettingVelocityBarotropicSubcycleNew, 2)
       call mpas_pool_get_array(statePool, 'wettingVelocityBaroclinic', &
                                            wettingVelocityBaroclinic, 1)
+      call mpas_pool_get_array(statePool, 'wettingVelocityBaroclinic', &
+                                           wettingVelocityBaroclinicNew, 2)
 
-      wettingVelocityBarotropicSubcycleCur(:) = 1.0_RKIND
-      wettingVelocityBarotropicSubcycleNew(:) = 1.0_RKIND
-      wettingVelocityBaroclinic(:,:) = 1.0_RKIND
+      if (.not. (config_do_restart .and. config_use_wetting_drying .and. &
+                 config_zero_drying_velocity)) then
+         wettingVelocityBarotropicSubcycleCur(:) = 1.0_RKIND
+         wettingVelocityBaroclinic(:,:) = 1.0_RKIND
+      end if
+      wettingVelocityBarotropicSubcycleNew(:) = &
+         wettingVelocityBarotropicSubcycleCur(:)
+      wettingVelocityBaroclinicNew(:,:) = wettingVelocityBaroclinic(:,:)
 
       ! Create reusable halo exchange for subcycling
       call mpas_dmpar_exch_group_create(domain, subcycleGroupName)
