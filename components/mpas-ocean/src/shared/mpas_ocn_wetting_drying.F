@@ -56,6 +56,7 @@ module ocn_wetting_drying
              ocn_wetting_drying_outflux_barotropic_factor, &
              ocn_wetting_velocity_factor_on_cell_edges
    public :: ocn_wetting_drying_update_land_ice
+   public :: ocn_compute_land_ice_ssh_adjustment
 
    !--------------------------------------------------------------------
    !
@@ -428,8 +429,8 @@ contains
 !>  to prevent cells from drying.
 !
 !-----------------------------------------------------------------------
-   subroutine ocn_wetting_drying_outflux_barotropic_factor(sshCur, btrVelocity, wctEdge, dt, &
-                     wettingVelocityBarotropic, err)!{{{
+   subroutine ocn_wetting_drying_outflux_barotropic_factor(sshCur, btrVelocity, wctEdge, &
+                     sshLandIceAdjustment, dt, wettingVelocityBarotropic, err)!{{{
 
       !-----------------------------------------------------------------
       !
@@ -440,7 +441,9 @@ contains
       real (kind=RKIND), dimension(:), intent(in) :: &
          sshCur, &      !< current SSH
          btrVelocity, & !< barotropic velocity on edges used to predict sshNew from only outflux
-         wctEdge        !< column thickness on edges used to predict the outflux
+         wctEdge,     & !< column thickness on edges used to predict the outflux
+         sshLandIceAdjustment !< SSH equivalent (<= 0) of the land-ice
+                              !< pressure removed by its cap in grounded cells
 
       real (kind=RKIND), intent(in) :: dt !< time step in s
 
@@ -508,7 +511,11 @@ contains
 
         if (maxLevelCell(iCell) == 0) cycle
 
-        wct = sshNew(iCell) + bottomDepth(iCell)
+        ! As in RK4, the water column is reduced by the SSH equivalent of
+        ! the land-ice pressure that the cap removed, so a cell under ice
+        ! heavier than flotation looks dry.  The SSH that is compared with
+        ! neighbors is not adjusted, since RK4 adds the adjustment back.
+        wct = sshNew(iCell) + bottomDepth(iCell) + sshLandIceAdjustment(iCell)
         hCrit = (config_drying_min_cell_height + config_drying_safety_height) * &
                 (maxLevelCell(iCell) - minLevelCell(iCell) + 1)
                 
@@ -536,7 +543,8 @@ contains
                 ! valid
                 if ( cellNei > nCellsAll ) cycle
                 sshNei = sshNew(cellNei)
-                wctNei = sshNew(cellNei) + bottomDepth(cellNei)
+                wctNei = sshNew(cellNei) + bottomDepth(cellNei) + &
+                         sshLandIceAdjustment(cellNei)
                 if ( wctNei > hCrit .and. sshNew(iCell) < sshNei ) then
                   wettingVelocityBarotropic(iEdge) = 1.0_RKIND
                 else
@@ -574,7 +582,8 @@ contains
                 ! valid
                 if ( cellNei > nCellsAll ) cycle
                 sshNei = sshNew(cellNei)
-                wctNei = sshNew(cellNei) + bottomDepth(cellNei)
+                wctNei = sshNew(cellNei) + bottomDepth(cellNei) + &
+                         sshLandIceAdjustment(cellNei)
                 if ( wctNei <= hCrit .or. sshNew(iCell) >= sshNei ) then
                   wettingVelocityBarotropic(iEdge) = 0.0_RKIND
                 end if     
