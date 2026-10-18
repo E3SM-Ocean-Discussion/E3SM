@@ -2841,7 +2841,7 @@ module ocn_time_integration_split
         call mpas_pool_get_array(verticalMeshPool, 'restingThickness', restingThickness)
         call mpas_pool_get_array(forcingPool, 'tidalInputMask', tidalInputMask)
         call mpas_pool_get_array(forcingPool, 'tidalBCValue', tidalBCValue)
-        do iCell=1, nCells
+        do iCell=1, nCellsAll
           ! artificially assumes boolean mask for now, could generalize to tappered sponge layer
           if (tidalInputMask(iCell) == 1.0_RKIND) then
             ! compute total depth for relative thickness contribution
