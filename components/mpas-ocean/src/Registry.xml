@@ -1390,6 +1390,10 @@
 					description="If true, just zero out velocity that is contributing to drying for cell that is drying.  This option can be used to estimate acceptable minimum thicknesses for a run."
 					possible_values=".true. or .false."
 		/>
+		<nml_option name="config_zero_drying_velocity_gradSSH" type="logical" default_value=".false."
+					description="If true, use the SSH gradient to determine whether to allow fluxes into cells with no projected flow."
+					possible_values=".true. or .false."
+		/>
 		<nml_option name="config_zero_drying_velocity_ramp" type="logical" default_value=".false."
 					description="If true, ramp velocities and tendencies to zero rather than applying a simple on/off switch."
 					possible_values=".true. or .false."
@@ -1400,6 +1404,10 @@
 		/>
 		<nml_option name="config_zero_drying_velocity_ramp_hmax" type="real" default_value="2e-3"
 					description="Maximum layer thickness at which velocities and tendencies are ramped toward zero. Recommended values between 2x and 10x config_drying_min_cell_height."
+					possible_values="Any positive real"
+		/>
+		<nml_option name="config_zero_drying_velocity_ramp_factor" type="real" default_value="50.0"
+					description="Factor for tanh wettingVelocityFactor ramp."
 					possible_values="Any positive real"
 		/>
 		<nml_option name="config_verify_not_dry" type="logical" default_value=".false." units="unitless"
@@ -2730,6 +2738,14 @@
 			 description="baroclinic velocity, used in split-explicit time-stepping"
 			 packages="splitTimeIntegrator"
 		/>
+		<var name="wettingVelocityBarotropicSubcycle" type="real" dimensions="nEdges Time" units="m s^-1"
+			 description="barotropic wetting velocity factor, used in split-explicit time-stepping"
+			 packages="splitTimeIntegrator"
+		/>
+		<var name="wettingVelocityBaroclinic" type="real" dimensions="nVertLevels nEdges Time" units="m s^-1"
+			 description="baroclinic wetting velocity factor, used in split-explicit time-stepping"
+			 packages="splitTimeIntegrator"
+		/>
 
 		<!-- FIELDS FOR GOTM -->
 		<var name="gotmVertViscTopOfCell" type="real" dimensions="nVertLevelsP1 nCells Time" units="m^2 s^-1"
@@ -3314,7 +3330,7 @@
 			 packages="forwardMode;analysisMode"
 		/>
 		<var name="wettingVelocityFactor" type="real" dimensions="nVertLevels nEdges Time"
-			 description="Scaling factor for normalVelocity and its tendency to prevent drying of cell between 0 (no scaling) and 1 (normalVelocity and tendency set to 0)."
+			 description="Scaling factor for normalVelocity and its tendency to prevent drying of cell between 0 (normalVelocity and tendency set to 0) and 1 (no scaling). Used in RK4 time stepping"
 			 packages="forwardMode"
 		/>
 		<var name="vertAleTransportTop" type="real" dimensions="nVertLevelsP1 nCells Time" units="m s^-1"
