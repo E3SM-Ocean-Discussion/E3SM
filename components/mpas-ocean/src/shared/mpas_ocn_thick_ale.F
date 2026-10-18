@@ -157,7 +157,7 @@ contains
                                                   restingThickness)
       !xacc enter data copyin(restingThickness) 
 
-      nCells = nCellsAll
+      nCells = nCellsHalo(1)
 
       !
       ! ALE thickness alteration due to SSH (z-star)

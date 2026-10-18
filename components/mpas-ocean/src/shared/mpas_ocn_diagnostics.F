@@ -3191,7 +3191,7 @@ contains
       !$acc enter data create(projectedSSH, ALE_Thickness, div_hu)
 
       ! Only need to compute over 0 and 1 halos
-      nCells = nCellsAll
+      nCells = nCellsHalo( 1 )
 
       !
       ! thickness-weighted divergence and barotropic divergence
@@ -3245,6 +3245,7 @@ contains
         call ocn_ALE_thickness(verticalMeshPool, projectedSSH, &
                                ALE_thickness, err)
       endif
+
       !
       ! Vertical transport through layer interfaces
       !
