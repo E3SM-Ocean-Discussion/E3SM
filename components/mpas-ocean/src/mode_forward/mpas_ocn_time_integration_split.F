@@ -767,8 +767,8 @@ module ocn_time_integration_split
          ! In vel tend, factor = 0 allows flow
          !$omp parallel
          !$omp do schedule(runtime)
-         do iCell = 1, nCellsAll
-            wettingVelocityFactor(:, iCell) = 1.0_RKIND - wettingVelocityBaroclinicCur(:, iCell)
+         do iEdge = 1, nEdgesAll
+            wettingVelocityFactor(:, iEdge) = 1.0_RKIND - wettingVelocityBaroclinicCur(:, iEdge)
          end do
          !$omp end do
          !$omp end parallel
