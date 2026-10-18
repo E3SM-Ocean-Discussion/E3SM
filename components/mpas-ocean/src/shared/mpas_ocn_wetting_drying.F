@@ -531,7 +531,10 @@ contains
               ! Allow flux across edges that are anticipated to be motionless but have an ssh gradient from a wet cell into a dry cell
               if ( btrVelocity(iEdge) * edgeSignOnCell(i, iCell) == 0.0_RKIND ) then
                 cellNei = merge( cellsOnEdge(2, iEdge), cellsOnEdge(1, iEdge), iCell == cellsOnEdge(1, iEdge) )
-                if ( cellNei > nCellsAll ) cellNei = iCell ! check with Steven on how to handle this index
+                ! a neighbor beyond nCellsAll is land, where the edge carries no
+                ! flow, or outside this block, where the barotropic solution is not
+                ! valid
+                if ( cellNei > nCellsAll ) cycle
                 sshNei = sshNew(cellNei)
                 wctNei = sshNew(cellNei) + bottomDepth(cellNei)
                 if ( wctNei > hCrit .and. sshNew(iCell) < sshNei ) then
@@ -566,7 +569,10 @@ contains
               ! edges that do not have an ssh gradient from a wet cell into a dry cell
               if ( btrVelocity(iEdge) * edgeSignOnCell(i, iCell) == 0.0_RKIND ) then
                 cellNei = merge( cellsOnEdge(2, iEdge), cellsOnEdge(1, iEdge), iCell == cellsOnEdge(1, iEdge) )
-                if ( cellNei > nCellsAll ) cellNei = iCell ! check with Steven on how to handle this index
+                ! a neighbor beyond nCellsAll is land, where the edge carries no
+                ! flow, or outside this block, where the barotropic solution is not
+                ! valid
+                if ( cellNei > nCellsAll ) cycle
                 sshNei = sshNew(cellNei)
                 wctNei = sshNew(cellNei) + bottomDepth(cellNei)
                 if ( wctNei <= hCrit .or. sshNew(iCell) >= sshNei ) then
