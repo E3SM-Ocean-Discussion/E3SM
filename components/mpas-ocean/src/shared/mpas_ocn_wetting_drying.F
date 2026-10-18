@@ -62,7 +62,6 @@ module ocn_wetting_drying
    ! Private module variables
    !
    !--------------------------------------------------------------------
-   integer, parameter :: logEdge = 10
    real(kind=RKIND), parameter :: eps = 1.0e-12_RKIND
 
 
@@ -522,8 +521,6 @@ contains
           do i = 1, nEdgesOnCell(iCell)
             iEdge = edgesOnCell(i, iCell)
             if ( btrVelocity(iEdge) * edgeSignOnCell(i, iCell) < 0.0_RKIND ) then
-              !if (iEdge == logEdge) call mpas_log_write('wettingVelocityBarotropic is set to 0, wct $r < hCrit $r', &
-              !                                          realArgs=(/wct, hCrit/))
               wettingVelocityBarotropic(iEdge) = 0.0_RKIND
             end if
           end do
@@ -559,14 +556,6 @@ contains
             if ( btrVelocity(iEdge) * edgeSignOnCell(i, iCell) <= 0.0_RKIND ) then
               wettingVelocityBarotropic(iEdge) = &
                 tanh(hRampFactor * (wct - hRampMin)/(hRampMax - hRampMin))
-
-              !if (iEdge == logEdge) call mpas_log_write('wettingVelocityBarotropic ramped = $r, wctCur = $r, wctNew = $r, hRampMin = $r, hCrit = $r', &
-              !                                          realArgs=(/wettingVelocityBarotropic(iEdge), sshCur(iCell) + bottomDepth(iCell), &
-              !                                                     wct, hRampMin, hCrit/))
-            !else
-
-            !  if (iEdge == logEdge) call mpas_log_write('wettingVelocityBarotropic not updated in ramp from 1 = $r', &
-            !                                            realArgs=(/wettingVelocityBarotropic(iEdge)/))
             end if
           end do
 
@@ -580,26 +569,12 @@ contains
                 if ( cellNei > nCellsAll ) cellNei = iCell ! check with Steven on how to handle this index
                 sshNei = sshNew(cellNei)
                 wctNei = sshNew(cellNei) + bottomDepth(cellNei)
-                ! if ( wctNei <= hCrit .and. sshNew(iCell) < sshNei ) then
                 if ( wctNei <= hCrit .or. sshNew(iCell) >= sshNei ) then
                   wettingVelocityBarotropic(iEdge) = 0.0_RKIND
                 end if     
               end if
             end do
           end if
-
-        !else
-
-        !  do i = 1, nEdgesOnCell(iCell)
-        !    iEdge = edgesOnCell(i, iCell)
-        !    if (wctEdge(iEdge) < hRampMax) then 
-        !      call mpas_log_write('wettingVelocityBarotropic not updated from 1 even though wctEdge started out thin')
-        !      call mpas_log_write(' btrFactor = $r, wct = $r, wctEdge = $r, u = $r', &
-        !                          realArgs=(/wettingVelocityBarotropic(iEdge), wct, wctEdge(iEdge), btrVelocity(iEdge) * edgeSignOnCell(i, iCell)/))
-        !      call mpas_log_write(' hMin = $r, hCrit = $r, hRampMax = $r', &
-        !                          realArgs=(/config_drying_min_cell_height, hCrit, hRampMax/))
-        !    end if
-        !  end do
         end if
 
       end do

@@ -3264,14 +3264,6 @@ contains
          vertAleTransportTop(1,iCell) = 0.0_RKIND
          vertAleTransportTop(maxLevelCell(iCell)+1,iCell) = 0.0_RKIND
          do k = maxLevelCell(iCell), minLevelCell(iCell)+1, -1
-            !if (ALE_Thickness(k,iCell) - oldLayerThickness(k,iCell) > &
-            !    0.1_RKIND * oldLayerThickness(k,iCell)) then
-            !   call mpas_log_write('layerThickness $r changes by more than 10% to $r', &
-            !            realArgs=(/oldLayerThickness(k,iCell), ALE_Thickness(k,iCell)/))
-            !   call mpas_log_write('SSH $r changes to $r', &
-            !            realArgs=(/oldSSH(iCell), projectedSSH(iCell)/), &
-            !            messageType=MPAS_LOG_CRIT)
-            !endif
             vertAleTransportTop(k,iCell) = &
                 vertAleTransportTop(k+1,iCell) - div_hu(k,iCell) &
                      - (ALE_Thickness(k,iCell) - &
