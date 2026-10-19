@@ -964,7 +964,15 @@ module ocn_time_integration_split
             !add GM and MLE (submesoscale) velocities if requested
             call ocn_GM_add_to_transport_vel(normalTransportVelocity, nEdgesAll, &
                                              nVertLevels)
-            call ocn_MLE_add_to_transport_vel(normalTransportvelocity, nEdgesAll)
+            ! with wetting and drying, the MLE velocity is limited by the
+            ! factor that limits the baroclinic velocity
+            if (config_use_wetting_drying) then
+               call ocn_MLE_add_to_transport_vel(normalTransportvelocity, &
+                       nEdgesAll, wettingVelocityBaroclinicCur)
+            else
+               call ocn_MLE_add_to_transport_vel(normalTransportvelocity, &
+                                                 nEdgesAll)
+            end if
 
             !$omp parallel
             !$omp do schedule(runtime) &
@@ -1769,7 +1777,12 @@ module ocn_time_integration_split
 
             call ocn_GM_add_to_transport_vel(uTemp, nEdges, &
                                              nVertLevels)
-            call ocn_MLE_add_to_transport_vel(uTemp, nEdges)
+            if (config_use_wetting_drying) then
+               call ocn_MLE_add_to_transport_vel(uTemp, nEdges, &
+                                                 wettingVelocityBaroclinicCur)
+            else
+               call ocn_MLE_add_to_transport_vel(uTemp, nEdges)
+            end if
 
             !$omp parallel
             !$omp do schedule(runtime) &
@@ -1785,7 +1798,13 @@ module ocn_time_integration_split
             !$omp end parallel
             call ocn_GM_add_to_transport_vel(normalTransportVelocity, nEdges, &
                                              nVertLevels)
-            call ocn_MLE_add_to_transport_vel(normalTransportVelocity, nEdges)
+            if (config_use_wetting_drying) then
+               call ocn_MLE_add_to_transport_vel(normalTransportVelocity, &
+                       nEdges, wettingVelocityBaroclinicCur)
+            else
+               call ocn_MLE_add_to_transport_vel(normalTransportVelocity, &
+                                                 nEdges)
+            end if
 
             !$omp parallel
             !$omp do schedule(runtime) &
