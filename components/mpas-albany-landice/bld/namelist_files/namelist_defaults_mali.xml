@@ -30,10 +30,19 @@
 <config_slm_coupling_interval>2</config_slm_coupling_interval>
 <config_MALI_to_SLM_weights_file>'mpas_to_grid.nc'</config_MALI_to_SLM_weights_file>
 <config_SLM_to_MALI_weights_file>'grid_to_mpas.nc'</config_SLM_to_MALI_weights_file>
+<config_fastisostasy_coupling_interval>2</config_fastisostasy_coupling_interval>
+<config_MALI_to_FASTISOSTASY_weights_file>'mpas_to_fastisostasy.nc'</config_MALI_to_FASTISOSTASY_weights_file>
+<config_FASTISOSTASY_to_MALI_weights_file>'fastisostasy_to_mpas.nc'</config_FASTISOSTASY_to_MALI_weights_file>
+<config_fastisostasy_grid_resolution>0.0</config_fastisostasy_grid_resolution>
+<config_fastisostasy_parameter_file>'fastisostasy.nml'</config_fastisostasy_parameter_file>
+<config_fastisostasy_restart_file>'fastisostasy_restart.nc'</config_fastisostasy_restart_file>
+<config_fastisostasy_bsl_restart_file>'fastisostasy_bsl_restart.nc'</config_fastisostasy_bsl_restart_file>
 
 <!-- calving -->
 <config_calving>'none'</config_calving>
 <config_apply_calving_mask>.false.</config_apply_calving_mask>
+<config_require_extensional_stresses_for_mask_calving>.false.</config_require_extensional_stresses_for_mask_calving>
+<config_calving_fracture_toughness>2.0e5</config_calving_fracture_toughness>
 <config_use_Albany_flowA_eqn_for_vM>.false.</config_use_Albany_flowA_eqn_for_vM>
 <config_calving_topography>-500.0</config_calving_topography>
 <config_calving_thickness>300.0</config_calving_thickness>
@@ -148,6 +157,8 @@
 <config_adaptive_timestep_include_calving>.true.</config_adaptive_timestep_include_calving>
 <config_adaptive_timestep_include_face_melting>.true.</config_adaptive_timestep_include_face_melting>
 <config_adaptive_timestep_force_interval>'0000-00-01_00:00:00'</config_adaptive_timestep_force_interval>
+<config_timeaveraging_interval>'0000-00-00_00:00:00'</config_timeaveraging_interval>
+<config_enable_timeAvgRestarts>.false.</config_enable_timeAvgRestarts>
 
 <!-- time_management -->
 <config_do_restart>.false.</config_do_restart>
