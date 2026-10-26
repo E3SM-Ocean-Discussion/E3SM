@@ -1,0 +1,7 @@
+site_name: MPAS Framework
+
+nav:
+ - Introduction: 'index.md'
+ - Design Documents:
+   - 'design/index.md'
+   - Standalone CMake Builds: 'design/standalone-cmake-build.md'
