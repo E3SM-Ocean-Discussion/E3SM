@@ -718,6 +718,7 @@ contains
 !> \details
 !>  This routine computes the water column thickness on edges, wctEdge, which
 !>  can either be the mean or an upwind value, depending on user input.
+!>  This should be the thickness used for fluxes on the barotropic time step
 !
 !-----------------------------------------------------------------------
 
