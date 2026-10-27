@@ -123,7 +123,7 @@ module li_thermal
            config_thermal_solver,                 & ! solver option ('temperature' or 'enthalpy')
            config_temperature_init,               & ! temperature initialization option ('linear' or 'file')
            config_surface_air_temperature_source, & ! surface air temperature initialization option
-                                                    ! ('constant' or 'file' or 'lapse')
+                                   ! ('constant' or 'file')
            config_basal_heat_flux_source            ! basal heat flux initialization option ('constant' or 'file')
 
       real (kind=RKIND), pointer ::  &
@@ -132,7 +132,6 @@ module li_thermal
 
       real (kind=RKIND), pointer ::  &
            config_surface_air_temperature_value, & ! constant value of surface air temperature
-           config_surface_air_temperature_lapse_rate, & ! optional lapse rate to apply to constant value of surface air temperature
            config_basal_heat_flux_value,         & ! constant value of basal heat flux
            config_invalid_value_ocn_intr_temp      ! marks where the ocean provides no interface temperature
 
@@ -161,7 +160,7 @@ module li_thermal
            enthalpy                    ! interior ice enthalpy (J m^{-3})
 
       real (kind=RKIND), dimension(:), pointer :: &
-           surfaceAirTemperature,    & ! surface air temperature (K)
+           surfaceAirTemperature,    & ! raw/input surface air temperature (K)
            surfaceTemperature,       & ! surface ice temperature (K)
            basalTemperature,         & ! basal ice temperature (K)
            iceOceanInterfaceTemperature ! ice-ocean interface temperature from the ocean (K)
@@ -206,7 +205,6 @@ module li_thermal
       call mpas_pool_get_config(liConfigs, 'config_temperature_init', config_temperature_init)
       call mpas_pool_get_config(liConfigs, 'config_surface_air_temperature_source', config_surface_air_temperature_source)
       call mpas_pool_get_config(liConfigs, 'config_surface_air_temperature_value', config_surface_air_temperature_value)
-      call mpas_pool_get_config(liConfigs, 'config_surface_air_temperature_lapse_rate', config_surface_air_temperature_lapse_rate)
       call mpas_pool_get_config(liConfigs, 'config_basal_heat_flux_source', config_basal_heat_flux_source)
       call mpas_pool_get_config(liConfigs, 'config_basal_heat_flux_value', config_basal_heat_flux_value)
       call mpas_pool_get_config(liConfigs, 'config_invalid_value_ocn_intr_temp', config_invalid_value_ocn_intr_temp)
@@ -267,12 +265,6 @@ module li_thermal
             surfaceAirTemperature(:) = config_surface_air_temperature_value
             if (config_print_thermal_info) &
                call mpas_log_write('Initialize sfc air temp: $r', realArgs=(/config_surface_air_temperature_value/))
-         elseif (trim(config_surface_air_temperature_source) == 'lapse') then
-            surfaceAirTemperature(:) = config_surface_air_temperature_value - config_surface_air_temperature_lapse_rate &
-               * upperSurface(:)
-            if (config_print_thermal_info) &
-               call mpas_log_write('Initialize sfc air temp to $r with lapse rate of $r', &
-                  realArgs=(/config_surface_air_temperature_value, config_surface_air_temperature_lapse_rate/))
          endif
 
          ! init for basalHeatFlux
@@ -680,17 +672,10 @@ module li_thermal
 
       character (len=StrKIND), pointer :: config_velocity_solver
 
-      character(len=StrKIND), pointer :: &
-           config_surface_air_temperature_source ! surface air temperature initialization option
-
       real(kind=RKIND), pointer :: &
            config_thermal_thickness, & ! minimum thickness (m) for temperature calculations
            config_sea_level,         & ! sea level (m) relative to z = 0
            config_invalid_value_ocn_intr_temp ! marks where the ocean provides no interface temperature
-
-      real (kind=RKIND), pointer ::  &
-           config_surface_air_temperature_value, & ! constant value of surface air temperature
-           config_surface_air_temperature_lapse_rate ! optional lapse rate to apply to constant value of surface air temperature
 
       integer, pointer :: &
            config_stats_cell_ID        ! global ID for diagnostic cell
@@ -717,7 +702,7 @@ module li_thermal
       real (kind=RKIND), dimension(:), pointer :: &
            surfaceTemperature,       & ! surface ice temperature (K)
            basalTemperature,         & ! basal ice temperature (K)
-           surfaceAirTemperature,    & ! surface air temperature (K)
+           surfaceAirTemperatureApplied,    & ! surface air temperature used by physics (K)
            basalHeatFlux,            & ! basal heat flux into the ice (W m^{-2}, positive upward)
            basalFrictionFlux,        & ! basal frictional flux into the ice (W m^{-2})
            surfaceConductiveFlux,    & ! conductive heat flux at the upper surface (W m^{-2}, positive down)
@@ -781,9 +766,6 @@ module li_thermal
       call mpas_pool_get_config(liConfigs, 'config_sea_level', config_sea_level)
       call mpas_pool_get_config(liConfigs, 'config_stats_cell_ID', config_stats_cell_ID)
       call mpas_pool_get_config(liConfigs, 'config_velocity_solver', config_velocity_solver)
-      call mpas_pool_get_config(liConfigs, 'config_surface_air_temperature_value', config_surface_air_temperature_value)
-      call mpas_pool_get_config(liConfigs, 'config_surface_air_temperature_lapse_rate', config_surface_air_temperature_lapse_rate)
-      call mpas_pool_get_config(liConfigs, 'config_surface_air_temperature_source', config_surface_air_temperature_source)
 
 
       if (config_print_thermal_info) then
@@ -844,7 +826,7 @@ module li_thermal
          call mpas_pool_get_array(thermalPool, 'surfaceTemperature', surfaceTemperature)
          call mpas_pool_get_array(thermalPool, 'basalTemperature',   basalTemperature)
          call mpas_pool_get_array(thermalPool, 'iceOceanInterfaceTemperature', iceOceanInterfaceTemperature)
-         call mpas_pool_get_array(thermalPool, 'surfaceAirTemperature', surfaceAirTemperature)
+         call mpas_pool_get_array(thermalPool, 'surfaceAirTemperatureApplied', surfaceAirTemperatureApplied)
          call mpas_pool_get_array(thermalPool, 'surfaceConductiveFlux', surfaceConductiveFlux)
          call mpas_pool_get_array(thermalPool, 'basalConductiveFlux', basalConductiveFlux)
          call mpas_pool_get_array(thermalPool, 'basalHeatFlux', basalHeatFlux)
@@ -885,14 +867,6 @@ module li_thermal
          ! === mechanical heating terms now calculated in li_velocity_solve ===
          ! (this makes restarts easier because just heatDissipation and basalFrictionFlux
          !  need to be restart variables, rather than all of their inputs.)
-
-
-         ! === Update surfaceTemperature if using a lapse rate ===
-         if (trim(config_surface_air_temperature_source) == 'lapse') then
-            surfaceAirTemperature(:) = config_surface_air_temperature_value - config_surface_air_temperature_lapse_rate &
-               * upperSurface(:)
-         endif
-
          ! ================================
          select case(config_thermal_solver)
          ! ================================
@@ -910,7 +884,7 @@ module li_thermal
             ! Convert temperature from Kelvin to Celsius to avoid repeated use of kelvin_to_celsius below
             ! (Convert back at the end.)
             temperature(:,:) = temperature(:,:) - kelvin_to_celsius
-            surfaceAirTemperature(:) = surfaceAirTemperature(:) - kelvin_to_celsius
+            surfaceAirTemperatureApplied(:) = surfaceAirTemperatureApplied(:) - kelvin_to_celsius
             surfaceTemperature(:) = surfaceTemperature(:) - kelvin_to_celsius
             basalTemperature(:) = basalTemperature(:) - kelvin_to_celsius
 
@@ -927,7 +901,7 @@ module li_thermal
                do iCell = 1, nCellsSolve
                   if (indexToCellID(iCell) == config_stats_cell_ID) then
                      call mpas_log_write('thickness = $r', realArgs=(/thickness(iCell)/))
-                     call mpas_log_write('surfaceAirTemperature = $r', realArgs=(/surfaceAirTemperature(iCell)/))
+                     call mpas_log_write('surfaceAirTemperatureApplied = $r', realArgs=(/surfaceAirTemperatureApplied(iCell)/))
                      call mpas_log_write(' ')
                      call mpas_log_write('Initial column temperatures, indexToCellID = $i', intArgs=(/indexToCellID(iCell)/))
                      call mpas_log_write("0 $r", realArgs=(/surfaceTemperature(iCell)/))
@@ -953,7 +927,7 @@ module li_thermal
 
                   ! Set surface temperature (Celsius)
 
-                  surfaceTemperature(iCell) = min(0.0_RKIND, surfaceAirTemperature(iCell))
+                  surfaceTemperature(iCell) = min(0.0_RKIND, surfaceAirTemperatureApplied(iCell))
 
                   ! For floating ice, set the basal temperature to the ice-ocean interface temperature
                   ! from the ocean where it is available.  Otherwise, use the freezing temperature of
@@ -1309,7 +1283,7 @@ module li_thermal
 
             ! Convert temperatures from Celsius back to Kelvin
             temperature(:,:) = temperature(:,:) + kelvin_to_celsius
-            surfaceAirTemperature(:) = surfaceAirTemperature(:) + kelvin_to_celsius
+            surfaceAirTemperatureApplied(:) = surfaceAirTemperatureApplied(:) + kelvin_to_celsius
             surfaceTemperature(:) = surfaceTemperature(:) + kelvin_to_celsius
             basalTemperature(:) = basalTemperature(:) + kelvin_to_celsius
 
