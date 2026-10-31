@@ -478,9 +478,11 @@ iamroot = seq_comm_iamroot(CPLID)
           ko = mct_aVect_indexRa(fractions_o,"ofrac",perrWith=subName)
           kf = mct_aVect_indexRA(dom_o%data ,"frac" ,perrWith=subName)
           fractions_o%rAttr(ko,:) = dom_o%data%rAttr(kf,:)
-          mapper_o2a => prep_atm_get_mapper_Fo2a()
-          call seq_map_map(mapper_o2a, fractions_o, fractions_a, fldlist='ofrac',norm=.false., &
-               omit_nonlinear=.true.)
+          if (atm_present) then
+             mapper_o2a => prep_atm_get_mapper_Fo2a()
+             call seq_map_map(mapper_o2a, fractions_o, fractions_a, fldlist='ofrac',norm=.false., &
+                  omit_nonlinear=.true.)
+          endif
        endif
 
        if (atm_present) then

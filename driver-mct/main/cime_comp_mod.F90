@@ -2001,8 +2001,10 @@ contains
        call shr_sys_abort(subname//' ERROR: if prognostic iac must also have iac present')
     endif
 #ifndef CPL_BYPASS
-    if ((ice_prognostic .or. ocn_prognostic .or. lnd_prognostic) .and. .not. atm_present) then
-       call shr_sys_abort(subname//' ERROR: if prognostic surface model must also have atm present')
+    ! A prognostic ocean may run without an atm (e.g., forced only by glc in
+    ! idealized ice-shelf cases); the atm/ocn fluxes are then not computed
+    if ((ice_prognostic .or. lnd_prognostic) .and. .not. atm_present) then
+       call shr_sys_abort(subname//' ERROR: if prognostic ice or lnd must also have atm present')
     endif
 #endif
     if ((glclnd_present .or. glcocn_present .or. glcice_present) .and. .not.glc_present) then
@@ -4259,8 +4261,9 @@ contains
           if (wav_c2_ocn) call prep_ocn_calc_w2x_ox(timer='CPL:atmocnp_wav2ocn')
        end if
 
-       ! atm/ocn flux on either atm or ocean grid
-       call cime_run_atmocn_fluxes(hashint)
+       ! atm/ocn flux on either atm or ocean grid; without an atm, the fluxes
+       ! in xao_ox stay zero
+       if (atm_present) call cime_run_atmocn_fluxes(hashint)
 
        ! ocn prep-merge (cesm1_mod or cesm1_mod_tight)
        if (ocn_prognostic) then

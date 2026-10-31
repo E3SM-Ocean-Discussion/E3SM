@@ -332,15 +332,17 @@ contains
              call seq_io_write(hist_file, gsmap, xao_ox, 'xao_ox',  &
                   nx=ocn_nx, ny=ocn_ny, nt=1, whead=whead, wdata=wdata, dims2din=latlonid, pre='xaoo')
 
-             gsmap  => component_get_gsmap_cx(atm(1))
-             o2x_ax => prep_atm_get_o2x_ax()
-             call seq_io_write(hist_file, gsmap, o2x_ax, 'o2x_ax',  &
-                  nx=atm_nx, ny=atm_ny, nt=1, whead=whead, wdata=wdata, dims2din=alatlonid, pre='o2xa')
+             if (atm_present) then
+                gsmap  => component_get_gsmap_cx(atm(1))
+                o2x_ax => prep_atm_get_o2x_ax()
+                call seq_io_write(hist_file, gsmap, o2x_ax, 'o2x_ax',  &
+                     nx=atm_nx, ny=atm_ny, nt=1, whead=whead, wdata=wdata, dims2din=alatlonid, pre='o2xa')
 
-             gsmap  => component_get_gsmap_cx(atm(1))
-             xao_ax => prep_aoflux_get_xao_ax()
-             call seq_io_write(hist_file, gsmap, xao_ax, 'xao_ax',  &
-                  nx=atm_nx, ny=atm_ny, nt=1, whead=whead, wdata=wdata, dims2din=alatlonid, pre='xaoa')
+                gsmap  => component_get_gsmap_cx(atm(1))
+                xao_ax => prep_aoflux_get_xao_ax()
+                call seq_io_write(hist_file, gsmap, xao_ax, 'xao_ax',  &
+                     nx=atm_nx, ny=atm_ny, nt=1, whead=whead, wdata=wdata, dims2din=alatlonid, pre='xaoa')
+             endif
           endif
 
           if (rof_present .and. ocnrof_prognostic) then
