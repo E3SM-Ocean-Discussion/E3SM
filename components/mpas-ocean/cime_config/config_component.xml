@@ -165,6 +165,47 @@
          that is only available on a limited set of machines/compilers.</desc>
  </entry>
 
+  <entry id="MPASO_IC_FILE">
+        <type>char</type>
+        <default_value></default_value>
+        <group>run_component_mpaso</group>
+        <file>env_run.xml</file>
+        <desc>Full path of the MPASO mesh and initial condition.  If empty,
+         the file for OCN_GRID in MPASO's buildnml is used.  Required for an
+         ocean grid that buildnml does not list.</desc>
+ </entry>
+
+  <entry id="MPASO_DECOMP_FILE_PREFIX">
+        <type>char</type>
+        <default_value></default_value>
+        <group>run_component_mpaso</group>
+        <file>env_run.xml</file>
+        <desc>Full path of the MPASO graph partition files, up to the task
+         count that ends each file name (e.g. /path/mpas-o.graph.info.part.).
+         If empty, the partitions for OCN_GRID in MPASO's buildnml are used.
+         Required for an ocean grid that buildnml does not list.</desc>
+ </entry>
+
+  <entry id="MPASO_INTERIOR_RESTORING_FILE">
+        <type>char</type>
+        <default_value></default_value>
+        <group>run_component_mpaso</group>
+        <file>env_run.xml</file>
+        <desc>Full path of a file with the MPASO interior-restoring fields
+         (tracersInteriorRestoringFields).  If set, MPASO's buildnml adds an
+         input stream that reads them at initialization.</desc>
+ </entry>
+
+  <entry id="MPASO_TIDAL_MASK_FILE">
+        <type>char</type>
+        <default_value></default_value>
+        <group>run_component_mpaso</group>
+        <file>env_run.xml</file>
+        <desc>Full path of a file with the MPASO tidal-forcing mask
+         (tidalInputMask).  If set, MPASO's buildnml adds an input stream
+         that reads it at initialization.</desc>
+ </entry>
+
   <description>
     <desc compset="_MPASO">mpas ocean default:</desc>
   </description>

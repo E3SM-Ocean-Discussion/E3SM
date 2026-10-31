@@ -52,6 +52,10 @@ def buildnml(case, caseroot, compname):
     run_refcase       = case.get_value("RUN_REFCASE")
     run_refdate       = case.get_value("RUN_REFDATE")
     run_reftod        = case.get_value("RUN_REFTOD")
+    ic_file           = case.get_value("MPASO_IC_FILE")
+    decomp_file_prefix = case.get_value("MPASO_DECOMP_FILE_PREFIX")
+    interior_restoring_file = case.get_value("MPASO_INTERIOR_RESTORING_FILE")
+    tidal_mask_file   = case.get_value("MPASO_TIDAL_MASK_FILE")
     stream_name       = 'streams.ocean'
 
     # Use 'pnetcdf,cdf5' when OCN_PIO_NETCDF_FORMAT requests 64-bit data, else use the standard type
@@ -480,10 +484,21 @@ def buildnml(case, caseroot, compname):
             logger.warning("         But no file available for this grid.")
 
     #--------------------------------------------------------------------
-    # Set the initial file
+    # Set the initial file, which also holds the mesh.  MPASO_IC_FILE and
+    # MPASO_DECOMP_FILE_PREFIX name the files for a grid not listed above
+    # (build-namelist reads the latter).
     #--------------------------------------------------------------------
 
-    input_file = "{}/ocn/mpas-o/{}/{}.{}.nc".format(din_loc_root, ocn_mask, ic_prefix, ic_date)
+    if ic_prefix == '':
+        expect(ic_file and decomp_file_prefix,
+               "ERROR mpaso buildnml: OCN_GRID {} is not listed, so MPASO_IC_FILE and "
+               "MPASO_DECOMP_FILE_PREFIX must be set".format(ocn_grid))
+
+    if ic_file:
+        mesh_file = ic_file
+    else:
+        mesh_file = "{}/ocn/mpas-o/{}/{}.{}.nc".format(din_loc_root, ocn_mask, ic_prefix, ic_date)
+    input_file = mesh_file
 
     #--------------------------------------------------------------------
     # Generate input data file with stream-specified files
@@ -491,7 +506,7 @@ def buildnml(case, caseroot, compname):
 
     with open(os.path.join(casebuild, "mpaso.input_data_list"), "w") as input_list:
 
-        input_list.write("mesh = {}/ocn/mpas-o/{}/{}.{}.nc\n".format(din_loc_root, ocn_mask, ic_prefix, ic_date))
+        input_list.write("mesh = {}\n".format(mesh_file))
         input_list.write("ic = {}\n".format(input_file))
         if analysis_mask_file != '':
             input_list.write("moc = {}/ocn/mpas-o/{}/{}\n".format(din_loc_root, ocn_mask, analysis_mask_file))
@@ -510,6 +525,12 @@ def buildnml(case, caseroot, compname):
 
         if data_sgr_file != '':
             input_list.write("subglacial_runoff = {}/ocn/mpas-o/{}/{}\n".format(din_loc_root, ocn_mask, data_sgr_file))
+
+        if interior_restoring_file:
+            input_list.write("interior_restoring = {}\n".format(interior_restoring_file))
+
+        if tidal_mask_file:
+            input_list.write("tidal_mask = {}\n".format(tidal_mask_file))
 
     #--------------------------------------------------------------------
     # Invoke mpas build-namelist - output will go in $CASEBUILD/mpasoconf
@@ -605,7 +626,7 @@ def buildnml(case, caseroot, compname):
             lines.append('                  type="none"')
             lines.append('                  io_type="{}"'.format(io_type_str))
 
-            lines.append('                  filename_template="{}/ocn/mpas-o/{}/{}.{}.nc"'.format(din_loc_root, ocn_mask, ic_prefix, ic_date))
+            lines.append('                  filename_template="{}"'.format(mesh_file))
             lines.append('/>')
             lines.append('<immutable_stream name="input"')
             lines.append('                  type="input"')
@@ -772,6 +793,30 @@ def buildnml(case, caseroot, compname):
                 lines.append('       packages="landIceFluxesPKG">')
                 lines.append('')
                 lines.append('       <var name="subglacialRunoffFlux"/>')
+                lines.append('</stream>')
+                lines.append('')
+
+            if interior_restoring_file:
+                lines.append('<stream name="interior_restoring"')
+                lines.append('       type="input"')
+                lines.append('       io_type="{}"'.format(io_type_str))
+                lines.append('       filename_template="{}"'.format(interior_restoring_file))
+                lines.append('       input_interval="initial_only" ')
+                lines.append('       packages="activeTracersInteriorRestoringPKG">')
+                lines.append('')
+                lines.append('       <var_struct name="tracersInteriorRestoringFields"/>')
+                lines.append('</stream>')
+                lines.append('')
+
+            if tidal_mask_file:
+                lines.append('<stream name="tidal_forcing_mask"')
+                lines.append('       type="input"')
+                lines.append('       io_type="{}"'.format(io_type_str))
+                lines.append('       filename_template="{}"'.format(tidal_mask_file))
+                lines.append('       input_interval="initial_only" ')
+                lines.append('       packages="tidalForcing">')
+                lines.append('')
+                lines.append('       <var name="tidalInputMask"/>')
                 lines.append('</stream>')
                 lines.append('')
 
