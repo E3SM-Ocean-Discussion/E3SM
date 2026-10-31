@@ -260,13 +260,17 @@ module ocn_vertical_remap
       dataNow = 0.0_RKIND
       dataNew = 0.0_RKIND
 
-      call work%init(nVertLevels + 1, nVars, opts)
+      ! Each thread initializes its own PPR workspace inside the parallel
+      ! region, rather than getting a private copy of one initialized
+      ! outside it: copying its nested allocatable components segfaults
+      ! with Intel's ifx at -O3.
 
       ! Remap all edge-centred variables from heightEdgeNow to heightEdgeNew
       if (config_use_freq_filtered_thickness) then
-         !$omp parallel
+         !$omp parallel private(work)
+         call work%init(nVertLevels + 1, nVars, opts)
          !$omp do schedule(runtime) &
-         !$omp private(kTop, kBot, nLayers, nLevels, dataNow, dataNew, work)
+         !$omp private(kTop, kBot, nLayers, nLevels, dataNow, dataNew)
          do iEdge = 1, nEdges
 
             kTop = minLevelEdgeBot(iEdge)
@@ -292,11 +296,13 @@ module ocn_vertical_remap
             lowFreqDivergence(kTop:kBot, iEdge) = dataNew(1, 3, 1:nLayers)
          end do
          !$omp end do
+         call work%free()
          !$omp end parallel
       else
-         !$omp parallel
+         !$omp parallel private(work)
+         call work%init(nVertLevels + 1, nVars, opts)
          !$omp do schedule(runtime) &
-         !$omp private(kTop, kBot, nLayers, nLevels, dataNow, dataNew, work)
+         !$omp private(kTop, kBot, nLayers, nLevels, dataNow, dataNew)
          do iEdge = 1, nEdges
 
             kTop = minLevelEdgeBot(iEdge)
@@ -319,11 +325,11 @@ module ocn_vertical_remap
 
          end do
          !$omp end do
+         call work%free()
          !$omp end parallel
       end if
       deallocate(dataNow,dataNew)
       deallocate(bcUpper,bcLower)
-      call work%free()
 
       ! Remap all cell-centred variables from heightCellNow to heightCellNew
 
@@ -338,16 +344,15 @@ module ocn_vertical_remap
                allocate(dataNow(nDoFs, nTracers, nVertLevels))
                allocate(dataNew(nDoFs, nTracers, nVertLevels))
 
-               call work%init(nVertLevels + 1, nTracers, opts)
-
                allocate(bcUpper(nTracers))
                allocate(bcLower(nTracers))
                bcUpper%bcopt = bc_upper
                bcLower%bcopt = bc_lower
 
-               !$omp parallel
+               !$omp parallel private(work)
+               call work%init(nVertLevels + 1, nTracers, opts)
                !$omp do schedule(runtime) &
-               !$omp private(iTrac, kTop, kBot, nLayers, nLevels, dataNow, dataNew, work)
+               !$omp private(iTrac, kTop, kBot, nLayers, nLevels, dataNow, dataNew)
                do iCell = 1, nCells
 
                   kTop = minLevelCell(iCell)
@@ -375,11 +380,11 @@ module ocn_vertical_remap
 
                end do
                !$omp end do
+               call work%free()
                !$omp end parallel
 
                deallocate(dataNow,dataNew)
                deallocate(bcUpper,bcLower)
-               call work%free()
 
             end if
          end if
