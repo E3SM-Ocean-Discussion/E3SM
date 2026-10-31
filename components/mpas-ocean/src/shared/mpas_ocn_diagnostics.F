@@ -145,7 +145,7 @@ contains
         frazilSurfacePressure, landIcePressure, landIceDraft, landIceFraction, landIceFloatingFraction
 
       integer, dimension(:), pointer :: &
-        landIceFloatingMask
+        landIceMask, landIceFloatingMask
 
       call mpas_timer_start('diagnostic solve')
 
@@ -181,6 +181,7 @@ contains
       if (landIcePressureOn) then
          call mpas_pool_get_array(forcingPool, 'landIcePressure', landIcePressure)
          call mpas_pool_get_array(forcingPool, 'landIceDraft', landIceDraft)
+         call mpas_pool_get_array(forcingPool, 'landIceMask', landIceMask)
          call mpas_pool_get_array(forcingPool, 'landIceFloatingMask', landIceFloatingMask)
          call mpas_pool_get_array(forcingPool, 'landIceFloatingFraction', landIceFloatingFraction)
          call mpas_pool_get_array(forcingPool, 'landIceFraction', landIceFraction)
@@ -478,7 +479,8 @@ contains
                 indexTemperature, indexSalinity)
       end if
       if (landIcePressureOn .and. config_use_wetting_drying) then
-         call ocn_wetting_drying_update_land_ice(landIceFloatingMask, landIceFloatingFraction, err)
+         call ocn_wetting_drying_update_land_ice(landIceMask, landIceFloatingMask, &
+                                                 landIceFloatingFraction, err)
       end if
 
       if ( full_compute ) then
