@@ -294,6 +294,22 @@ add_default($nl, 'config_jerlov_water_type');
 add_default($nl, 'config_surface_buoyancy_depth');
 add_default($nl, 'config_enable_shortwave_energy_fixer');
 
+#################################
+# Namelist group: tidal_forcing #
+#################################
+
+add_default($nl, 'config_use_tidal_forcing');
+add_default($nl, 'config_use_tidal_forcing_tau');
+add_default($nl, 'config_tidal_forcing_type');
+add_default($nl, 'config_tidal_forcing_model');
+add_default($nl, 'config_tidal_forcing_monochromatic_amp');
+add_default($nl, 'config_tidal_forcing_monochromatic_period');
+add_default($nl, 'config_tidal_forcing_monochromatic_phaseLag');
+add_default($nl, 'config_tidal_forcing_monochromatic_baseline');
+add_default($nl, 'config_tidal_forcing_linear_baseline');
+add_default($nl, 'config_tidal_forcing_linear_min');
+add_default($nl, 'config_tidal_forcing_linear_rate');
+
 ###########################################
 # Namelist group: self_attraction_loading #
 ###########################################
@@ -426,6 +442,23 @@ add_default($nl, 'config_Rayleigh_bottom_damping_coeff');
 
 add_default($nl, 'config_use_vegetation_drag');
 add_default($nl, 'config_vegetation_drag_coefficient');
+
+##################################
+# Namelist group: wetting_drying #
+##################################
+
+add_default($nl, 'config_use_wetting_drying');
+add_default($nl, 'config_prevent_drying');
+add_default($nl, 'config_drying_min_cell_height');
+add_default($nl, 'config_zero_drying_velocity');
+add_default($nl, 'config_zero_drying_velocity_ramp');
+add_default($nl, 'config_zero_drying_velocity_ramp_hmin');
+add_default($nl, 'config_zero_drying_velocity_ramp_hmax');
+add_default($nl, 'config_verify_not_dry');
+add_default($nl, 'config_drying_safety_height');
+add_default($nl, 'config_use_subgrid_wetting_drying');
+add_default($nl, 'config_use_ssh_gradient_wetting_drying');
+add_default($nl, 'config_land_ice_overburden_height');
 
 ###################################
 # Namelist group: ocean_constants #
