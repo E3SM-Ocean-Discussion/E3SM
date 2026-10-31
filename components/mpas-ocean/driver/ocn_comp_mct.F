@@ -70,6 +70,7 @@ module ocn_comp_mct
    use ocn_eddy_parameterization_helpers
    use ocn_scaled_dismf
    use ocn_scaled_sfwf
+   use ocn_tidal_forcing
 !
 ! !PUBLIC MEMBER FUNCTIONS:
   implicit none
@@ -1199,6 +1200,8 @@ contains
             call mpas_timer_stop("land_ice_build_arrays")
             call ocn_surface_land_ice_fluxes_accumulate_fluxes(meshPool, forcingPool, &
                                                                statePool, dt, ierr)
+
+            call ocn_tidal_forcing_build_array(domain, meshPool, forcingPool, statePool, ierr)
 
             call ocn_eddy_compute_mixed_layer_depth(statePool, forcingPool)
             if (config_use_GM .or. config_submesoscale_enable) then
