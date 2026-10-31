@@ -39,3 +39,4 @@ Base: E3SM master `6816738295` (2026-10-15).
 | Add wetting and drying and tidal forcing to E3SM's MPAS-Ocean | xylar:ocn/wetting-drying-tidal-forcing-in-e3sm (E3SM-Ocean-Discussion#159, merged as `5431b386d1`) | none yet | — |
 | Keep the input floating fraction with wetting and drying | xylar:ocn/keep-floating-fraction-with-wetting-drying (E3SM-Ocean-Discussion#160, merged as `f1bf51f815`) | none yet | — |
 | Let case variables name MPAS-Ocean's input files | xylar:ocn/inputs-named-by-case-variables (E3SM-Ocean-Discussion#161, merged as `ca14c03594`) | none yet | — |
+| Add an option that keeps glc's runoff out of the ocean | xylar:cpl/glc-runoff-to-ocean-option (E3SM-Ocean-Discussion#162, merged as `07136f62cf`) | none yet | — |
