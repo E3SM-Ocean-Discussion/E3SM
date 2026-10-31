@@ -186,6 +186,26 @@
          Required for an ocean grid that buildnml does not list.</desc>
  </entry>
 
+  <entry id="MPASO_INTERIOR_RESTORING_FILE">
+        <type>char</type>
+        <default_value></default_value>
+        <group>run_component_mpaso</group>
+        <file>env_run.xml</file>
+        <desc>Full path of a file with the MPASO interior-restoring fields
+         (tracersInteriorRestoringFields).  If set, MPASO's buildnml adds an
+         input stream that reads them at initialization.</desc>
+ </entry>
+
+  <entry id="MPASO_TIDAL_MASK_FILE">
+        <type>char</type>
+        <default_value></default_value>
+        <group>run_component_mpaso</group>
+        <file>env_run.xml</file>
+        <desc>Full path of a file with the MPASO tidal-forcing mask
+         (tidalInputMask).  If set, MPASO's buildnml adds an input stream
+         that reads it at initialization.</desc>
+ </entry>
+
   <description>
     <desc compset="_MPASO">mpas ocean default:</desc>
   </description>

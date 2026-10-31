@@ -54,6 +54,8 @@ def buildnml(case, caseroot, compname):
     run_reftod        = case.get_value("RUN_REFTOD")
     ic_file           = case.get_value("MPASO_IC_FILE")
     decomp_file_prefix = case.get_value("MPASO_DECOMP_FILE_PREFIX")
+    interior_restoring_file = case.get_value("MPASO_INTERIOR_RESTORING_FILE")
+    tidal_mask_file   = case.get_value("MPASO_TIDAL_MASK_FILE")
     stream_name       = 'streams.ocean'
 
     # Use 'pnetcdf,cdf5' when OCN_PIO_NETCDF_FORMAT requests 64-bit data, else use the standard type
@@ -524,6 +526,12 @@ def buildnml(case, caseroot, compname):
         if data_sgr_file != '':
             input_list.write("subglacial_runoff = {}/ocn/mpas-o/{}/{}\n".format(din_loc_root, ocn_mask, data_sgr_file))
 
+        if interior_restoring_file:
+            input_list.write("interior_restoring = {}\n".format(interior_restoring_file))
+
+        if tidal_mask_file:
+            input_list.write("tidal_mask = {}\n".format(tidal_mask_file))
+
     #--------------------------------------------------------------------
     # Invoke mpas build-namelist - output will go in $CASEBUILD/mpasoconf
     #--------------------------------------------------------------------
@@ -785,6 +793,30 @@ def buildnml(case, caseroot, compname):
                 lines.append('       packages="landIceFluxesPKG">')
                 lines.append('')
                 lines.append('       <var name="subglacialRunoffFlux"/>')
+                lines.append('</stream>')
+                lines.append('')
+
+            if interior_restoring_file:
+                lines.append('<stream name="interior_restoring"')
+                lines.append('       type="input"')
+                lines.append('       io_type="{}"'.format(io_type_str))
+                lines.append('       filename_template="{}"'.format(interior_restoring_file))
+                lines.append('       input_interval="initial_only" ')
+                lines.append('       packages="activeTracersInteriorRestoringPKG">')
+                lines.append('')
+                lines.append('       <var_struct name="tracersInteriorRestoringFields"/>')
+                lines.append('</stream>')
+                lines.append('')
+
+            if tidal_mask_file:
+                lines.append('<stream name="tidal_forcing_mask"')
+                lines.append('       type="input"')
+                lines.append('       io_type="{}"'.format(io_type_str))
+                lines.append('       filename_template="{}"'.format(tidal_mask_file))
+                lines.append('       input_interval="initial_only" ')
+                lines.append('       packages="tidalForcing">')
+                lines.append('')
+                lines.append('       <var name="tidalInputMask"/>')
                 lines.append('</stream>')
                 lines.append('')
 
