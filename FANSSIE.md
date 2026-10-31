@@ -33,3 +33,9 @@ Base: E3SM master `6816738295` (2026-10-15).
 | Add an option to evaluate jm at each layer's depth | xylar:ocn/jm-eos-at-actual-depth (E3SM-Ocean-Discussion#149, merged as `a368328ed2`) | none yet | — |
 | Set the melt rate from the heat balance in nearly fresh water | xylar:ocn/fix-fresh-water-melt-rate (E3SM-Ocean-Discussion#150, merged as `9bc9914a4b`) | none yet | — |
 | Merge MALI-Dev's `develop` at `5e80df1145` (2026-10-09) | MALI-Dev:develop via xylar:mali/merge-mali-dev-develop (E3SM-Ocean-Discussion#151, merged as `a026eeb597`) | none yet | — |
+| Remove the surface air temperature lapse rate from MALI's namelist | xylar:mali/remove-lapse-rate-from-namelist (E3SM-Ocean-Discussion#156, merged as `d1c104ddb4`) | MALI-Dev/E3SM#213 | open |
+| Let case variables name MALI's input files | xylar:mali/inputs-named-by-case-variables (E3SM-Ocean-Discussion#157, merged as `5cda8a32a0`) | MALI-Dev/E3SM#214 | open |
+| Let the MCT driver run a prognostic ocean without an atmosphere | xylar:cpl/allow-ocean-without-atmosphere (E3SM-Ocean-Discussion#158, merged as `4a0786855c`) | none yet | — |
+| Add wetting and drying and tidal forcing to E3SM's MPAS-Ocean | xylar:ocn/wetting-drying-tidal-forcing-in-e3sm (E3SM-Ocean-Discussion#159, merged as `5431b386d1`) | none yet | — |
+| Keep the input floating fraction with wetting and drying | xylar:ocn/keep-floating-fraction-with-wetting-drying (E3SM-Ocean-Discussion#160, merged as `f1bf51f815`) | none yet | — |
+| Let case variables name MPAS-Ocean's input files | xylar:ocn/inputs-named-by-case-variables (E3SM-Ocean-Discussion#161, merged as `ca14c03594`) | none yet | — |
