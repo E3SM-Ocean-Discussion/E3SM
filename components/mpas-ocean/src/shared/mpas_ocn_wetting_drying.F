@@ -840,9 +840,10 @@ contains
             landIceFloatingMask(iCell) = 0
             landIceFloatingFraction(iCell) = 0.0_RKIND
          else
+            ! keep the floating fraction from its input (the initial condition,
+            ! time-varying land-ice forcing or glc), which also sets the land-ice
+            ! pressure that decides where the ice is grounded
             landIceFloatingMask(iCell) = 1
-            ! For a simulation with wetting and drying, we do not retain fractional floating areas
-            landIceFloatingFraction(iCell) = 1.0_RKIND
          endif
       enddo
       !$omp end do
