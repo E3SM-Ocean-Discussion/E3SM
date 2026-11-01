@@ -108,8 +108,9 @@ contains
       do iCell = 1, nCellsAll
 
          ! the depth at which floatation occurs with full land ice pressure
-         ! (may be below the bathymetry) (gravity is positive)
-         ssh_floatation(iCell) = - landIcePressure(iCell) / (gravity * rho_sw)
+         ! (may be below the bathymetry) (gravity is positive), with the same
+         ! density as the land-ice draft
+         ssh_floatation(iCell) = - landIcePressure(iCell) / (gravity * config_land_ice_rho_ocean)
 
       end do
       !$omp end do
