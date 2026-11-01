@@ -41,3 +41,7 @@ Base: E3SM master `6816738295` (2026-10-15).
 | Let case variables name MPAS-Ocean's input files | xylar:ocn/inputs-named-by-case-variables (E3SM-Ocean-Discussion#161, merged as `ca14c03594`) | none yet | — |
 | Add an option that keeps glc's runoff out of the ocean | xylar:cpl/glc-runoff-to-ocean-option (E3SM-Ocean-Discussion#162, merged as `07136f62cf`) | none yet | — |
 | Conserve glc-ocean fluxes under ice shelves and without an atmosphere | xylar:cpl/ocean-coupler-areas-from-glc-map (E3SM-Ocean-Discussion#163, merged as `4bb91b23e3`); needs E3SM-Ocean-Discussion#162 | none yet | — |
+| Apply the grounded-ice pressure cap in one threaded loop, a fix for E3SM-Ocean-Discussion#119 | xylar:ocn/thread-safe-land-ice-pressure-cap (E3SM-Ocean-Discussion#164, merged as `771214f3f7`) | suggested for E3SM-Ocean-Discussion#119 | not yet in E3SM-Ocean-Discussion#119 |
+| Convert land-ice pressure to depth with one ocean density, a fix for E3SM-Ocean-Discussion#119 | xylar:ocn/land-ice-pressure-cap-ocean-density (E3SM-Ocean-Discussion#165, merged as `059ee8fa41`); needs E3SM-Ocean-Discussion#164 | suggested for E3SM-Ocean-Discussion#119 | not yet in E3SM-Ocean-Discussion#119 |
+| Update the land-ice mask from the ice fraction during a run | xylar:ocn/land-ice-mask-from-fraction (E3SM-Ocean-Discussion#166, merged as `76001323e6`) | none yet | — |
+| Write the land-ice geometry to monthly means when coupled to glc | xylar:ocn/land-ice-geometry-in-monthly-means (E3SM-Ocean-Discussion#167, merged as `bf0c452408`) | none yet | — |
