@@ -185,16 +185,37 @@ module ocn_submesoscale_eddies
   !>  
   !***********************************************************************
 
-  subroutine ocn_MLE_add_to_transport_vel(normalTransportVelocity, nEdges)
+  subroutine ocn_MLE_add_to_transport_vel(normalTransportVelocity, nEdges, &
+                                          wettingVelocityBaroclinic)
 
      real(kind=RKIND), dimension(:,:), intent(inout) :: &
          normalTransportVelocity
 
      integer, intent(in) :: nEdges
 
+     ! split-explicit wetting and drying multiplies baroclinic velocities by
+     ! this factor, which is 0 where an edge is closed
+     real(kind=RKIND), dimension(:,:), intent(in), optional :: &
+         wettingVelocityBaroclinic
+
      integer :: iEdge, k
 
      if (.not. config_submesoscale_enable) return
+
+     if (present(wettingVelocityBaroclinic)) then
+        !$omp parallel
+        !$omp do schedule(runtime) &
+        !$omp private(k)
+        do iEdge = 1, nEdges
+           do k = 1, nVertLevels
+              normalTransportVelocity(k,iEdge) = normalTransportVelocity(k,iEdge) + &
+                  wettingVelocityBaroclinic(k,iEdge)*normalMLEvelocity(k,iEdge)
+           end do
+        end do
+        !$omp end do
+        !$omp end parallel
+        return
+     end if
 
      if (config_use_wetting_drying) then
         ! wetting and drying limits the transport out of cells that would

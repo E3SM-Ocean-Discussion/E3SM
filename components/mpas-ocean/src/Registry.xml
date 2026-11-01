@@ -1390,6 +1390,10 @@
 					description="If true, just zero out velocity that is contributing to drying for cell that is drying.  This option can be used to estimate acceptable minimum thicknesses for a run."
 					possible_values=".true. or .false."
 		/>
+		<nml_option name="config_zero_drying_velocity_gradSSH" type="logical" default_value=".false."
+					description="If true, use the SSH gradient to determine whether to allow fluxes into cells with no projected flow."
+					possible_values=".true. or .false."
+		/>
 		<nml_option name="config_zero_drying_velocity_ramp" type="logical" default_value=".false."
 					description="If true, ramp velocities and tendencies to zero rather than applying a simple on/off switch."
 					possible_values=".true. or .false."
@@ -1400,6 +1404,10 @@
 		/>
 		<nml_option name="config_zero_drying_velocity_ramp_hmax" type="real" default_value="2e-3"
 					description="Maximum layer thickness at which velocities and tendencies are ramped toward zero. Recommended values between 2x and 10x config_drying_min_cell_height."
+					possible_values="Any positive real"
+		/>
+		<nml_option name="config_zero_drying_velocity_ramp_factor" type="real" default_value="50.0"
+					description="Factor for tanh wettingVelocityFactor ramp."
 					possible_values="Any positive real"
 		/>
 		<nml_option name="config_verify_not_dry" type="logical" default_value=".false." units="unitless"
@@ -2295,6 +2303,8 @@
 			<var name="highFreqThickness"/>
 			<var name="lowFreqDivergence"/>
 			<var name="normalBarotropicVelocity"/>
+			<var name="wettingVelocityBaroclinic" packages="splitTimeIntegrator"/>
+			<var name="wettingVelocityBarotropicSubcycle" packages="splitTimeIntegrator"/>
 			<var name="vertCoordMovementWeights"/>
                         <var name="totalParamEddyEnergy" packages="gmGeometric" />
 			<var name="xtime"/>
@@ -2728,6 +2738,14 @@
 		/>
 		<var name="normalBaroclinicVelocity" type="real" dimensions="nVertLevels nEdges Time" units="m s^-1"
 			 description="baroclinic velocity, used in split-explicit time-stepping"
+			 packages="splitTimeIntegrator"
+		/>
+		<var name="wettingVelocityBarotropicSubcycle" type="real" dimensions="nEdges Time" units="unitless"
+			 description="Scaling factor for the barotropic velocity, its tendency and the barotropic thickness flux on a barotropic subcycle of split-explicit time stepping, to prevent drying of a cell, between 0 (set to 0) and 1 (no scaling)."
+			 packages="splitTimeIntegrator"
+		/>
+		<var name="wettingVelocityBaroclinic" type="real" dimensions="nVertLevels nEdges Time" units="unitless"
+			 description="Scaling factor for the baroclinic velocity and its tendency in split-explicit time stepping, to prevent drying of a cell, between 0 (set to 0) and 1 (no scaling)."
 			 packages="splitTimeIntegrator"
 		/>
 
