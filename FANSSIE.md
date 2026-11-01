@@ -45,4 +45,4 @@ Base: E3SM master `6816738295` (2026-10-15).
 | Convert land-ice pressure to depth with one ocean density, a fix for E3SM-Ocean-Discussion#119 | xylar:ocn/land-ice-pressure-cap-ocean-density (E3SM-Ocean-Discussion#165, merged as `059ee8fa41`); needs E3SM-Ocean-Discussion#164 | suggested for E3SM-Ocean-Discussion#119 | not yet in E3SM-Ocean-Discussion#119 |
 | Update the land-ice mask from the ice fraction during a run | xylar:ocn/land-ice-mask-from-fraction (E3SM-Ocean-Discussion#166, merged as `76001323e6`) | none yet | — |
 | Write the land-ice geometry to monthly means when coupled to glc | xylar:ocn/land-ice-geometry-in-monthly-means (E3SM-Ocean-Discussion#167, merged as `bf0c452408`) | none yet | — |
-| Make MALI's data-mode export follow its thickness file | xylar:mali/update-masks-after-data-mode-read (E3SM-Ocean-Discussion#168, merged as `62ef616442`) | MALI-Dev/E3SM, pull request to come | — |
+| Make MALI's data-mode export follow its thickness file | xylar:mali/update-masks-after-data-mode-read (E3SM-Ocean-Discussion#168, merged as `62ef616442`) | MALI-Dev/E3SM#216 | open |
