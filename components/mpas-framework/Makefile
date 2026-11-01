@@ -284,6 +284,41 @@ intel-mpi:
 	"USE_SHTNS = $(USE_SHTNS)" \
 	"CPPFLAGS = $(MODEL_FORMULATION) -D_MPI" )
 
+# Intel oneAPI (ifx, icx, icpx) behind the mpif90, mpicc and mpicxx wrappers.
+# As with intel-cray, preprocess .F with GNU cpp via GEN_F90=true because ifx
+# fpp mishandles the COMMA macro-argument idiom used in the MPAS framework, and
+# use -check all,nouninit because ifx implements -check uninit with
+# MemorySanitizer, which fails to link without the msan runtime.
+ifx:
+	( $(MAKE) all \
+	"FC_PARALLEL = mpif90" \
+	"CC_PARALLEL = mpicc" \
+	"CXX_PARALLEL = mpicxx" \
+	"FC_SERIAL = ifx" \
+	"CC_SERIAL = icx" \
+	"CXX_SERIAL = icpx" \
+	"FFLAGS_FPIEEE = -fp-model=precise" \
+	"FFLAGS_PROMOTION = -real-size 64" \
+	"FFLAGS_OPT = -O3 -convert big_endian -free -align array64byte" \
+	"CFLAGS_OPT = -O3" \
+	"CXXFLAGS_OPT = -O3" \
+	"LDFLAGS_OPT = -O3" \
+	"FFLAGS_DEBUG = -g -convert big_endian -free -CB -check all,nouninit -traceback" \
+	"CFLAGS_DEBUG = -g -traceback" \
+	"CXXFLAGS_DEBUG = -g -traceback" \
+	"LDFLAGS_DEBUG = -g -traceback" \
+	"FFLAGS_OMP = -qopenmp" \
+	"CFLAGS_OMP = -qopenmp" \
+	"PICFLAG = -fpic" \
+	"BUILD_TARGET = $(@)" \
+	"CORE = $(CORE)" \
+	"DEBUG = $(DEBUG)" \
+	"USE_PAPI = $(USE_PAPI)" \
+	"OPENMP = $(OPENMP)" \
+	"USE_SHTNS = $(USE_SHTNS)" \
+	"GEN_F90 = true" \
+	"CPPFLAGS = $(MODEL_FORMULATION) -D_MPI" )
+
 gfortran:
 	GFORTRAN_GTE_10=$$(expr `gfortran -dumpversion | cut -f1 -d.` \>= 10) ;\
 	if [ "$${GFORTRAN_GTE_10}" = "1" ]; then \
@@ -414,6 +449,8 @@ gnu-cray:
 
 # ifx (Intel oneAPI) fpp mishandles the COMMA macro-argument idiom used in the
 # MPAS framework, so preprocess .F with GNU cpp via GEN_F90=true instead.
+# ifx implements -check uninit with MemorySanitizer, which fails to link without
+# the msan runtime, so debug builds use -check all,nouninit.
 intel-cray:
 	( $(MAKE) all \
 	"FC_PARALLEL = ftn" \
@@ -430,7 +467,7 @@ intel-cray:
 	"LDFLAGS_OPT = -O3" \
 	"FFLAGS_OMP = -qopenmp" \
 	"CFLAGS_OMP = -qopenmp" \
-	"FFLAGS_DEBUG = -real-size 64 -g -convert big_endian -free -CU -CB -check all -gen-interfaces -warn interfaces -traceback" \
+	"FFLAGS_DEBUG = -real-size 64 -g -convert big_endian -free -CB -check all,nouninit -gen-interfaces -warn interfaces -traceback" \
 	"CFLAGS_DEBUG = -g -traceback" \
 	"CXXFLAGS_DEBUG = -g -traceback" \
 	"LDFLAGS_DEBUG = -g -traceback" \
