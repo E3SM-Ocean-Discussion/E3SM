@@ -48,3 +48,5 @@ Base: E3SM master `6816738295` (2026-10-15).
 | Make MALI's data-mode export follow its thickness file | xylar:mali/update-masks-after-data-mode-read (E3SM-Ocean-Discussion#168, merged as `62ef616442`) | MALI-Dev/E3SM#216 | open |
 | Skip frazil and melt where glc has too little floating ice to receive them | xylar:ocn/skip-frazil-without-glc-floating-ice (E3SM-Ocean-Discussion#169, merged as `3022261e84`) | none yet | — |
 | Treat slivers of imported land ice as open ocean | xylar:ocn/ignore-tiny-glc-ice-fractions (E3SM-Ocean-Discussion#170, merged as `a9d9e2ff64`); needs E3SM-Ocean-Discussion#169 | none yet | — |
+| Take the heat capacity of land ice from E3SM's constants, as MALI does | xylar:ocn/land-ice-heat-capacity-matches-mali (E3SM-Ocean-Discussion#171, merged as `9f52dc417d`) | none yet | — |
+| Book the enthalpy of ice-shelf water in glc's heat budget | xylar:cpl/ice-enthalpy-in-glc-heat-budget (E3SM-Ocean-Discussion#172, merged as `7611b2feca`) | none yet | — |
