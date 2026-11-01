@@ -2710,11 +2710,12 @@ contains
 #endif
          do iCell = 1, nCellsAll
             ! the maximum pressure is the one that results in ssh at the critical
-            ! thickness (gravity is positive), but we also allow some amount of overburden
-            ! because rho may deviate significantly from rho_sw
+            ! thickness (gravity is positive), converted with the same density as the
+            ! land-ice draft, but we also allow some amount of overburden because the
+            ! water column's density may deviate significantly from that density
             h_crit = config_drying_min_cell_height * (maxLevelCell(iCell) - minLevelCell(iCell) + 1)
             ssh_crit = bottomDepth(iCell) - h_crit + config_land_ice_overburden_height
-            landIcePressureMax = gravity * rho_sw * ssh_crit
+            landIcePressureMax = gravity * config_land_ice_rho_ocean * ssh_crit
             surfacePressure(iCell) = surfacePressure(iCell) &
                                    + min(landIcePressureMax, landIcePressure(iCell))
          end do
