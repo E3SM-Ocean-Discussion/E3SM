@@ -508,6 +508,8 @@ contains
       real (kind=RKIND), dimension(:), pointer :: frazilIceFreshwaterFlux, landIceFreshwaterFluxTotal
 
       integer, dimension(:), pointer :: landIceFloatingMask
+      real (kind=RKIND), dimension(:), pointer :: landIceGlcFloatingFraction
+      logical :: noExchange
 
       real (kind=RKIND), dimension(:,:), pointer :: &
                                                     landIceInterfaceTracers
@@ -539,6 +541,7 @@ contains
       call mpas_pool_get_array(forcingPool, 'frazilIceFreshwaterFlux', frazilIceFreshwaterFlux)
       call mpas_pool_get_array(forcingPool, 'landIceFreshwaterFluxTotal', landIceFreshwaterFluxTotal)
       call mpas_pool_get_array(forcingPool, 'landIceFloatingMask', landIceFloatingMask)
+      call mpas_pool_get_array(forcingPool, 'landIceGlcFloatingFraction', landIceGlcFloatingFraction)
       call mpas_pool_get_array(forcingPool, 'heatFluxToLandIce', heatFluxToLandIce)
 
       nCells = nCellsArray( size(nCellsArray) )
@@ -572,10 +575,15 @@ contains
          if (isomipOn) then !*** ISOMIP formulation
 
             !$omp parallel
-            !$omp do schedule(runtime) private(freshwaterFlux, heatFlux)
+            !$omp do schedule(runtime) private(freshwaterFlux, heatFlux, noExchange)
             do iCell = 1, nCells
-               if (landIceFloatingMask(iCell) == 0) then
-                  ! no fluxes where the ice is grounded (see below)
+               noExchange = (landIceFloatingMask(iCell) == 0)
+               if (config_glc_ice_shelf_coupling .and. .not. noExchange) then
+                  noExchange = (landIceGlcFloatingFraction(iCell) <= &
+                                config_glc_ice_shelf_coupling_min_floating_fraction)
+               end if
+               if (noExchange) then
+                  ! no fluxes where the ice is grounded or glc cannot receive them (see below)
                   landIceFreshwaterFlux(iCell) = 0.0_RKIND
                   landIceHeatFlux(iCell) = 0.0_RKIND
                   heatFluxToLandIce(iCell) = 0.0_RKIND
@@ -691,10 +699,17 @@ contains
 
             ! modulate the fluxes by the landIceFloatingFraction
             do iCell = 1, nCells
-               if (landIceFloatingMask(iCell) == 0) then
+               noExchange = (landIceFloatingMask(iCell) == 0)
+               if (config_glc_ice_shelf_coupling .and. .not. noExchange) then
+                  noExchange = (landIceGlcFloatingFraction(iCell) <= &
+                                config_glc_ice_shelf_coupling_min_floating_fraction)
+               end if
+               if (noExchange) then
                   ! no fluxes where the ice is grounded.  With wetting and
                   ! drying, the floating mask changes in time, so this also
-                  ! clears fluxes left from before a cell grounded.
+                  ! clears fluxes left from before a cell grounded.  When
+                  ! coupled to glc, there are also no fluxes where glc has too
+                  ! little floating ice to receive them.
                   landIceFreshwaterFlux(iCell) = 0.0_RKIND
                   landIceHeatFlux(iCell) = 0.0_RKIND
                   heatFluxToLandIce(iCell) = 0.0_RKIND
