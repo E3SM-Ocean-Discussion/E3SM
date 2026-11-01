@@ -451,6 +451,7 @@ contains
       real (kind=RKIND), dimension(:), pointer :: frazilSurfacePressure
       real (kind=RKIND), dimension(:), pointer :: lowSalinityFrazilIce
       integer, dimension(:), pointer :: landIceMask, landIceFloatingMask
+      real (kind=RKIND), dimension(:), pointer :: landIceGlcFloatingFraction
 
       integer :: iCell, k, nCells
       integer, dimension(:), pointer :: nCellsArray
@@ -528,6 +529,7 @@ contains
       call mpas_pool_get_array(forcingPool, 'lowSalinityFrazilIce', lowSalinityFrazilIce)
       call mpas_pool_get_array(forcingPool, 'landIceMask', landIceMask)
       call mpas_pool_get_array(forcingPool, 'landIceFloatingMask', landIceFloatingMask)
+      call mpas_pool_get_array(forcingPool, 'landIceGlcFloatingFraction', landIceGlcFloatingFraction)
       call mpas_pool_get_array(forcingPool, 'frazilIceFreshwaterFlux', frazilIceFreshwaterFlux)
 
       ! get time step in units of seconds
@@ -568,6 +570,12 @@ contains
         if (underFloatingLandIce .and. .not. config_frazil_under_land_ice) then
           ! skip this cell because we're not doing frazil under floating land ice
           cycle
+        end if
+
+        if (underFloatingLandIce .and. config_glc_ice_shelf_coupling) then
+          ! skip this cell because glc has too little floating ice here to
+          ! receive frazil, which would otherwise leave the ocean unaccounted for
+          if (landIceGlcFloatingFraction(iCell) <= config_glc_ice_shelf_coupling_min_floating_fraction) cycle
         end if
 
         if (.not. underLandIce .and. .not. config_frazil_in_open_ocean) then
@@ -813,6 +821,7 @@ contains
       
       real (kind=RKIND), dimension(:,:,:), pointer :: frazilEcosysTracersTendency
       integer, dimension(:), pointer :: landIceMask, landIceFloatingMask
+      real (kind=RKIND), dimension(:), pointer :: landIceGlcFloatingFraction
 
       integer :: iCell, k, nCells, nTracersEcosys, n
       integer, dimension(:), pointer :: nCellsArray
@@ -885,6 +894,7 @@ contains
       call mpas_pool_get_array(ecosysFrazilForcingPool, 'frazilEcosysTracersTendency', frazilEcosysTracersTendency)
       call mpas_pool_get_array(forcingPool, 'landIceMask', landIceMask)
       call mpas_pool_get_array(forcingPool, 'landIceFloatingMask', landIceFloatingMask)
+      call mpas_pool_get_array(forcingPool, 'landIceGlcFloatingFraction', landIceGlcFloatingFraction)
 
       ! get time step in units of seconds
       timeStep = mpas_get_clock_timestep(domain % clock, ierr=err)
@@ -922,6 +932,12 @@ contains
         if (underFloatingLandIce .and. .not. config_frazil_under_land_ice) then
           ! skip this cell because we're not doing frazil under floating land ice
           cycle
+        end if
+
+        if (underFloatingLandIce .and. config_glc_ice_shelf_coupling) then
+          ! skip this cell because glc has too little floating ice here to
+          ! receive frazil, which would otherwise leave the ocean unaccounted for
+          if (landIceGlcFloatingFraction(iCell) <= config_glc_ice_shelf_coupling_min_floating_fraction) cycle
         end if
 
         if (.not. underLandIce .and. .not. config_frazil_in_open_ocean) then
