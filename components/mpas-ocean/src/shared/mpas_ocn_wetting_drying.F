@@ -148,25 +148,21 @@ contains
       !
       !-----------------------------------------------------------------
       integer :: iCell
-      real (kind=RKIND), dimension(:), allocatable :: landIcePressureMax, rho_mean, ssh_floatation
-      real (kind=RKIND) :: dPressure, ssh_crit, hCrit
+      real (kind=RKIND), dimension(:), allocatable :: ssh_floatation
+      real (kind=RKIND) :: ssh_crit, hCrit
 
       err = 0
 
       if ( .not. config_zero_drying_velocity ) return
       if ( .not. landIcePressureOn ) return
 
-      allocate(rho_mean(nCellsAll))
-      allocate(landIcePressureMax(nCellsAll))
       allocate(ssh_floatation(nCellsAll))
-      rho_mean(:) = rho_sw
-      landIcePressureMax(:) = 0.0_RKIND
       ssh_floatation(:) = 0.0_RKIND
 
       call ocn_compute_land_ice_ssh_floatation(landIcePressure, ssh_floatation, err)
 
       !$omp parallel
-      !$omp do schedule(runtime) private(dPressure, ssh_crit, hCrit)
+      !$omp do schedule(runtime) private(ssh_crit, hCrit)
       do iCell = 1, nCellsAll
          hCrit = config_drying_min_cell_height * (maxLevelCell(iCell) - minLevelCell(iCell) + 1)
          ssh_crit = hCrit - bottomDepth(iCell)

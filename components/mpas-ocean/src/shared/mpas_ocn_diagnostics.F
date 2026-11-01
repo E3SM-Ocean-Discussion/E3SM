@@ -76,7 +76,6 @@ module ocn_diagnostics
    !
    !--------------------------------------------------------------------
 
-   logical :: landIcePressureInitialized
    integer :: ke_cell_flag, ke_vertex_flag
    real (kind=RKIND) ::  fCoef
    real (kind=RKIND) ::  landIceTopDragCoeff
@@ -2642,7 +2641,6 @@ contains
       integer :: iCell ! cell loop index
 
       real (kind=RKIND) :: h_crit, ssh_crit, landIcePressureMax
-      real (kind=RKIND), dimension(:), allocatable :: landIcePressureApplied
       real (kind=RKIND), dimension(:), pointer :: &
          frazilSurfacePressure, &! frazil ice pressure from forcing
          landIcePressure         ! land ice pressure
@@ -2657,13 +2655,6 @@ contains
                                              frazilSurfacePressure)
       call mpas_pool_get_array(forcingPool, 'landIcePressure', &
                                              landIcePressure)
-
-      allocate(landIcePressureApplied(nCellsAll))
-      ! First initialize landIcePressure unchanged, then modify in grounded regions
-      if (landIcePressureOn .and. .not. landIcePressureInitialized) then
-         landIcePressureApplied(1:nCellsAll) = landIcePressure(1:nCellsAll)
-         landIcePressureInitialized = .true.
-      endif
 
       ! Compute pressure for generalized coordinates.
       ! Pressure at top surface may be due to atmospheric pressure,
@@ -2705,7 +2696,7 @@ contains
 #endif
       endif ! frazil pressure
 
-      ! Add land ice pressure if needed
+      ! Add land ice pressure if needed, capped where the ice is grounded
 
       if (landIcePressureOn) then
 #ifdef MPAS_OPENACC
@@ -2715,7 +2706,6 @@ contains
          !! an issue, probably with the re-retrieval of pointer
          !!acc    present(surfacePressure, landIcePressure)
 #else
-         !$omp parallel
          !$omp do schedule(runtime) private(h_crit, ssh_crit, landIcePressureMax)
 #endif
          do iCell = 1, nCellsAll
@@ -2725,26 +2715,8 @@ contains
             h_crit = config_drying_min_cell_height * (maxLevelCell(iCell) - minLevelCell(iCell) + 1)
             ssh_crit = bottomDepth(iCell) - h_crit + config_land_ice_overburden_height
             landIcePressureMax = gravity * rho_sw * ssh_crit
-            landIcePressureApplied(iCell) = &
-               min(landIcePressureMax, landIcePressure(iCell))
-         end do
-#ifndef M_OPENACC
-         !$omp end do
-         !$omp end parallel
-#endif
-
-#ifdef MPAS_OPENACC
-         !$acc parallel loop &
-         !$acc    present(surfacePressure)
-         !! need this eventually, but there is currently
-         !! an issue, probably with the re-retrieval of pointer
-         !!acc    present(surfacePressure, landIcePressure)
-#else
-         !$omp do schedule(runtime)
-#endif
-         do iCell = 1, nCellsAll
             surfacePressure(iCell) = surfacePressure(iCell) &
-                                   + landIcePressureApplied(iCell)
+                                   + min(landIcePressureMax, landIcePressure(iCell))
          end do
 #ifndef MPAS_OPENACC
          !$omp end do
@@ -4839,12 +4811,6 @@ contains
            trim(config_sgr_flux_vertical_location) /= 'bottom' ) then
         call mpas_log_write("config_sgr_flux_vertical_location not one of 'bottom', 'uniform', 'top'.", MPAS_LOG_CRIT)
       end if
-
-      if (config_do_restart) then
-         landIcePressureInitialized = .true.
-      else
-         landIcePressureInitialized = .false.
-      endif
 
     end subroutine ocn_diagnostics_init!}}}
 
