@@ -1479,6 +1479,14 @@ def buildnml(case, caseroot, compname):
             lines.append('    <var name="velocityTidalRMS"/>')
             lines.append('    <var_array name="landIceBoundaryLayerTracers"/>')
             lines.append('    <var_array name="landIceInterfaceTracers"/>')
+            if ocn_glc_ismf_coupling == 'coupler':
+                # with ice-shelf coupling to glc, the ocean's land-ice geometry can
+                # change with time
+                lines.append('    <var name="landIcePressure"/>')
+                lines.append('    <var name="landIceDraftForSsh"/>')
+                lines.append('    <var name="landIceFraction"/>')
+                lines.append('    <var name="landIceFloatingFraction"/>')
+                lines.append('    <var name="landIceGlcFloatingFraction"/>')
             lines.append('    <var name="mocStreamvalLatAndDepth"/>')
             lines.append('    <var name="mocStreamvalLatAndDepthRegion"/>')
             lines.append('    <var name="binBoundaryMocStreamfunction"/>')
