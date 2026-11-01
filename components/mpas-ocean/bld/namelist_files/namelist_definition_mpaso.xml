@@ -1506,7 +1506,7 @@ Default: Defined in namelist_defaults.xml
 
 <entry id="config_glc_ice_shelf_coupling_min_floating_fraction" type="real"
 	category="coupling" group="coupling">
-The minimum floating-ice fraction of a cell for ice-shelf fluxes in that cell to be sent to GLC (using GLC's floating fraction) or for GLC's conductive heat flux to be applied (using the larger of the ocean's and GLC's floating fractions).  Fluxes in cells below this fraction are not sent to GLC and are saved in landIceFreshwaterFluxNotSentToGlc, and neither melt nor frazil forms under floating ice there, since GLC could not receive them.
+The minimum floating-ice fraction of a cell for ice-shelf fluxes in that cell to be sent to GLC (using GLC's floating fraction) or for GLC's conductive heat flux to be applied (using the larger of the ocean's and GLC's floating fractions).  Fluxes in cells below this fraction are not sent to GLC and are saved in landIceFreshwaterFluxNotSentToGlc, and neither melt nor frazil forms under floating ice there, since GLC could not receive them.  When the land-ice geometry is imported from GLC, cells with a land-ice fraction at or below this value are treated as open ocean.
 
 Valid values: Any real number between 0 and 1
 Default: Defined in namelist_defaults.xml

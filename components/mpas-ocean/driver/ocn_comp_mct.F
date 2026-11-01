@@ -3211,6 +3211,13 @@ contains
                landIceFloatingFraction(i) = 0.0_RKIND
                landIceFraction(i) = 0.0_RKIND
             end if
+            ! a sliver of ice too small to exchange fluxes with glc, typically at the
+            ! calving front, is treated as open ocean
+            if (landIceFraction(i) <= config_glc_ice_shelf_coupling_min_floating_fraction) then
+               landIcePressure(i) = 0.0_RKIND
+               landIceFloatingFraction(i) = 0.0_RKIND
+               landIceFraction(i) = 0.0_RKIND
+            end if
             ! the land-ice mask follows the ice as it advances and retreats
             if (landIceFraction(i) > 0.0_RKIND) then
                landIceMask(i) = 1
