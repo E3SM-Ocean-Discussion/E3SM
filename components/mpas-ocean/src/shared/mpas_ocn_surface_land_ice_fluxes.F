@@ -59,7 +59,8 @@ module ocn_surface_land_ice_fluxes
              ocn_surface_land_ice_fluxes_thick, &
              ocn_surface_land_ice_fluxes_build_arrays, &
              ocn_surface_land_ice_fluxes_accumulate_fluxes, &
-             ocn_surface_land_ice_fluxes_init
+             ocn_surface_land_ice_fluxes_init, &
+             ocn_land_ice_in_thin_film
 
    !--------------------------------------------------------------------
    !
@@ -603,6 +604,14 @@ contains
                freshwaterFlux = -rho_sw * ISOMIPgammaT * (cp_sw/latent_heat_fusion_mks) &
                         * (landIceInterfaceTracers(indexIT,iCell)-landIceBoundaryLayerTracers(indexBLT,iCell))
 
+               if ((freshwaterFlux < 0.0_RKIND) .and. ocn_land_ice_in_thin_film(iCell)) then
+                  ! freezing would thin the film below its minimum thickness
+                  landIceFreshwaterFlux(iCell) = 0.0_RKIND
+                  landIceHeatFlux(iCell) = 0.0_RKIND
+                  heatFluxToLandIce(iCell) = 0.0_RKIND
+                  cycle
+               end if
+
                landIceFreshwaterFlux(iCell) = landIceFloatingFraction(iCell)*freshwaterFlux
 
                ! Using (13) from Jenkins et al. (2001)
@@ -704,12 +713,16 @@ contains
                   noExchange = (landIceGlcFloatingFraction(iCell) <= &
                                 config_glc_ice_shelf_coupling_min_floating_fraction)
                end if
+               if (.not. noExchange .and. (landIceFreshwaterFlux(iCell) < 0.0_RKIND)) then
+                  noExchange = ocn_land_ice_in_thin_film(iCell)
+               end if
                if (noExchange) then
                   ! no fluxes where the ice is grounded.  With wetting and
                   ! drying, the floating mask changes in time, so this also
                   ! clears fluxes left from before a cell grounded.  When
                   ! coupled to glc, there are also no fluxes where glc has too
-                  ! little floating ice to receive them.
+                  ! little floating ice to receive them, or where freezing
+                  ! would thin a thin film below its minimum thickness.
                   landIceFreshwaterFlux(iCell) = 0.0_RKIND
                   landIceHeatFlux(iCell) = 0.0_RKIND
                   heatFluxToLandIce(iCell) = 0.0_RKIND
@@ -837,6 +850,35 @@ contains
    !--------------------------------------------------------------------
 
    end subroutine ocn_surface_land_ice_fluxes_accumulate_fluxes!}}}
+
+!***********************************************************************
+!
+!  function ocn_land_ice_in_thin_film
+!
+!> \brief   Whether the ocean holds a thin film under floating land ice
+!> \author  Xylar Asay-Davis
+!> \date    2 November 2026
+!> \details
+!>  When coupled to glc with wetting and drying, a cell whose ice draft
+!>  lies below the sea floor floats wherever glc's ice floats, so it
+!>  melts, but wetting and drying holds its column as a thin film.
+!>  Freezing or frazil there would thin the film below its minimum
+!>  thickness, which the limits on transport out of the cell do not
+!>  prevent, so neither forms in these cells.
+!
+!-----------------------------------------------------------------------
+
+   logical function ocn_land_ice_in_thin_film(iCell)!{{{
+
+      integer, intent(in) :: iCell !< Input: the cell index
+
+      ocn_land_ice_in_thin_film = .false.
+      if (.not. (config_glc_ice_shelf_coupling .and. config_use_wetting_drying)) return
+      if (.not. landIcePressureOn) return
+
+      ocn_land_ice_in_thin_film = (landIceDraftForSsh(iCell) < -bottomDepth(iCell))
+
+   end function ocn_land_ice_in_thin_film!}}}
 
 !***********************************************************************
 !

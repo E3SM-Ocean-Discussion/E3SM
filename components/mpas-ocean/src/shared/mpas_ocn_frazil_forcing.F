@@ -30,6 +30,7 @@ module ocn_frazil_forcing
    use ocn_mesh
    use ocn_diagnostics_variables
    use ocn_equation_of_state
+   use ocn_surface_land_ice_fluxes, only: ocn_land_ice_in_thin_film
 
    implicit none
    private
@@ -588,6 +589,12 @@ contains
           cycle
         end if
 
+        if (underFloatingLandIce) then
+          ! skip this cell because frazil would thin a thin film below its
+          ! minimum thickness
+          if (ocn_land_ice_in_thin_film(iCell)) cycle
+        end if
+
         ! find deepest level where frazil can be created
         kBottomFrazil=maxLevelCell(iCell)
         do k=maxLevelCell(iCell), minLevelCell(iCell), -1
@@ -948,6 +955,12 @@ contains
         if (underLandIce .and. .not. underFloatingLandIce) then
           ! skip this cell because we're not doing frazil under grounded land ice
           cycle
+        end if
+
+        if (underFloatingLandIce) then
+          ! skip this cell because frazil would thin a thin film below its
+          ! minimum thickness
+          if (ocn_land_ice_in_thin_film(iCell)) cycle
         end if
 
         ! find deepest level where frazil can be created
