@@ -65,6 +65,10 @@ module ocn_wetting_drying
    !
    !--------------------------------------------------------------------
    real(kind=RKIND), parameter :: eps = 1.0e-12_RKIND
+   ! the speed (m s^-1) below which the drying ramp closes an edge
+   ! instead of damping its outflow, so the ramp can't leave a velocity
+   ! that decays geometrically without reaching zero
+   real(kind=RKIND), parameter :: rampMinVelocity = 1.0e-10_RKIND
 
 
 !***********************************************************************
@@ -616,6 +620,11 @@ contains
             if ( btrVelocity(iEdge) * edgeSignOnCell(i, iCell) <= 0.0_RKIND ) then
               wettingVelocityBarotropic(iEdge) = &
                 tanh(hRampFactor * (wct - hRampMin)/(hRampMax - hRampMin))
+              if ( btrVelocity(iEdge) * edgeSignOnCell(i, iCell) < 0.0_RKIND .and. &
+                   abs(btrVelocity(iEdge)) * wettingVelocityBarotropic(iEdge) < &
+                   rampMinVelocity ) then
+                wettingVelocityBarotropic(iEdge) = 0.0_RKIND
+              end if
             end if
           end do
 
@@ -960,6 +969,11 @@ contains
                 if ( normalVelocity(k, iEdge) * edgeSignOnCell(i, iCell) <= 0.0_RKIND ) then
                   wettingVelocityFactor(k, iEdge) = 1.0_RKIND - &
                       tanh(50.0_RKIND * (layerThicknessCell(k, iCell) - hRampMin)/hRampMin)
+                  if ( normalVelocity(k, iEdge) * edgeSignOnCell(i, iCell) < 0.0_RKIND .and. &
+                       abs(normalVelocity(k, iEdge)) * &
+                       (1.0_RKIND - wettingVelocityFactor(k, iEdge)) < rampMinVelocity ) then
+                    wettingVelocityFactor(k, iEdge) = 1.0_RKIND
+                  end if
                 endif
 
                 ! If edge velocity has been zeroed, check neighbor and current cell ssh.
@@ -1070,6 +1084,11 @@ contains
                if ( normalVelocity(k, iEdge) * edgeSignOnCell(i, iCell) <= 0.0_RKIND ) then
                   wettingVelocityFactor(k, iEdge) = 1.0_RKIND - &
                   tanh(50.0_RKIND * (layerThicknessTmp - hRampMin)/hRampMin)
+                  if ( normalVelocity(k, iEdge) * edgeSignOnCell(i, iCell) < 0.0_RKIND .and. &
+                       abs(normalVelocity(k, iEdge)) * &
+                       (1.0_RKIND - wettingVelocityFactor(k, iEdge)) < rampMinVelocity ) then
+                     wettingVelocityFactor(k, iEdge) = 1.0_RKIND
+                  end if
                end if
             end if
          end do
