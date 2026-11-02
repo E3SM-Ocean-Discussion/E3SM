@@ -81,6 +81,9 @@ module ocn_vmix_cvmix
       cvmixShearMixingTypePP = 1,        & ! PP mixing scheme
       cvmixShearMixingTypeKPP = 2          ! KPP mixing scheme
 
+   real (kind=RKIND), parameter :: &
+      kppMinSurfaceFriction = 1.0e-10_RKIND ! friction velocity (m s^-1) below which KPP sees zero
+
 !***********************************************************************
 
 contains
@@ -452,7 +455,14 @@ contains
          cvmix_variables%SqrBuoyancyFreq_iface => BVFSmoothed(minLevelCell(iCell):maxLevelCell(iCell)+1)
 
          ! fill the intent(in) KPP
-         cvmix_variables % SurfaceFriction = surfaceFrictionVelocity(iCell)
+         ! A vanishing but nonzero friction velocity makes CVMix divide by
+         ! u*^4 after it underflows, so pass zero instead, which CVMix treats
+         ! as a column with no turbulent velocity scale.
+         if (surfaceFrictionVelocity(iCell) < kppMinSurfaceFriction) then
+            cvmix_variables % SurfaceFriction = 0.0_RKIND
+         else
+            cvmix_variables % SurfaceFriction = surfaceFrictionVelocity(iCell)
+         end if
          cvmix_variables % SurfaceBuoyancyForcing = surfaceBuoyancyForcing(iCell)
          cvmix_variables % BulkRichardson_cntr => bulkRichardsonNumber(minLevelCell(iCell):maxLevelCell(iCell), iCell)
 
