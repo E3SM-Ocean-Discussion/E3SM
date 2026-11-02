@@ -168,6 +168,8 @@ contains
       real (kind=RKIND) :: x, bulkRichardsonNumberStop, sfc_layer_depth
       real (kind=RKIND) :: normalVelocityAv, delU2, areaSum, blTemp,tangentialVelocityAv
       real (kind=RKIND) :: sigma
+      real (kind=RKIND) :: thinFilmFactor, meanLayerThickness, hFilm, hTurbulent
+      real (kind=RKIND), dimension(:), allocatable :: viscNoTurbulence, diffNoTurbulence
       real (kind=RKIND), dimension(:), allocatable :: Nsqr_iface, turbulentScalarVelocityScale, &
                                                       deltaVelocitySquared, normalVelocitySum, &
                                                       potentialDensitySum, RiTemp,              &
@@ -345,6 +347,20 @@ contains
       allocate(deltaVelocitySquared(nVertLevels))
       allocate(layerThicknessSum(nVertLevels))
       allocate(layerThicknessEdgeSum(nVertLevels))
+      allocate(viscNoTurbulence(nVertLevels+1))
+      allocate(diffNoTurbulence(nVertLevels+1))
+
+      ! With wetting and drying, the turbulence closures (shear mixing and
+      ! KPP) are off in the thin film and ramp on over the drying ramp, so
+      ! the film keeps only background mixing and drag.
+      if (config_zero_drying_velocity_ramp) then
+         hFilm = config_zero_drying_velocity_ramp_hmin
+         hTurbulent = config_zero_drying_velocity_ramp_hmax
+      else
+         hFilm = config_drying_min_cell_height
+         hTurbulent = config_drying_min_cell_height
+      end if
+      thinFilmFactor = 1.0_RKIND
 
       do k = 1, nVertLevels
          Nsqr_iface(k) = 0.0_RKIND
@@ -467,7 +483,27 @@ contains
          cvmix_variables % BulkRichardson_cntr => bulkRichardsonNumber(minLevelCell(iCell):maxLevelCell(iCell), iCell)
 
          if (kpp_stage == 2) then
-         if (config_use_cvmix_shear) then
+         ! the fraction of the turbulence closures that applies, 0 in the
+         ! thin film, ramping to 1 with the mean layer thickness
+         thinFilmFactor = 1.0_RKIND
+         if (config_use_wetting_drying) then
+            meanLayerThickness = &
+               sum(layerThickness(minLevelCell(iCell):maxLevelCell(iCell), iCell)) / &
+               real(maxLevelCell(iCell) - minLevelCell(iCell) + 1, RKIND)
+            if (hTurbulent > hFilm) then
+               thinFilmFactor = min(1.0_RKIND, max(0.0_RKIND, &
+                  (meanLayerThickness - hFilm) / (hTurbulent - hFilm)))
+               if (thinFilmFactor < 1.0e-6_RKIND) thinFilmFactor = 0.0_RKIND
+            elseif (meanLayerThickness <= hFilm*(1.0_RKIND + 1.0e-6_RKIND)) then
+               thinFilmFactor = 0.0_RKIND
+            end if
+         end if
+         do k = minLevelCell(iCell), maxLevelCell(iCell) + 1
+            viscNoTurbulence(k) = vertViscTopOfCell(k, iCell)
+            diffNoTurbulence(k) = vertDiffTopOfCell(k, iCell)
+         end do
+
+         if (config_use_cvmix_shear .and. thinFilmFactor > 0.0_RKIND) then
 
             do k = minLevelCell(iCell), maxLevelCell(iCell) + 1
                cvmix_variables % Mdiff_iface(k) = 0.0_RKIND
@@ -753,6 +789,7 @@ contains
             else
                langmuirEnhancementFactor = 1.0_RKIND
             endif
+            if (thinFilmFactor > 0.0_RKIND) then
 !           call mpas_timer_start('cvmix coeffs kpp', .false.)
             call cvmix_coeffs_kpp(                                              &
                           Mdiff_out = cvmix_variables % Mdiff_iface(minLevelCell(iCell):maxLevelCell(iCell)+1),       &
@@ -787,9 +824,26 @@ contains
             ! the tracer tendency is then the vertical divergence of vertNonLocalFlux*surfaceTracerFlux
             ! both of these operations are done in ocn_tracer_nonlocalflux_tend routine
             vertNonLocalFlux(index_vertNonLocalFluxTemp,:,iCell) = cvmix_variables % kpp_Tnonlocal_iface(:)
+            else
+               ! in the thin film, keep the boundary-layer index for
+               ! convection but no KPP mixing or nonlocal flux
+               indexBoundaryLayerDepth(iCell) = cvmix_variables % kOBL_depth
+            end if
 
     endif ! kpp stage 2
          endif !if (config_use_cvmix_kpp)
+
+         if (kpp_stage == 2 .and. thinFilmFactor > 0.0_RKIND .and. &
+             thinFilmFactor < 1.0_RKIND) then
+            ! ramp the turbulence closures on over the drying ramp
+            do k = minLevelCell(iCell), maxLevelCell(iCell) + 1
+               vertViscTopOfCell(k, iCell) = viscNoTurbulence(k) + &
+                  thinFilmFactor*(vertViscTopOfCell(k, iCell) - viscNoTurbulence(k))
+               vertDiffTopOfCell(k, iCell) = diffNoTurbulence(k) + &
+                  thinFilmFactor*(vertDiffTopOfCell(k, iCell) - diffNoTurbulence(k))
+            end do
+            vertNonLocalFlux(:, :, iCell) = thinFilmFactor*vertNonLocalFlux(:, :, iCell)
+         end if
 
          if ( kpp_stage == 2) then
          ! call convective mixing scheme
@@ -900,6 +954,8 @@ contains
       deallocate(deltaVelocitySquared)
       deallocate(layerThicknessEdgeSum)
       deallocate(layerThicknessSum)
+      deallocate(viscNoTurbulence)
+      deallocate(diffNoTurbulence)
 
       deallocate(OBLDepths)
       deallocate(interfaceForcings)
