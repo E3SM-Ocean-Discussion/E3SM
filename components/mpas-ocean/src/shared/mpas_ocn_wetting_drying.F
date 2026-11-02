@@ -825,15 +825,28 @@ contains
       !-----------------------------------------------------------------
 
       integer :: iCell
+      logical :: grounded
 
       err = 0
 
       !$omp parallel
-      !$omp do schedule(runtime)
+      !$omp do schedule(runtime) private(grounded)
       do iCell = 1, nCellsAll
          ! ice can only float where there is land ice
-         if ((landIceMask(iCell) == 0) .or. &
+         grounded = (landIceMask(iCell) == 0)
+         if (.not. grounded .and. &
              (landIceDraftForSsh(iCell) < -bottomDepth(iCell))) then
+            ! the ice draft lies below the sea floor, so the ocean holds a thin
+            ! film under the ice.  When coupled to glc, the ice floats wherever
+            ! glc's does, so the film can melt, though it does not freeze (see
+            ! ocn_land_ice_in_thin_film).  Otherwise, the ice is grounded.
+            if (config_glc_ice_shelf_coupling) then
+               grounded = (landIceFloatingFraction(iCell) <= 0.0_RKIND)
+            else
+               grounded = .true.
+            end if
+         end if
+         if (grounded) then
             landIceFloatingMask(iCell) = 0
             landIceFloatingFraction(iCell) = 0.0_RKIND
          else
