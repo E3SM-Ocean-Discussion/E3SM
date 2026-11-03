@@ -1896,6 +1896,23 @@ module ocn_time_integration_split
                                                 layerThicknessCur(k,cell2))
                      end if
                   end do
+                  ! Blend with the mean thickness as the diagnostics do, so
+                  ! that the layer fluxes in the thickness and tracer
+                  ! tendencies are upwinded only where the column is thin.
+                  ! The wetting factors here limit whole columns, not
+                  ! layers, so the mean is used only up to the upwind
+                  ! thickness: a thin layer, such as a partial bottom cell
+                  ! beside a full one, cannot lose more than it holds.
+                  if (config_use_spatially_variable_upwind) then
+                     do k = minLevelEdgeBot(iEdge), maxLevelEdgeTop(iEdge)
+                        layerThickEdgeFlux(k,iEdge) = &
+                           upwindFactor(iEdge)*layerThickEdgeFlux(k,iEdge) + &
+                           (1.0_RKIND - upwindFactor(iEdge))* &
+                           min(0.5_RKIND*(layerThicknessCur(k,cell1) + &
+                                          layerThicknessCur(k,cell2)), &
+                               layerThickEdgeFlux(k,iEdge))
+                     end do
+                  end if
                endif
                ! thicknessSum is initialized outside the loop because
                ! on land boundaries maxLevelEdgeTop=0, but I want to
