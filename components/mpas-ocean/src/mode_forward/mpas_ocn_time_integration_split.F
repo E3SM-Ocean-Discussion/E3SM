@@ -1992,26 +1992,10 @@ module ocn_time_integration_split
             !$omp         thicknessSum, normalVelocityCorrection)
             do iEdge = 1, nEdges
 
-               if (thickEdgeFluxChoice == thickEdgeFluxUpwind) then
-                  cell1 = cellsOnEdge(1,iEdge)
-                  cell2 = cellsOnEdge(2,iEdge)
-                  do k=1,nVertLevels
-                     ! initialize layerThickEdgeFlux to avoid divide by
-                     ! zero and NaN problems.
-                     layerThickEdgeFlux(k,iEdge) = -1.0e34_RKIND
-                  end do
-                  do k = minLevelEdgeBot(iEdge), maxLevelEdgeTop(iEdge)
-                     if (uTemp(k,iEdge) > 0.0_RKIND) then
-                        layerThickEdgeFlux(k,iEdge) = layerThicknessCur(k,cell1)
-                     elseif (uTemp(k,iEdge) < 0.0_RKIND) then
-                        layerThickEdgeFlux(k,iEdge) = layerThicknessCur(k,cell2)
-                     else
-                        layerThickEdgeFlux(k,iEdge) = &
-                                            max(layerThicknessCur(k,cell1), &
-                                                layerThicknessCur(k,cell2))
-                     end if
-                  end do
-               endif
+               ! The layer fluxes use the flux thickness from the
+               ! diagnostics, which also built wctEdge and the barotropic
+               ! flux, as RK4 does; layers that would run dry are closed by
+               ! the per-layer drying limit.
                ! thicknessSum is initialized outside the loop because
                ! on land boundaries maxLevelEdgeTop=0, but I want to
                ! initialize thicknessSum with a nonzero value to avoid
