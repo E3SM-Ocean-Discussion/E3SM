@@ -796,7 +796,8 @@ contains
 #ifdef MPAS_OPENACC
          !$acc enter data copyin(baroclinicThickness, deltaSSH, btrVelocity, wctEdge)
          !$acc parallel loop &
-         !$acc    present(baroclinicThickness, btrVelocity, deltaSSH, cellsOnEdge, maxLevelEdgeTop, wctEdge) &
+         !$acc    present(baroclinicThickness, btrVelocity, deltaSSH, cellsOnEdge, maxLevelEdgeTop, wctEdge, &
+         !$acc            upwindFactor) &
          !$acc    private(cell1, cell2, iEdge)
 #else
          !$omp parallel
@@ -813,6 +814,15 @@ contains
             else
                wctEdge(iEdge) = max(deltaSSH(cell1), deltaSSH(cell2)) &
                                 + baroclinicThickness(iEdge)
+            end if
+            ! With spatially variable upwinding, the layer thicknesses that
+            ! make up baroclinicThickness are a blend of upwind and centered
+            ! values, so blend the SSH change the same way
+            if (config_use_spatially_variable_upwind) then
+               wctEdge(iEdge) = upwindFactor(iEdge)*wctEdge(iEdge) &
+                  + (1.0_RKIND - upwindFactor(iEdge)) * &
+                    (0.5_RKIND*(deltaSSH(cell1) + deltaSSH(cell2)) &
+                     + baroclinicThickness(iEdge))
             end if
          end do
 #ifndef MPAS_OPENACC
