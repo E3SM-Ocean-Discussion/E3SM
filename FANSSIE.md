@@ -51,3 +51,4 @@ Base: E3SM master `6816738295` (2026-10-15).
 | Take the heat capacity of land ice from E3SM's constants, as MALI does | xylar:ocn/land-ice-heat-capacity-matches-mali (E3SM-Ocean-Discussion#171, merged as `9f52dc417d`) | none yet | — |
 | Book the enthalpy of ice-shelf water in glc's heat budget | xylar:cpl/ice-enthalpy-in-glc-heat-budget (E3SM-Ocean-Discussion#172, merged as `7611b2feca`) | none yet | — |
 | Melt in thin-film cells under glc's floating ice | xylar:ocn/thin-film-melt-under-glc-floating-ice (E3SM-Ocean-Discussion#173, merged as `609a726fb9`) | none yet | — |
+| Let a case variable set MALI's data-mode reference time | xylar:landice/data-mode-reference-time (E3SM-Ocean-Discussion#174, merged as `2bb65b8d15`); needs E3SM-Ocean-Discussion#157 | MALI-Dev/E3SM#219, after MALI-Dev/E3SM#214 | open |
