@@ -298,7 +298,11 @@ module ocn_time_integration_si
          fluxAx
 
       real (kind=RKIND), dimension(:,:), allocatable:: &
-         uTemp
+         uTemp,             &
+         btrCoriolisWeights ! barotropic Coriolis weights, W_ej
+
+      real (kind=RKIND), dimension(:), allocatable:: &
+         normalBarotropicVelocityRef ! ub for the baroclinic Coriolis term
 
       real (kind=RKIND), dimension(:), allocatable :: &
          btrvel_temp, &
@@ -732,6 +736,12 @@ module ocn_time_integration_si
       ! BEGIN large outer timestep iteration loop
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
+      if (config_split_pv_coriolis) then
+         allocate(btrCoriolisWeights(maxEdges2, nEdgesAll), &
+                  normalBarotropicVelocityRef(nEdgesAll+1))
+         normalBarotropicVelocityRef(nEdgesAll+1) = 0.0_RKIND
+      end if
+
       do splitImplicitStep = 1, numTSIterations
 
          if (config_disable_thick_all_tend .and. &
@@ -769,6 +779,9 @@ module ocn_time_integration_si
 
          call mpas_dmpar_field_halo_exch(domain, &
                                  'normalizedRelativeVorticityEdge')
+         if (config_split_pv_coriolis) &
+            call mpas_dmpar_field_halo_exch(domain, &
+                                 'normalizedPlanetaryVorticityEdge')
          if (config_mom_del4 > 0.0_RKIND) then
            call mpas_dmpar_field_halo_exch(domain, 'divergence')
            call mpas_dmpar_field_halo_exch(domain, 'relativeVorticity')
@@ -855,6 +868,35 @@ module ocn_time_integration_si
 
          call mpas_timer_stop('si bcl vel tend')
 
+         ! Split RK4's potential-vorticity flux form of the planetary
+         ! Coriolis term between the modes: the barotropic subcycles
+         ! use the weights W_ej, and the baroclinic term is the rest,
+         ! evaluated with ub at the start of the step in the first
+         ! iteration and at the middle of the step after that.
+         if (config_split_pv_coriolis) then
+            call ocn_split_pv_coriolis_weights(btrCoriolisWeights)
+            if (splitImplicitStep == 1) then
+               !$omp parallel
+               !$omp do schedule(runtime)
+               do iEdge = 1, nEdgesAll
+                  normalBarotropicVelocityRef(iEdge) = &
+                     normalBarotropicVelocityCur(iEdge)
+               end do
+               !$omp end do
+               !$omp end parallel
+            else
+               !$omp parallel
+               !$omp do schedule(runtime)
+               do iEdge = 1, nEdgesAll
+                  normalBarotropicVelocityRef(iEdge) = 0.5_RKIND* &
+                     (normalBarotropicVelocityCur(iEdge) &
+                    + normalBarotropicVelocityNew(iEdge))
+               end do
+               !$omp end do
+               !$omp end parallel
+            end if
+         end if
+
          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
          ! BEGIN baroclinic iterations on linear Coriolis term
          !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -865,7 +907,12 @@ module ocn_time_integration_si
 
             ! Put f*normalBaroclinicVelocity^{perp} in
             ! normalVelocityNew as a work variable
-            call ocn_fuperp(statePool, meshPool, 2)
+            if (config_split_pv_coriolis) then
+               call ocn_split_pv_coriolis_baroclinic(statePool, &
+                  btrCoriolisWeights, normalBarotropicVelocityRef, 2)
+            else
+               call ocn_fuperp(statePool, meshPool, 2)
+            end if
 
             !TODO: look at loop optimizations here
             ! Only need to loop over owned cells, since there is a halo
@@ -1133,13 +1180,23 @@ module ocn_time_integration_si
             do iEdge = 1, nEdgesAll
                ! Compute the barotropic Coriolis term, -f*uPerp
                CoriolisTerm = 0.d0
-               !$acc loop vector reduction(+:CoriolisTerm)
-               do i = 1, nEdgesOnEdge(iEdge)
-                  eoe = edgesOnEdge(i,iEdge)
-                  CoriolisTerm = CoriolisTerm + weightsOnEdge(i,iEdge) &
-                               * normalBarotropicVelocityCur(eoe)      &
-                               * fEdge(eoe)
-               end do ! i
+               if (config_split_pv_coriolis) then
+                  !$acc loop vector reduction(+:CoriolisTerm)
+                  do i = 1, nEdgesOnEdge(iEdge)
+                     eoe = edgesOnEdge(i,iEdge)
+                     CoriolisTerm = CoriolisTerm &
+                                  + btrCoriolisWeights(i,iEdge)* &
+                                    normalBarotropicVelocityCur(eoe)
+                  end do
+               else
+                  !$acc loop vector reduction(+:CoriolisTerm)
+                  do i = 1, nEdgesOnEdge(iEdge)
+                     eoe = edgesOnEdge(i,iEdge)
+                     CoriolisTerm = CoriolisTerm + weightsOnEdge(i,iEdge) &
+                                  * normalBarotropicVelocityCur(eoe)      &
+                                  * fEdge(eoe)
+                  end do
+               end if
                   barotropicCoriolisTerm(iEdge) = CoriolisTerm
             end do ! iEdge
 #ifndef MPAS_OPENACC
@@ -1495,15 +1552,26 @@ module ocn_time_integration_si
             do iEdge = 1,nEdgesHalo(2)
                ! Compute the barotropic Coriolis term, -f*uPerp
                CoriolisTerm = 0.0_RKIND
-               !$acc loop vector reduction(+:CoriolisTerm)
-               do i = 1, nEdgesOnEdge(iEdge)
-                  eoe = edgesOnEdge(i,iEdge)
-                  CoriolisTerm = CoriolisTerm + weightsOnEdge(i,iEdge)       &
-                               * 0.5_RKIND                                   &
-                               * ( normalBarotropicVelocitySubcycleNew(eoe)  &
-                                  +normalBarotropicVelocityCur(eoe)        ) &
-                               * fEdge(eoe)
-               end do
+               if (config_split_pv_coriolis) then
+                  !$acc loop vector reduction(+:CoriolisTerm)
+                  do i = 1, nEdgesOnEdge(iEdge)
+                     eoe = edgesOnEdge(i,iEdge)
+                     CoriolisTerm = CoriolisTerm &
+                                  + btrCoriolisWeights(i,iEdge)* &
+                                    0.5_RKIND*(normalBarotropicVelocitySubcycleNew(eoe) &
+                                             + normalBarotropicVelocityCur(eoe))
+                  end do
+               else
+                  !$acc loop vector reduction(+:CoriolisTerm)
+                  do i = 1, nEdgesOnEdge(iEdge)
+                     eoe = edgesOnEdge(i,iEdge)
+                     CoriolisTerm = CoriolisTerm + weightsOnEdge(i,iEdge)       &
+                                  * 0.5_RKIND                                   &
+                                  * ( normalBarotropicVelocitySubcycleNew(eoe)  &
+                                     +normalBarotropicVelocityCur(eoe)        ) &
+                                  * fEdge(eoe)
+                  end do
+               end if
                barotropicCoriolisTerm(iEdge) = CoriolisTerm
             end do
 #ifndef MPAS_OPENACC
@@ -1557,15 +1625,26 @@ module ocn_time_integration_si
             do iEdge = 1,nEdgesOwned
                ! Compute the barotropic Coriolis term, -f*uPerp
                CoriolisTerm = 0.0_RKIND
-               !$acc loop vector reduction(+:CoriolisTerm)
-               do i = 1, nEdgesOnEdge(iEdge)
-                  eoe = edgesOnEdge(i,iEdge)
-                  CoriolisTerm = CoriolisTerm + weightsOnEdge(i,iEdge)      &
-                               * 0.5_RKIND                                  &
-                               * ( normalBarotropicVelocitySubcycleNew(eoe) &
-                                  +normalBarotropicVelocityCur(eoe) )       &
-                               * fEdge(eoe)
-               end do
+               if (config_split_pv_coriolis) then
+                  !$acc loop vector reduction(+:CoriolisTerm)
+                  do i = 1, nEdgesOnEdge(iEdge)
+                     eoe = edgesOnEdge(i,iEdge)
+                     CoriolisTerm = CoriolisTerm &
+                                  + btrCoriolisWeights(i,iEdge)* &
+                                    0.5_RKIND*(normalBarotropicVelocitySubcycleNew(eoe) &
+                                             + normalBarotropicVelocityCur(eoe))
+                  end do
+               else
+                  !$acc loop vector reduction(+:CoriolisTerm)
+                  do i = 1, nEdgesOnEdge(iEdge)
+                     eoe = edgesOnEdge(i,iEdge)
+                     CoriolisTerm = CoriolisTerm + weightsOnEdge(i,iEdge)      &
+                                  * 0.5_RKIND                                  &
+                                  * ( normalBarotropicVelocitySubcycleNew(eoe) &
+                                     +normalBarotropicVelocityCur(eoe) )       &
+                                  * fEdge(eoe)
+                  end do
+               end if
                barotropicCoriolisTerm(iEdge) = CoriolisTerm
             end do
 #ifndef MPAS_OPENACC
@@ -1855,15 +1934,26 @@ module ocn_time_integration_si
             do iEdge = 1,nEdgesHalo(1)
                ! Compute the barotropic Coriolis term, -f*uPerp
                CoriolisTerm = 0.0_RKIND
-               !$acc loop vector reduction(+:CoriolisTerm)
-               do i = 1, nEdgesOnEdge(iEdge)
-                  eoe = edgesOnEdge(i,iEdge)
-                  CoriolisTerm =  CoriolisTerm + weightsOnEdge(i,iEdge)     &
-                               * 0.5_RKIND                                  &
-                               * ( normalBarotropicVelocitySubcycleNew(eoe) &
-                                  +normalBarotropicVelocityCur(eoe) )       &
-                               * fEdge(eoe)
-               end do
+               if (config_split_pv_coriolis) then
+                  !$acc loop vector reduction(+:CoriolisTerm)
+                  do i = 1, nEdgesOnEdge(iEdge)
+                     eoe = edgesOnEdge(i,iEdge)
+                     CoriolisTerm = CoriolisTerm &
+                                  + btrCoriolisWeights(i,iEdge)* &
+                                    0.5_RKIND*(normalBarotropicVelocitySubcycleNew(eoe) &
+                                             + normalBarotropicVelocityCur(eoe))
+                  end do
+               else
+                  !$acc loop vector reduction(+:CoriolisTerm)
+                  do i = 1, nEdgesOnEdge(iEdge)
+                     eoe = edgesOnEdge(i,iEdge)
+                     CoriolisTerm =  CoriolisTerm + weightsOnEdge(i,iEdge)     &
+                                  * 0.5_RKIND                                  &
+                                  * ( normalBarotropicVelocitySubcycleNew(eoe) &
+                                     +normalBarotropicVelocityCur(eoe) )       &
+                                  * fEdge(eoe)
+                  end do
+               end if
                barotropicCoriolisTerm(iEdge) = CoriolisTerm
             end do
 #ifndef MPAS_OPENACC
@@ -2799,6 +2889,9 @@ module ocn_time_integration_si
          call mpas_timer_stop('si loop')
 
       end do  ! outer timestep loop (splitImplicitStep)
+
+      if (config_split_pv_coriolis) &
+         deallocate(btrCoriolisWeights, normalBarotropicVelocityRef)
 
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       ! END large iteration loop
