@@ -58,6 +58,7 @@ module ocn_wetting_drying
    public :: ocn_wetting_drying_update_land_ice
    public :: ocn_compute_land_ice_ssh_adjustment
    public :: ocn_compute_land_ice_pressure_head
+   public :: ocn_wetting_drying_wettingVelocity
 
    !--------------------------------------------------------------------
    !
