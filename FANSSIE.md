@@ -53,3 +53,4 @@ Base: E3SM master `6816738295` (2026-10-15).
 | Melt in thin-film cells under glc's floating ice | xylar:ocn/thin-film-melt-under-glc-floating-ice (E3SM-Ocean-Discussion#173, merged as `609a726fb9`) | none yet | — |
 | Let a case variable set MALI's data-mode reference time | xylar:landice/data-mode-reference-time (E3SM-Ocean-Discussion#174, merged as `2bb65b8d15`); needs E3SM-Ocean-Discussion#157 | MALI-Dev/E3SM#219, after MALI-Dev/E3SM#214 | open |
 | Split the PV-flux Coriolis form between the split integrators' modes, behind `config_split_pv_coriolis` (default off) | xylar:se-pv-coriolis (E3SM-Ocean-Discussion#176, merged as `50788758b0`) | E3SM-Ocean-Discussion#177 (for discussion, against master) | open |
+| Skip MALI's ocean thermal-forcing fields when their packages are off | xylar:landice/skip-inactive-thermal-forcing-fields (E3SM-Ocean-Discussion#178, merged as `5beb3f4f34`) | MALI-Dev/E3SM#219 (second commit) | open |
