@@ -1967,43 +1967,10 @@ module ocn_time_integration_split
             !$omp         thicknessSum, normalVelocityCorrection)
             do iEdge = 1, nEdges
 
-               if (thickEdgeFluxChoice == thickEdgeFluxUpwind) then
-                  cell1 = cellsOnEdge(1,iEdge)
-                  cell2 = cellsOnEdge(2,iEdge)
-                  do k=1,nVertLevels
-                     ! initialize layerThickEdgeFlux to avoid divide by
-                     ! zero and NaN problems.
-                     layerThickEdgeFlux(k,iEdge) = -1.0e34_RKIND
-                  end do
-                  do k = minLevelEdgeBot(iEdge), maxLevelEdgeTop(iEdge)
-                     if (uTemp(k,iEdge) > 0.0_RKIND) then
-                        layerThickEdgeFlux(k,iEdge) = layerThicknessCur(k,cell1)
-                     elseif (uTemp(k,iEdge) < 0.0_RKIND) then
-                        layerThickEdgeFlux(k,iEdge) = layerThicknessCur(k,cell2)
-                     else
-                        layerThickEdgeFlux(k,iEdge) = &
-                                            max(layerThicknessCur(k,cell1), &
-                                                layerThicknessCur(k,cell2))
-                     end if
-                  end do
-                  ! Blend with the mean thickness as the diagnostics do, so
-                  ! that the layer fluxes in the thickness and tracer
-                  ! tendencies are upwinded only where the column is thin.
-                  ! The wetting factors here limit whole columns, not
-                  ! layers, so the mean is used only up to the upwind
-                  ! thickness: a thin layer, such as a partial bottom cell
-                  ! beside a full one, cannot lose more than it holds.
-                  if (config_use_spatially_variable_upwind) then
-                     do k = minLevelEdgeBot(iEdge), maxLevelEdgeTop(iEdge)
-                        layerThickEdgeFlux(k,iEdge) = &
-                           upwindFactor(iEdge)*layerThickEdgeFlux(k,iEdge) + &
-                           (1.0_RKIND - upwindFactor(iEdge))* &
-                           min(0.5_RKIND*(layerThicknessCur(k,cell1) + &
-                                          layerThicknessCur(k,cell2)), &
-                               layerThickEdgeFlux(k,iEdge))
-                     end do
-                  end if
-               endif
+               ! The layer fluxes use the flux thickness from the
+               ! diagnostics, which also built wctEdge and the barotropic
+               ! flux, as RK4 does; layers that would run dry are closed by
+               ! the per-layer drying limit.
                ! thicknessSum is initialized outside the loop because
                ! on land boundaries maxLevelEdgeTop=0, but I want to
                ! initialize thicknessSum with a nonzero value to avoid
