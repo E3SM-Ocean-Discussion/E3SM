@@ -860,7 +860,12 @@ module ocn_time_integration_split
          ! evaluated with ub at the start of the step in the first
          ! iteration and at the middle of the step after that.
          if (config_split_pv_coriolis) then
-            call ocn_split_pv_coriolis_weights(btrCoriolisWeights)
+            if (layerDryingLimit) then
+               call ocn_split_pv_coriolis_weights(btrCoriolisWeights, &
+                                                  layerOpen)
+            else
+               call ocn_split_pv_coriolis_weights(btrCoriolisWeights)
+            end if
             if (splitExplicitStep == 1) then
                !$omp parallel
                !$omp do schedule(runtime)
@@ -897,7 +902,7 @@ module ocn_time_integration_split
             ! wettingVelocityBaroclinicFactor prior to this call
             ! eq:fu-perp
             ! The Coriolis term sees closed layers at rest
-            if (layerDryingLimit) then
+            if (layerDryingLimit .and. .not. config_split_pv_coriolis) then
                bclVelSave(:,:) = normalBaroclinicVelocityNew(:,:)
                do iEdge = 1, nEdgesAll
                   if (splitExplicitStep == 1) then
@@ -912,13 +917,17 @@ module ocn_time_integration_split
                   end do
                end do
             end if
-            if (config_split_pv_coriolis) then
+            if (config_split_pv_coriolis .and. layerDryingLimit) then
+               call ocn_split_pv_coriolis_baroclinic(statePool, &
+                  btrCoriolisWeights, normalBarotropicVelocityRef, 2, &
+                  layerOpen)
+            else if (config_split_pv_coriolis) then
                call ocn_split_pv_coriolis_baroclinic(statePool, &
                   btrCoriolisWeights, normalBarotropicVelocityRef, 2)
             else
                call ocn_fuperp(statePool, meshPool, 2)
             end if
-            if (layerDryingLimit) &
+            if (layerDryingLimit .and. .not. config_split_pv_coriolis) &
                normalBaroclinicVelocityNew(:,:) = bclVelSave(:,:)
 
             !TODO: look at loop optimizations here
