@@ -733,6 +733,7 @@
 <config_btr_dt ocn_grid="u01-oi6to18">'0000_00:00:05'</config_btr_dt>
 <config_btr_dt ocn_grid="u02-oi30">'0000_00:01:00'</config_btr_dt>
 <config_btr_dt ocn_grid="u03-oi240">'0000_00:03:00'</config_btr_dt>
+<config_split_pv_coriolis>.false.</config_split_pv_coriolis>
 <config_n_btr_cor_iter>2</config_n_btr_cor_iter>
 <config_vel_correction>.true.</config_vel_correction>
 <config_btr_subcycle_loop_factor>2</config_btr_subcycle_loop_factor>

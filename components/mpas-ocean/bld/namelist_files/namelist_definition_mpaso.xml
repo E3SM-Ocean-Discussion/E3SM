@@ -2716,6 +2716,14 @@ Valid values: Any time stamp in 'YYYY-MM-DD_hh:mm:ss' format. Items can be remov
 Default: Defined in namelist_defaults.xml
 </entry>
 
+<entry id="config_split_pv_coriolis" type="logical"
+	category="split_explicit_ts" group="split_explicit_ts">
+If true, the split time integrators (split-explicit, split-explicit AB2 and split-implicit) split RK4's potential-vorticity flux form of the planetary Coriolis term between the barotropic and baroclinic modes, layer by layer, so that the Coriolis terms do no net work where layer thicknesses vary across edges
+
+Valid values: .true. or .false.
+Default: Defined in namelist_defaults.xml
+</entry>
+
 <entry id="config_n_btr_cor_iter" type="integer"
 	category="split_explicit_ts" group="split_explicit_ts">
 number of iterations of the velocity corrector step in stage 2
