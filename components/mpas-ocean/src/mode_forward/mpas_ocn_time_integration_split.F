@@ -195,10 +195,20 @@ module ocn_time_integration_split
 
       real (kind=RKIND), dimension(:,:), allocatable:: &
          uTemp,             &
-         btrCoriolisWeights ! barotropic Coriolis weights, W_ej
+         btrCoriolisWeights,&! barotropic Coriolis weights, W_ej
+         layerOpen,         &! per-layer drying factor, 1 where open
+         layerClosed,       &! RK4's per-layer wettingVelocityFactor
+         bclVelSave          ! baroclinic velocity saved around fuperp
 
       real (kind=RKIND), dimension(:), allocatable:: &
          normalBarotropicVelocityRef ! ub for the baroclinic Coriolis term
+
+      real (kind=RKIND), dimension(:), allocatable :: &
+         openFraction,      &! open share of the column flux thickness
+         ubDecide            ! ub that keeps a layer at rest open
+
+      logical :: layerDryingLimit ! limit drying layer by layer
+      real (kind=RKIND) :: openThicknessSum, openFluxSum, ubRef
 
       real (kind=RKIND), dimension(:), allocatable :: &
          btrvel_temp,      &
@@ -673,6 +683,19 @@ module ocn_time_integration_split
          normalBarotropicVelocityRef(nEdgesAll+1) = 0.0_RKIND
       end if
 
+      ! Close layers as RK4 does, one by one, where outflow
+      ! would take the upwind cell's layer below the critical height
+      layerDryingLimit = config_use_wetting_drying .and. &
+                         config_zero_drying_velocity .and. landIcePressureOn
+      allocate(layerOpen(nVertLevels, nEdgesAll + 1), &
+               openFraction(nEdgesAll + 1))
+      layerOpen(:,:) = 1.0_RKIND
+      openFraction(:) = 1.0_RKIND
+      if (layerDryingLimit) &
+         allocate(layerClosed(nVertLevels, nEdgesAll + 1), &
+                  bclVelSave(nVertLevels, nEdgesAll + 1), &
+                  ubDecide(nEdgesAll + 1))
+
       do splitExplicitStep = 1, numTSIterations
 
          if (config_disable_thick_all_tend .and. &
@@ -803,6 +826,48 @@ module ocn_time_integration_split
          call ocn_tend_vel(domain, tendPool, statePool, forcingPool, &
                            stage1_tend_time, domain % dminfo, dt)
 
+         ! The per-layer factor from the step-start thickness,
+         ! the latest predicted thickness and the latest velocity, as in
+         ! RK4, and the open share of each column's flux thickness
+         if (layerDryingLimit) then
+            layerClosed(:,:) = 0.0_RKIND
+            ! Passing ub keeps a drying layer at rest open, so a closed
+            ! edge can reopen; the land-ice dam uses ub to decide whether
+            ! a layer at rest counts as inflow: ub at the start of the
+            ! step in the first iteration, and at the middle of the step
+            ! after that, as for ubRef
+            if (splitExplicitStep == 1) then
+               ubDecide(1:nEdgesAll) = normalBarotropicVelocityCur(1:nEdgesAll)
+            else
+               ubDecide(1:nEdgesAll) = 0.5_RKIND* &
+                  (normalBarotropicVelocityCur(1:nEdgesAll) + &
+                   normalBarotropicVelocityNew(1:nEdgesAll))
+            end if
+            ubDecide(nEdgesAll + 1) = 0.0_RKIND
+            call ocn_wetting_drying_wettingVelocity(domain, &
+                    layerThickEdgeFlux, layerThicknessCur, layerThicknessNew, &
+                    normalVelocityNew, dt, landIceMask, landIcePressure, &
+                    landIceDraft, layerClosed, err, &
+                    normalBarotropicVelocity=ubDecide)
+            do iEdge = 1, nEdgesAll
+               do k = 1, nVertLevels
+                  layerOpen(k,iEdge) = 1.0_RKIND - layerClosed(k,iEdge)
+               end do
+               thicknessSum = 0.0_RKIND
+               openThicknessSum = 0.0_RKIND
+               do k = minLevelEdgeBot(iEdge), maxLevelEdgeTop(iEdge)
+                  thicknessSum = thicknessSum + layerThickEdgeFlux(k,iEdge)
+                  openThicknessSum = openThicknessSum + &
+                     layerOpen(k,iEdge)*layerThickEdgeFlux(k,iEdge)
+               end do
+               if (thicknessSum > 0.0_RKIND) then
+                  openFraction(iEdge) = openThicknessSum/thicknessSum
+               else
+                  openFraction(iEdge) = 1.0_RKIND
+               end if
+            end do
+         end if
+
          call mpas_timer_stop('se bcl vel tend')
 
          ! Split RK4's potential-vorticity flux form of the planetary
@@ -811,7 +876,12 @@ module ocn_time_integration_split
          ! evaluated with ub at the start of the step in the first
          ! iteration and at the middle of the step after that.
          if (config_split_pv_coriolis) then
-            call ocn_split_pv_coriolis_weights(btrCoriolisWeights)
+            if (layerDryingLimit) then
+               call ocn_split_pv_coriolis_weights(btrCoriolisWeights, &
+                                                  layerOpen)
+            else
+               call ocn_split_pv_coriolis_weights(btrCoriolisWeights)
+            end if
             if (splitExplicitStep == 1) then
                !$omp parallel
                !$omp do schedule(runtime)
@@ -847,12 +917,34 @@ module ocn_time_integration_split
             ! normalBaroclinicVelocity should be scaled by
             ! wettingVelocityBaroclinicFactor prior to this call
             ! eq:fu-perp
-            if (config_split_pv_coriolis) then
+            ! The Coriolis term sees closed layers at rest
+            if (layerDryingLimit .and. .not. config_split_pv_coriolis) then
+               bclVelSave(:,:) = normalBaroclinicVelocityNew(:,:)
+               do iEdge = 1, nEdgesAll
+                  if (splitExplicitStep == 1) then
+                     ubRef = normalBarotropicVelocityCur(iEdge)
+                  else
+                     ubRef = 0.5_RKIND*(normalBarotropicVelocityCur(iEdge) + &
+                                        normalBarotropicVelocityNew(iEdge))
+                  end if
+                  do k = 1, nVertLevels
+                     normalBaroclinicVelocityNew(k,iEdge) = &
+                        layerOpen(k,iEdge)*(ubRef + bclVelSave(k,iEdge)) - ubRef
+                  end do
+               end do
+            end if
+            if (config_split_pv_coriolis .and. layerDryingLimit) then
+               call ocn_split_pv_coriolis_baroclinic(statePool, &
+                  btrCoriolisWeights, normalBarotropicVelocityRef, 2, &
+                  layerOpen)
+            else if (config_split_pv_coriolis) then
                call ocn_split_pv_coriolis_baroclinic(statePool, &
                   btrCoriolisWeights, normalBarotropicVelocityRef, 2)
             else
                call ocn_fuperp(statePool, meshPool, 2)
             end if
+            if (layerDryingLimit .and. .not. config_split_pv_coriolis) &
+               normalBaroclinicVelocityNew(:,:) = bclVelSave(:,:)
 
             !TODO: look at loop optimizations here
             ! Only need to loop over owned cells, since there is a halo
@@ -863,7 +955,8 @@ module ocn_time_integration_split
             !$omp parallel
             !$omp do schedule(runtime) &
             !$omp private(k, cell1, cell2, uTemp, sshGrad, &
-            !$omp         normalThicknessFluxSum, thicknessSum)
+            !$omp         normalThicknessFluxSum, thicknessSum, &
+            !$omp         openFluxSum, openThicknessSum)
             do iEdge = 1, nEdgesOwned
 
                if (maxLevelEdgeTop(iEdge) == 0) then
@@ -907,6 +1000,22 @@ module ocn_time_integration_split
                   thicknessSum = thicknessSum + &
                                  layerThickEdgeFlux(k,iEdge)
                enddo
+               ! The barotropic mode is the mean over the open
+               ! layers
+               if (layerDryingLimit) then
+                  openFluxSum = 0.0_RKIND
+                  openThicknessSum = 0.0_RKIND
+                  do k = minLevelEdgeBot(iEdge), maxLevelEdgeTop(iEdge)
+                     openFluxSum = openFluxSum + layerOpen(k,iEdge)* &
+                                 layerThickEdgeFlux(k,iEdge)*uTemp(k,iEdge)
+                     openThicknessSum = openThicknessSum + &
+                                 layerOpen(k,iEdge)*layerThickEdgeFlux(k,iEdge)
+                  enddo
+                  if (openThicknessSum > 1.0e-10_RKIND*thicknessSum) then
+                     normalThicknessFluxSum = openFluxSum
+                     thicknessSum = openThicknessSum
+                  end if
+               end if
                barotropicForcing(iEdge) = splitFact* &
                               normalThicknessFluxSum/thicknessSum/dt
 
@@ -1322,6 +1431,8 @@ module ocn_time_integration_split
                !$omp end parallel
                call ocn_diagnostic_solve_wctEdge(btrvel_temp, deltaSSH, &
                          baroclinicThickness, wctEdge)
+               if (layerDryingLimit) wctEdge(1:nEdgesAll) = &
+                  openFraction(1:nEdgesAll)*wctEdge(1:nEdgesAll)
 
                ! This update is stored in the newBtrSubcycleTime
                ! eq:btr-factor-ssh-pred
@@ -1629,6 +1740,8 @@ module ocn_time_integration_split
 
                   call ocn_diagnostic_solve_wctEdge(btrvel_temp, deltaSSH, &
                          baroclinicThickness, wctEdge)
+               if (layerDryingLimit) wctEdge(1:nEdgesAll) = &
+                  openFraction(1:nEdgesAll)*wctEdge(1:nEdgesAll)
 
                   !$omp parallel
                   !$omp do schedule(runtime) &
@@ -1672,6 +1785,8 @@ module ocn_time_integration_split
 
                   call ocn_diagnostic_solve_wctEdge(btrvel_temp, deltaSSH, &
                          baroclinicThickness, wctEdge)
+               if (layerDryingLimit) wctEdge(1:nEdgesAll) = &
+                  openFraction(1:nEdgesAll)*wctEdge(1:nEdgesAll)
                   ! wetting factor here is determined by the predicted velocity and the linear combination of current SSH and
                   ! corrected SSH
                   ! It doesn't get used until the next subcycle's velocity predictor step
@@ -1913,6 +2028,25 @@ module ocn_time_integration_split
                                  layerThickEdgeFlux(k,iEdge)
                enddo
 
+               ! Closed layers carry no flux, and the open ones
+               ! carry the barotropic flux
+               if (layerDryingLimit) then
+                  normalThicknessFluxSum = 0.0_RKIND
+                  thicknessSum = 0.0_RKIND
+                  do k = minLevelEdgeBot(iEdge), maxLevelEdgeTop(iEdge)
+                     normalThicknessFluxSum = normalThicknessFluxSum + &
+                        layerOpen(k,iEdge)*layerThickEdgeFlux(k,iEdge)* &
+                        uTemp(k,iEdge)
+                     thicknessSum = thicknessSum + &
+                        layerOpen(k,iEdge)*layerThickEdgeFlux(k,iEdge)
+                  enddo
+                  thicknessSum = max(thicknessSum, 1.0e-20_RKIND)
+                  do k = 1, nVertLevels
+                     normalTransportVelocity(k,iEdge) = layerOpen(k,iEdge)* &
+                        normalTransportVelocity(k,iEdge)
+                  enddo
+               end if
+
                normalVelocityCorrection = useVelocityCorrection* &
                              ((barotropicThicknessFlux(iEdge) - &
                                normalThicknessFluxSum)/thicknessSum)
@@ -1928,7 +2062,7 @@ module ocn_time_integration_split
                   ! and tracers in tendency calls in stage 3.
                   normalTransportVelocity(k,iEdge) = edgeMask(k,iEdge)*( &
                              normalTransportVelocity(k,iEdge) + &
-                             normalVelocityCorrection)
+                             layerOpen(k,iEdge)*normalVelocityCorrection)
                enddo
 
             end do ! iEdge
@@ -2199,6 +2333,7 @@ module ocn_time_integration_split
                ! here normalBaroclinicVelocity is at time n+1/2
                ! This is u used in next iteration or step
                normalVelocityNew(k,iEdge) = edgeMask(k,iEdge)* &
+                         layerOpen(k,iEdge)* &
                          ( normalBarotropicVelocityNew(iEdge) &
                            + normalBaroclinicVelocityNew(k,iEdge) )
 
@@ -2584,10 +2719,10 @@ module ocn_time_integration_split
             ! normalBaroclinicVelocity_{n+1/2} has already been scaled by wetting velocity factor
             ! normalBaroclinicVelocity_n should have been scaled by wetting velocity factor on the previous time step
             do k = minLevelEdgeBot(iEdge), maxLevelEdgeTop(iEdge)
-               normalVelocityNew(k,iEdge) =                              &
+               normalVelocityNew(k,iEdge) = layerOpen(k,iEdge)*(         &
                              ( normalBarotropicVelocityNew(iEdge) +      &
                                2*normalBaroclinicVelocityNew(k,iEdge)) &
-                           - normalBaroclinicVelocityCur(k,iEdge)
+                           - normalBaroclinicVelocityCur(k,iEdge))
             end do
 
             end do ! iEdges
@@ -2674,6 +2809,8 @@ module ocn_time_integration_split
 
       if (config_split_pv_coriolis) &
          deallocate(btrCoriolisWeights, normalBarotropicVelocityRef)
+      deallocate(layerOpen, openFraction)
+      if (layerDryingLimit) deallocate(layerClosed, bclVelSave, ubDecide)
 
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       ! END large iteration loop

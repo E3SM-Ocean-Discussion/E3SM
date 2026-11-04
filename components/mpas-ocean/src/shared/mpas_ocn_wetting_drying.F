@@ -58,6 +58,7 @@ module ocn_wetting_drying
    public :: ocn_wetting_drying_update_land_ice
    public :: ocn_compute_land_ice_ssh_adjustment
    public :: ocn_compute_land_ice_pressure_head
+   public :: ocn_wetting_drying_wettingVelocity
 
    !--------------------------------------------------------------------
    !
@@ -574,7 +575,9 @@ contains
                    (maxLevelCell(iCell) - minLevelCell(iCell) + 1)
 
         ! if layer thickness is too small, limit divergence flux outwards with
-        ! opposite velocity
+        ! opposite velocity.  Edges without flow stay open, so that a dry
+        ! cell can refill; the land-ice dam below keeps water out of cells
+        ! under ice heavier than flotation.
         if (wct <= hCrit) then
           do i = 1, nEdgesOnCell(iCell)
             iEdge = edgesOnCell(i, iCell)
@@ -696,13 +699,20 @@ contains
 
    subroutine ocn_wetting_drying_wettingVelocity(domain, layerThickEdgeFlux, layerThicknessCur, layerThicknessProvis, &
                                                  normalVelocity, dt, landIceMask, landIcePressure, landIceDraft, &
-                                                 wettingVelocityFactor, err)!{{{
+                                                 wettingVelocityFactor, err, &
+                                                 normalBarotropicVelocity)!{{{
 
       !-----------------------------------------------------------------
       !
       ! input variables
       !
       !-----------------------------------------------------------------
+
+      real (kind=RKIND), dimension(:), intent(in), optional :: &
+         normalBarotropicVelocity !< Input: barotropic velocity on edges.
+                                  !< With it, a layer at rest stays open
+                                  !< where the barotropic flow enters
+                                  !< the cell (split-explicit only)
 
       real (kind=RKIND), dimension(:,:), intent(in) :: &
          layerThicknessCur    !< Input: layer thickness at old time
@@ -824,7 +834,8 @@ contains
                                          sshLandIceAdjustment(iCell) / nVertLevelsCell
           if ( .not. config_use_ssh_gradient_wetting_drying ) then
              call ocn_wetting_velocity_factor_on_cell_edges( &
-                      wettingVelocityFactor, layerThicknessCell(k, iCell), normalVelocity, iCell, k)
+                      wettingVelocityFactor, layerThicknessCell(k, iCell), normalVelocity, iCell, k, &
+                      normalBarotropicVelocity)
           end if
         end do
       end do
@@ -856,8 +867,10 @@ contains
             if ( head(cellNei) > head(iCell) - sshLandIceAdjustment(iCell) ) cycle
             do k = minLevelCell(iCell), maxLevelCell(iCell)
               if (k > maxLevelEdgeTop(iEdge) .or. k < minLevelEdgeBot(iEdge)) cycle
-              ! only flow into the cell
-              if ( normalVelocity(k, iEdge) * edgeSignOnCell(i, iCell) > 0.0_RKIND ) then
+              ! only flow into the cell, including a layer at rest where
+              ! the barotropic flow enters it
+              if ( .not. closesEdge(normalVelocity(k, iEdge), iEdge, &
+                                    edgeSignOnCell(i, iCell), normalBarotropicVelocity) ) then
                 wettingVelocityFactor(k, iEdge) = 1.0_RKIND
               end if
             end do
@@ -1015,7 +1028,8 @@ contains
 !>  This routine computes wettingVelocityFactor at the edges of iCell
 !
 !-----------------------------------------------------------------------
-   subroutine ocn_wetting_velocity_factor_on_cell_edges(wettingVelocityFactor, layerThicknessTmp, normalVelocity, iCell, k)!{{{
+   subroutine ocn_wetting_velocity_factor_on_cell_edges(wettingVelocityFactor, layerThicknessTmp, normalVelocity, iCell, k, &
+                                                        normalBarotropicVelocity)!{{{
 
       !-----------------------------------------------------------------
       !
@@ -1035,6 +1049,9 @@ contains
       integer, intent(in) :: &
          k                    !< Input: wettingVelocityFactor is computed at layer k
 
+      real (kind=RKIND), dimension(:), intent(in), optional :: &
+         normalBarotropicVelocity !< Input: barotropic velocity on edges
+
       !-----------------------------------------------------------------
       !
       ! input/output variables
@@ -1052,7 +1069,7 @@ contains
 
       integer :: i, iEdge
 
-      real (kind=RKIND) :: hCrit, hRampMin
+      real (kind=RKIND) :: hCrit, hRampMin, uIn
 
       hCrit = config_drying_min_cell_height
 
@@ -1063,7 +1080,13 @@ contains
          do i = 1, nEdgesOnCell(iCell)
             iEdge = edgesOnCell(i, iCell)
             if (k <= maxLevelEdgeBot(iEdge) .and. k >= minLevelEdgeTop(iEdge)) then
-               if ( normalVelocity(k, iEdge) * edgeSignOnCell(i, iCell) <= 0.0_RKIND ) then
+               ! in split-explicit, only outflow closes the edge: a layer at
+               ! rest stays open, so an edge closed in the step before can
+               ! reopen.  RK4, which passes no barotropic velocity, also
+               ! closes edges without flow.
+               uIn = normalVelocity(k, iEdge) * edgeSignOnCell(i, iCell)
+               if ( uIn < 0.0_RKIND .or. &
+                    (uIn == 0.0_RKIND .and. .not. present(normalBarotropicVelocity)) ) then
                   wettingVelocityFactor(k, iEdge) = 1.0_RKIND
                end if
             end if
@@ -1079,7 +1102,13 @@ contains
          do i = 1, nEdgesOnCell(iCell)
             iEdge = edgesOnCell(i, iCell)
             if (k <= maxLevelEdgeBot(iEdge) .and. k >= minLevelEdgeTop(iEdge)) then
-               if ( normalVelocity(k, iEdge) * edgeSignOnCell(i, iCell) <= 0.0_RKIND ) then
+               ! in split-explicit, only outflow closes the edge: a layer at
+               ! rest stays open, so an edge closed in the step before can
+               ! reopen.  RK4, which passes no barotropic velocity, also
+               ! closes edges without flow.
+               uIn = normalVelocity(k, iEdge) * edgeSignOnCell(i, iCell)
+               if ( uIn < 0.0_RKIND .or. &
+                    (uIn == 0.0_RKIND .and. .not. present(normalBarotropicVelocity)) ) then
                   wettingVelocityFactor(k, iEdge) = 1.0_RKIND - &
                   tanh(50.0_RKIND * (layerThicknessTmp - hRampMin)/hRampMin)
                   if ( normalVelocity(k, iEdge) * edgeSignOnCell(i, iCell) < 0.0_RKIND .and. &
@@ -1093,7 +1122,33 @@ contains
 
       end if
 
+
+
    end subroutine ocn_wetting_velocity_factor_on_cell_edges!}}}
+
+!***********************************************************************
+!
+!  function closesEdge
+!
+!> \brief   Whether a drying layer's edge is closed to its flow
+!> \details
+!>  An edge of a drying layer is closed where the layer's flow leaves the
+!>  cell.  A layer at rest is closed too, unless the barotropic flow
+!>  enters the cell: the layer's velocity is zero only because the edge
+!>  was closed in the step before, so without this the edge could never
+!>  reopen while the cell stays dry.
+!
+!-----------------------------------------------------------------------
+   logical function closesEdge(u, iEdge, sgn, normalBarotropicVelocity)!{{{
+      real (kind=RKIND), intent(in) :: u, sgn
+      integer, intent(in) :: iEdge
+      real (kind=RKIND), dimension(:), intent(in), optional :: &
+         normalBarotropicVelocity
+      closesEdge = (u * sgn <= 0.0_RKIND)
+      if (u * sgn == 0.0_RKIND .and. present(normalBarotropicVelocity)) then
+         closesEdge = (normalBarotropicVelocity(iEdge) * sgn <= 0.0_RKIND)
+      end if
+   end function closesEdge!}}}
 
    subroutine ocn_wetting_drying_update_land_ice(landIceMask, landIceFloatingMask, &
                                                  landIceFloatingFraction, err)
