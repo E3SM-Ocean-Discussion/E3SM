@@ -1544,6 +1544,10 @@
 					description="Timestep to use for the barotropic mode in the split explicit time integrator"
 					possible_values="Any time stamp in 'YYYY-MM-DD_hh:mm:ss' format. Items can be removed from the left if they are unused."
 		/>
+		<nml_option name="config_split_pv_coriolis" type="logical" default_value=".false."
+					description="If true, the split time integrators (split-explicit, split-explicit AB2 and split-implicit) split RK4's potential-vorticity flux form of the planetary Coriolis term between the barotropic and baroclinic modes, layer by layer, so that the Coriolis terms do no net work where layer thicknesses vary across edges"
+					possible_values=".true. or .false."
+		/>
 		<nml_option name="config_n_btr_cor_iter" type="integer" default_value="2"
 					description="number of iterations of the velocity corrector step in stage 2"
 					possible_values="any positive integer, but typically 1, 2, or 3"

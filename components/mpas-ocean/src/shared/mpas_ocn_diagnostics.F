@@ -63,6 +63,8 @@ module ocn_diagnostics
              ocn_relativeVorticity_circulation, &
              ocn_vert_transport_velocity_top, &
              ocn_fuperp, &
+             ocn_split_pv_coriolis_weights, &
+             ocn_split_pv_coriolis_baroclinic, &
              ocn_filter_btr_mode_tend_vel, &
              ocn_reconstruct_eddy_vectors, &
              ocn_compute_mixing_input_fields, &
@@ -3273,6 +3275,166 @@ contains
    !--------------------------------------------------------------------
 
    end subroutine ocn_vert_transport_velocity_top!}}}
+
+!***********************************************************************
+!
+!  routine ocn_split_pv_coriolis_weights
+!
+!> \brief   Barotropic Coriolis weights consistent with RK4's form
+!> \details
+!>  This routine computes the weights with which the split time
+!>  integrators add the barotropic Coriolis term, so that it is the
+!>  flux-thickness-weighted column mean of RK4's potential-vorticity
+!>  flux form acting on the barotropic velocity
+!
+!-----------------------------------------------------------------------
+
+   subroutine ocn_split_pv_coriolis_weights(btrCoriolisWeights)!{{{
+
+      ! RK4 adds the planetary Coriolis term to layer k at edge e as
+      !    sum_j w_ej u_k(j) hf_k(j) (q_k(e) + q_k(j))/2,
+      ! with hf the flux thickness and q the planetary vorticity over the
+      ! thickness.  Its flux-thickness-weighted column mean, for a
+      ! velocity that is the same in every layer, is sum_j W_ej ub(j),
+      ! with
+      !    W_ej = sum_k hf_k(e) w_ej hf_k(j) (q_k(e) + q_k(j))/2
+      !         / sum_k hf_k(e).
+      ! The weights are computed out to nEdgesHalo(config_num_halos), so
+      ! normalizedPlanetaryVorticityEdge must have been updated in all
+      ! halos first.
+
+      real (kind=RKIND), dimension(:,:), intent(out) :: &
+         btrCoriolisWeights !< Output: W_ej, indexed as weightsOnEdge
+
+      integer :: iEdge, j, k, eoe, nEdges
+      real (kind=RKIND) :: thicknessSum, weightSum
+
+      call mpas_timer_start("ocn_split_pv_coriolis_weights")
+
+      nEdges = nEdgesHalo(config_num_halos)
+
+#ifndef MPAS_OPENACC
+      !$omp parallel
+      !$omp do schedule(runtime) private(j, k, eoe, thicknessSum, weightSum)
+#endif
+      do iEdge = 1, nEdgesAll
+         btrCoriolisWeights(:,iEdge) = 0.0_RKIND
+         if (iEdge > nEdges) cycle
+
+         thicknessSum = 0.0_RKIND
+         do k = minLevelEdgeBot(iEdge), maxLevelEdgeTop(iEdge)
+            thicknessSum = thicknessSum + layerThickEdgeFlux(k,iEdge)
+         end do
+         if (thicknessSum <= 0.0_RKIND) cycle
+
+         do j = 1, nEdgesOnEdge(iEdge)
+            eoe = edgesOnEdge(j,iEdge)
+            weightSum = 0.0_RKIND
+            ! Layers inactive at eoe have an unset flux thickness and
+            ! carry no flux
+            do k = minLevelEdgeBot(iEdge), maxLevelEdgeTop(iEdge)
+               weightSum = weightSum + layerThickEdgeFlux(k,iEdge)* &
+                  max(layerThickEdgeFlux(k,eoe), 0.0_RKIND)* &
+                  0.5_RKIND*(normPlanetVortEdge(k,iEdge) &
+                           + normPlanetVortEdge(k,eoe))
+            end do
+            btrCoriolisWeights(j,iEdge) = weightsOnEdge(j,iEdge)* &
+                                          weightSum/thicknessSum
+         end do
+      end do
+#ifndef MPAS_OPENACC
+      !$omp end do
+      !$omp end parallel
+#endif
+
+      call mpas_timer_stop("ocn_split_pv_coriolis_weights")
+
+   end subroutine ocn_split_pv_coriolis_weights!}}}
+
+!***********************************************************************
+!
+!  routine ocn_split_pv_coriolis_baroclinic
+!
+!> \brief   Baroclinic Coriolis term consistent with RK4's form
+!> \details
+!>  This routine computes, layer by layer, RK4's potential-vorticity
+!>  flux form of the planetary Coriolis term acting on the full
+!>  velocity, minus the barotropic Coriolis term that the split time
+!>  integrators add separately.  Like ocn_fuperp, it puts the result in
+!>  normalVelocity as a work variable.
+!
+!-----------------------------------------------------------------------
+
+   subroutine ocn_split_pv_coriolis_baroclinic(statePool, &
+      btrCoriolisWeights, normalBarotropicVelocityRef, timeLevelIn)!{{{
+
+      ! With u_k = ub + u'_k, RK4's planetary term on layer k is
+      !    sum_j w_ej (ub(j) + u'_k(j)) hf_k(j) (q_k(e) + q_k(j))/2.
+      ! The barotropic subcycles add sum_j W_ej ub(j) to every layer
+      ! (see ocn_split_pv_coriolis_weights), so this routine returns
+      ! RK4's term minus sum_j W_ej ub(j), evaluated with the reference
+      ! barotropic velocity ub.  The part from ub has a zero
+      ! flux-thickness-weighted column mean, so it does not reach the
+      ! barotropic mode through barotropicForcing.
+
+      type (mpas_pool_type), intent(inout) :: statePool !< Input/Output: State information
+      real (kind=RKIND), dimension(:,:), intent(in) :: &
+         btrCoriolisWeights !< Input: W_ej from ocn_split_pv_coriolis_weights
+      real (kind=RKIND), dimension(:), intent(in) :: &
+         normalBarotropicVelocityRef !< Input: reference barotropic velocity
+      integer, intent(in), optional :: timeLevelIn !< Input: Input time level for state pool
+
+      integer :: iEdge, j, k, eoe, timeLevel
+      real (kind=RKIND) :: btrCoriolis
+      real (kind=RKIND), dimension(:,:), pointer :: normalVelocity, normalBaroclinicVelocity
+
+      if (present(timeLevelIn)) then
+         timeLevel = timeLevelIn
+      else
+         timeLevel = 1
+      end if
+
+      call mpas_timer_start("ocn_split_pv_coriolis_baroclinic")
+
+      call mpas_pool_get_array(statePool, 'normalVelocity', normalVelocity, timeLevel)
+      call mpas_pool_get_array(statePool, 'normalBaroclinicVelocity', normalBaroclinicVelocity, timeLevel)
+
+#ifndef MPAS_OPENACC
+      !$omp parallel
+      !$omp do schedule(runtime) private(j, k, eoe, btrCoriolis)
+#endif
+      do iEdge = 1, nEdgesOwned
+         btrCoriolis = 0.0_RKIND
+         do j = 1, nEdgesOnEdge(iEdge)
+            eoe = edgesOnEdge(j,iEdge)
+            btrCoriolis = btrCoriolis + btrCoriolisWeights(j,iEdge)* &
+                                        normalBarotropicVelocityRef(eoe)
+         end do
+
+         do k = minLevelEdgeBot(iEdge), maxLevelEdgeTop(iEdge)
+            normalVelocity(k,iEdge) = -btrCoriolis
+            do j = 1, nEdgesOnEdge(iEdge)
+               eoe = edgesOnEdge(j,iEdge)
+               ! Layers inactive at eoe have an unset flux thickness and
+               ! carry no flux
+               normalVelocity(k,iEdge) = normalVelocity(k,iEdge) &
+                  + weightsOnEdge(j,iEdge)* &
+                    (normalBarotropicVelocityRef(eoe) &
+                   + normalBaroclinicVelocity(k,eoe))* &
+                    max(layerThickEdgeFlux(k,eoe), 0.0_RKIND)* &
+                    0.5_RKIND*(normPlanetVortEdge(k,iEdge) &
+                             + normPlanetVortEdge(k,eoe))
+            end do
+         end do
+      end do
+#ifndef MPAS_OPENACC
+      !$omp end do
+      !$omp end parallel
+#endif
+
+      call mpas_timer_stop("ocn_split_pv_coriolis_baroclinic")
+
+   end subroutine ocn_split_pv_coriolis_baroclinic!}}}
 
 !***********************************************************************
 !
