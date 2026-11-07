@@ -44,6 +44,7 @@ module ocn_thick_hadv
    !--------------------------------------------------------------------
 
    public :: ocn_thick_hadv_tend, &
+             ocn_thick_hadv_flux, &
              ocn_thick_hadv_init
 
    !--------------------------------------------------------------------
@@ -156,6 +157,55 @@ contains
    !--------------------------------------------------------------------
 
    end subroutine ocn_thick_hadv_tend!}}}
+
+!***********************************************************************
+!
+!  routine ocn_thick_hadv_flux
+!
+!> \brief   Accumulates the thickness flux across edges
+!> \details
+!>  This routine adds weight times the per-layer thickness flux per unit
+!>  edge length, normalVelocity*layerThickEdgeFlux, to flux on each owned
+!>  edge, over the levels that ocn_thick_hadv_tend uses.  With reset, flux
+!>  is set to zero first.  The time integrators call it with the velocity
+!>  and edge thickness of their thickness update, so that flux holds the
+!>  flux that update applies.
+!
+!-----------------------------------------------------------------------
+
+   subroutine ocn_thick_hadv_flux(normalVelocity, layerThickEdgeFlux, &
+                                  weight, reset, flux)!{{{
+
+      real (kind=RKIND), dimension(:,:), intent(in) :: &
+         normalVelocity    !< Input: transport velocity
+
+      real (kind=RKIND), dimension(:,:), intent(in) :: &
+         layerThickEdgeFlux     !< Input: flux-related thickness at edge
+
+      real (kind=RKIND), intent(in) :: &
+         weight       !< Input: weight of this flux in the accumulation
+
+      logical, intent(in) :: &
+         reset        !< Input: whether to zero flux first
+
+      real (kind=RKIND), dimension(:,:), intent(inout) :: &
+         flux         !< Input/Output: accumulated thickness flux
+
+      integer :: iEdge, k
+
+      !$omp parallel
+      !$omp do schedule(runtime) private(k)
+      do iEdge = 1, nEdgesOwned
+         if (reset) flux(:, iEdge) = 0.0_RKIND
+         do k = minLevelEdgeBot(iEdge), maxLevelEdgeTop(iEdge)
+            flux(k, iEdge) = flux(k, iEdge) + weight * &
+                             normalVelocity(k, iEdge) * layerThickEdgeFlux(k, iEdge)
+         end do
+      end do
+      !$omp end do
+      !$omp end parallel
+
+   end subroutine ocn_thick_hadv_flux!}}}
 
 !***********************************************************************
 !

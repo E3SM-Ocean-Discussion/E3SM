@@ -39,6 +39,7 @@ module ocn_time_integration_rk4
    use ocn_vmix
    use ocn_time_average_coupled
    use ocn_wetting_drying
+   use ocn_thick_hadv
 
    use ocn_surface_land_ice_fluxes
    use ocn_transport_tests
@@ -119,6 +120,7 @@ module ocn_time_integration_rk4
       type (mpas_pool_type), pointer :: nextProvisPool, prevProvisPool
 
       real (kind=RKIND), dimension(4) :: rk_weights, rk_substep_weights, forcingTimeIncrementRK4
+      real (kind=RKIND), dimension(:,:), pointer :: normalLayerThicknessFlux ! thickness flux applied in the thickness update
 
       real (kind=RKIND) :: coef
       real (kind=RKIND), dimension(:,:), pointer :: &
@@ -508,6 +510,19 @@ module ocn_time_integration_rk4
         do while (associated(block))
            call ocn_time_integrator_rk4_compute_vel_tends(domain, block, dt, rk_substep_weights(rk_step), domain % dminfo, err )
            call ocn_time_integrator_rk4_compute_thick_tends( block, dt, rk_substep_weights(rk_step), err )
+           ! the thickness update adds rk_weights(rk_step) times this
+           ! stage's tendency, so weight its thickness flux the same way
+           if (config_compute_normal_layer_thickness_flux) then
+#ifdef MPAS_OPENACC
+              !$acc update host(normalTransportVelocity, layerThickEdgeFlux)
+#endif
+              call mpas_pool_get_subpool(block % structs, 'diagnostics', diagnosticsPool)
+              call mpas_pool_get_array(diagnosticsPool, 'normalLayerThicknessFlux', &
+                                       normalLayerThicknessFlux)
+              call ocn_thick_hadv_flux(normalTransportVelocity, layerThickEdgeFlux, &
+                                       rk_weights(rk_step)/dt, rk_step == 1, &
+                                       normalLayerThicknessFlux)
+           end if
            block => block % next
         end do
 

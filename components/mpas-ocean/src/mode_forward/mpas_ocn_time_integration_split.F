@@ -47,6 +47,7 @@ module ocn_time_integration_split
 
    use ocn_surface_land_ice_fluxes
    use ocn_transport_tests
+   use ocn_thick_hadv
 
    implicit none
    private
@@ -153,7 +154,11 @@ module ocn_time_integration_split
          forcingPool,       &! structure holding forcing variables
          scratchPool,       &! structure holding temporary variables
          swForcingPool,     &! structure holding short-wave forcing vars
+         diagnosticsPool,   &! structure holding diagnostic variables
          tracersIdealAgeFieldsPool     ! structure holding idealAge-related fields
+
+      real (kind=RKIND), dimension(:,:), pointer :: &
+         normalLayerThicknessFlux   ! thickness flux applied in the thickness update
 
       logical :: &
          activeTracersOnly   ! only compute tendencies for active tracers
@@ -1851,6 +1856,23 @@ module ocn_time_integration_split
          call mpas_timer_stop('thick vert trans vel top')
 
          call ocn_tend_thick(tendPool, forcingPool)
+
+         ! the last iteration's tendency gives the new thickness, so its
+         ! thickness flux is the one the step applies
+         if (config_compute_normal_layer_thickness_flux .and. &
+             splitExplicitStep == numTSIterations) then
+#ifdef MPAS_OPENACC
+            !$acc update host(normalTransportVelocity, layerThickEdgeFlux)
+#endif
+            call mpas_pool_get_subpool(block%structs, 'diagnostics', &
+                                       diagnosticsPool)
+            call mpas_pool_get_array(diagnosticsPool, &
+                                     'normalLayerThicknessFlux', &
+                                     normalLayerThicknessFlux)
+            call ocn_thick_hadv_flux(normalTransportVelocity, &
+                                     layerThickEdgeFlux, 1.0_RKIND, .true., &
+                                     normalLayerThicknessFlux)
+         end if
 
          call mpas_timer_stop('se thick tend')
 
