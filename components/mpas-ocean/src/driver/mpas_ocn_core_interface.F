@@ -194,6 +194,8 @@ module ocn_core_interface
       logical, pointer :: config_use_bulk_wind_stress
       logical, pointer :: config_use_bulk_thickness_flux
       logical, pointer :: config_compute_active_tracer_budgets
+      logical, pointer :: config_compute_normal_layer_thickness_flux
+      logical, pointer :: normalLayerThicknessFluxPKGActive
       logical, pointer :: config_use_land_ice_pressure
       logical, pointer :: config_glc_ice_shelf_coupling
       character (len=StrKIND), pointer :: config_land_ice_flux_mode
@@ -296,6 +298,17 @@ module ocn_core_interface
       call mpas_pool_get_config(configPool, 'config_compute_active_tracer_budgets', config_compute_active_tracer_budgets)
       if ( config_compute_active_tracer_budgets ) then
          tracerBudgetActive = .true.
+      end if
+
+      !
+      ! test for the thickness flux applied in the thickness equation
+      !
+      call mpas_pool_get_package(packagePool, 'normalLayerThicknessFluxPKGActive', &
+                                 normalLayerThicknessFluxPKGActive)
+      call mpas_pool_get_config(configPool, 'config_compute_normal_layer_thickness_flux', &
+                                config_compute_normal_layer_thickness_flux)
+      if ( config_compute_normal_layer_thickness_flux ) then
+         normalLayerThicknessFluxPKGActive = .true.
       end if
 
       !

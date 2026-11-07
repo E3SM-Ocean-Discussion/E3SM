@@ -1152,6 +1152,7 @@ add_default($nl, 'config_prescribe_thickness');
 add_default($nl, 'config_include_KE_vertex');
 add_default($nl, 'config_check_tracer_monotonicity');
 add_default($nl, 'config_compute_active_tracer_budgets');
+add_default($nl, 'config_compute_normal_layer_thickness_flux');
 add_default($nl, 'config_disable_thick_all_tend');
 add_default($nl, 'config_disable_thick_hadv');
 add_default($nl, 'config_disable_thick_vadv');

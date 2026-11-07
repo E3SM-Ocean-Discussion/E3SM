@@ -3016,6 +3016,14 @@ Valid values: .true. or .false.
 Default: Defined in namelist_defaults.xml
 </entry>
 
+<entry id="config_compute_normal_layer_thickness_flux" type="logical"
+	category="debug" group="debug">
+Enables the computation of normalLayerThicknessFlux, the per-layer thickness flux across each edge that the time integrator applies in the thickness equation, for output such as an exact overturning streamfunction
+
+Valid values: .true. or .false.
+Default: Defined in namelist_defaults.xml
+</entry>
+
 <entry id="config_disable_thick_all_tend" type="logical"
 	category="debug" group="debug">
 Disables all tendencies on the thickness field.

@@ -1726,6 +1726,10 @@
 					description="Enables the computation of tracer budget terms"
 					possible_values=".true. or .false."
 		/>
+		<nml_option name="config_compute_normal_layer_thickness_flux" type="logical" default_value=".false."
+					description="Enables the computation of normalLayerThicknessFlux, the per-layer thickness flux across each edge that the time integrator applies in the thickness equation, for output such as an exact overturning streamfunction"
+					possible_values=".true. or .false."
+		/>
 		<nml_option name="config_disable_thick_all_tend" type="logical" default_value=".false."
 					description="Disables all tendencies on the thickness field."
 					possible_values=".true. or .false."
@@ -2007,6 +2011,7 @@
 		<package name="initMode" description="This package controls variables that are intended to be used within the init run mode of the ocean model."/>
 		<package name="cullCells" description="This package controls variables that provide information on what cells should be culled."/>
 		<package name="tracerBudget" description="This package controls variables that record the tracer budget."/>
+		<package name="normalLayerThicknessFluxPKG" description="This package controls normalLayerThicknessFlux, the thickness flux across each edge applied in the thickness equation."/>
 		<package name="gm" description="This package is for GM variables, which are only needed at lower resolutions."/>
                 <package name="gmGeometric" description="This package is for GEOMETRIC GM parameterization variables, which are only needed at lower resolutions."/>
 		<package name="submeso" description="This package is for submesoscale eddy (MLE) variables, needed at resolutions greater than O(1km)"/>
@@ -3199,6 +3204,9 @@
 				description="salinity advective vertical advective flux through top of cell"
 			/>
 		</var_array>
+		<var name="normalLayerThicknessFlux" type="real" dimensions="nVertLevels nEdges Time" units="m^2 s^-1" packages="normalLayerThicknessFluxPKG"
+			description="Per-layer flux of layer thickness normal to each edge that the time integrator applies in the thickness equation over a time step, per unit edge length: the normal transport velocity times the edge thickness used for fluxes. Multiply by dvEdge for the volume transport. For RK4, the stages' fluxes weighted as in the thickness update."
+		/>
 		<var_array name="activeTracerHorizontalAdvectionEdgeFlux" type="real" dimensions="nVertLevels nEdges Time" packages="tracerBudget">
 			<var name="temperatureHorizontalAdvectionEdgeFlux" array_group="activeTracerHorAdvEdgeFluxGroup" units="C m s^-1" name_in_code="temperatureHorizontalAdvectionEdgeFlux"
 				description="potential temperature advective flux due to horizontal advection through edges"
