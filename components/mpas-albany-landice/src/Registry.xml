@@ -192,13 +192,13 @@
 			description="Path to the FastIsostasy parameter namelist file containing the isostasy and barysealevel records."
 			possible_values="Any file name string"
 		/>
-		<nml_option name="config_fastisostasy_restart_file" type="character" default_value="fastisostasy_restart.nc" units="unitless"
-			description="File used to save and restore FastIsostasy's internal isostasy state (viscous bedrock displacement, its ODE integrator state, and the load reference state) across a MALI restart. MALI writes this file every time it writes its own 'restart' stream and reads it back on the next restart when config_uplift_method='fastisostasy'. Only the most recently written snapshot is kept; branching from an older MALI restart file requires a matching older copy of this file."
-			possible_values="Any file name string"
+		<nml_option name="config_fastisostasy_restart_file" type="character" default_value="fastisostasy_restart" units="unitless"
+			description="Base filename for FastIsostasy isostasy state restart files. On write, the current model time is automatically appended to create a timestamped filename matching MALI's restart stream pattern (e.g., 'fastisostasy_restart.2026-09-25_00.00.00.nc'). On read during a restart, the same timestamping logic constructs the filename to match the current restart time, ensuring FastIsostasy restart files automatically align with MALI restart files at the same model time. Specify only the base name here (without .nc extension or timestamp). For branching from an older restart, ensure the matching timestamped FastIsostasy restart files from that time are available."
+			possible_values="Any base filename string (without .nc extension)"
 		/>
-		<nml_option name="config_fastisostasy_bsl_restart_file" type="character" default_value="fastisostasy_bsl_restart.nc" units="unitless"
-			description="File used to save and restore FastIsostasy's prognostic barystatic sea level (bsl_now, A_ocean_now) across a MALI restart. Written and read alongside config_fastisostasy_restart_file; see its description for details."
-			possible_values="Any file name string"
+		<nml_option name="config_fastisostasy_bsl_restart_file" type="character" default_value="fastisostasy_bsl_restart" units="unitless"
+			description="Base filename for FastIsostasy barystatic sea level restart files. Naming behavior matches config_fastisostasy_restart_file - automatic timestamping on both write and read ensures alignment with MALI restart files. Specify only the base name (without .nc extension or timestamp)."
+			possible_values="Any base filename string (without .nc extension)"
 		/>
 	</nml_record>
 
@@ -679,10 +679,6 @@
 		            description="Interval at which time-averaging accumulators are reset.  If set to a zero interval, then time-averaging accumulators are never reset.  When running in E3SM, the zero interval should be used, because the GLC driver resets the accumulators every coupling interval."
 		            possible_values="Any time interval of the format 'YYYY-MM-DD_HH:MM:SS'"
 		/>
-		<nml_option name="config_enable_timeAvgRestarts" type="logical" default_value=".false." units="unitless"
-		            description="Determines if restart files include time-averaging accumulator state. This should be enabled when the restart stream output_interval is longer than config_timeaveraging_interval."
-		            possible_values=".true. or .false."
-		/>
 	</nml_record>
 
 
@@ -832,8 +828,6 @@
                 <package name="thermal" description="This package includes variables required for the thermal solver."/>
 
                 <package name="extrapOceanData" description="This package includes variables required for extrapolating ocean data into MALI ice shelf cavities." />
-
-		<package name="timeAvgRestarts" description="Variables needed to be included in restart files for time averaging to work correctly"/>
 
                 <package name="smbSatLapseRate" description="This package includes variables needed when config_apply_smb_sat_lapse_rate is true."/>
 
