@@ -464,7 +464,7 @@ contains
                                       kineticEnergyCell, tendVel, err)
 
       ! Add vertical advection term -w du/dz
-      call ocn_vel_vadv_tend(normalVelocity, layerThickEdgeFlux, &
+      call ocn_vel_vadv_tend(normalVelocity, layerThickEdgeMean, &
                              vertAleTransportTop, tendVel, err)
 
       ! Add pressure gradient

@@ -72,7 +72,7 @@ contains
 !
 !-----------------------------------------------------------------------
 
-   subroutine ocn_vel_vadv_tend(normalVelocity, layerThickEdgeFlux, &
+   subroutine ocn_vel_vadv_tend(normalVelocity, layerThickEdgeMean, &
                                 vertAleTransportTop, tend, err)!{{{
 
       !-----------------------------------------------------------------
@@ -81,7 +81,7 @@ contains
 
       real (kind=RKIND), dimension(:,:), intent(in) :: &
          normalVelocity,     &!< [in] Horizontal velocity
-         layerThickEdgeFlux,     &!< [in] Layer thickness at edge
+         layerThickEdgeMean,     &!< [in] Mean layer thickness at edge
          vertAleTransportTop  !< [in] Vertical velocity on top layer
 
       !-----------------------------------------------------------------
@@ -131,7 +131,7 @@ contains
       !$acc parallel loop &
       !$acc    present(cellsOnEdge, minLevelEdgeBot, maxLevelEdgeTop, w_dudzTopEdge, &
       !$acc            vertAleTransportTop, normalVelocity, &
-      !$acc            layerThickEdgeFlux) &
+      !$acc            layerThickEdgeMean) &
       !$acc    private(cell1, cell2, k, kmin, kmax, wAvg)
 #else
       !$omp parallel
@@ -152,11 +152,15 @@ contains
                               vertAleTransportTop(k,cell2))
 
             ! compute dudz at vertical interface with first order derivative.
+            ! The distance between the layer centers is the mean thickness
+            ! of the edge's layers.  The flux thickness would make an edge
+            ! next to a thin column (upwind or a blend toward upwind) divide
+            ! the deep cell's w by the thin side's layers.
             w_dudzTopEdge(k,iEdge) = wAvg* &
                                      (normalVelocity(k-1,iEdge) - &
                                       normalVelocity(k,  iEdge))/ &
-                         (0.5_RKIND*(layerThickEdgeFlux(k-1,iEdge) + &
-                                     layerThickEdgeFlux(k  ,iEdge)))
+                         (0.5_RKIND*(layerThickEdgeMean(k-1,iEdge) + &
+                                     layerThickEdgeMean(k  ,iEdge)))
          end do
          ! transport is zero at bottom
          w_dudzTopEdge(kmax+1,iEdge) = 0.0_RKIND
