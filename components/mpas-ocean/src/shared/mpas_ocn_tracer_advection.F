@@ -65,7 +65,8 @@ module ocn_tracer_advection
 
    subroutine ocn_tracer_advection_tend(tracers, normalThicknessFlux, &
                                         w, layerThickness, dt, tend,  &
-                                        computeBudgets, skipTracer)!{{{
+                                        computeBudgets, skipTracer,   &
+                                        tracersBase, layerThicknessBase)!{{{
 
       !*** Input/Output parameters
 
@@ -91,6 +92,14 @@ module ocn_tracer_advection
       logical, dimension(:), intent(in) :: &
          skipTracer          ! flag to skip tracer in tracers
 
+      ! Optional state the tendency will be added to, if it differs from
+      ! tracers and layerThickness; used by the monotone scheme only
+      real (kind=RKIND), dimension(:,:,:), intent(in), optional :: &
+         tracersBase         !< [in] Tracer values of the base state
+
+      real (kind=RKIND), dimension(:,:), intent(in), optional :: &
+         layerThicknessBase  !< [in] Thickness of the base state
+
       ! end of preamble
       !----------------
       ! begin code
@@ -104,7 +113,8 @@ module ocn_tracer_advection
       if (monotonicOn) then
          call ocn_tracer_advection_mono_tend(tend, tracers, layerThickness,    &
                                              normalThicknessFlux, w, dt,       &
-                                             computeBudgets, skipTracer)
+                                             computeBudgets, skipTracer,       &
+                                             tracersBase, layerThicknessBase)
 
       else
          call ocn_tracer_advection_std_tend(tracers, normalThicknessFlux, &

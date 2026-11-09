@@ -589,7 +589,8 @@ contains
 
    subroutine ocn_tend_tracer(tendPool, statePool, forcingPool, &
                               meshPool, swForcingPool, &
-                              dt, activeTracersOnlyIn, timeLevelIn )!{{{
+                              dt, activeTracersOnlyIn, timeLevelIn, &
+                              baseTimeLevelIn)!{{{
 
       !-----------------------------------------------------------------
       ! input variables
@@ -607,6 +608,13 @@ contains
 
       integer, intent(in), optional :: &
          timeLevelIn          !< [in] time index to use for state vars
+
+      ! Time index of the state the tracer tendency will be added to.  If
+      ! it differs from timeLevelIn, monotone advection takes its
+      ! low-order solution, bounds and thickness from this state and its
+      ! high-order flux from timeLevelIn.
+      integer, intent(in), optional :: &
+         baseTimeLevelIn      !< [in] time index of the base state
 
       ! these variables input from shared diagnostics module:
       !    normalTransportVelocity - transport velocity across edge
@@ -626,6 +634,7 @@ contains
          iCell, iEdge, k, n, &! loop counters for cell,edge,vert,tracer
          err,                &! internal error flag 
          timeLevel,          &! time level to use for state variables
+         baseTimeLevel,      &! time level of the base state
          indxTemp, indxSalt, &! tracer index for temperature, salinity
          indxCFC11,          &! tracer index for CFC11
          indxCFC12,          &! tracer index for CFC12
@@ -635,7 +644,8 @@ contains
       logical :: &
          activeTracersOnly,  &! only compute tend for active tracers
          isActiveTracer,     &! is this group the active tracer group
-         computeBudgets       ! compute active tracer budgets
+         computeBudgets,     &! compute active tracer budgets
+         useBaseState         ! advection uses a separate base state
 
       ! iterator and modified strings for tracer categories
       type (mpas_pool_iterator_type) :: groupItr
@@ -685,6 +695,7 @@ contains
 
       real (kind=RKIND), dimension(:,:), pointer, contiguous :: &
          layerThickness,               &! layer thickness
+         layerThicknessBase,           &! layer thickness, base state
          tracerGroupSurfaceFlux,       &! tracer flux at surface
          fractionAbsorbed,             &! frac sfc flux absorbed
          fractionAbsorbedRunoff,       &! frac runoff flux absorbed
@@ -696,6 +707,7 @@ contains
 
       real (kind=RKIND), dimension(:,:,:), pointer, contiguous :: &
          tracerGroup,     &! tracers in current tracer group
+         tracerGroupBase, &! tracers in current group, base state
          tracerGroupTend, &! tendencies for current tracer group
          activeTracers,   &! retain active tracers
          ecosysTracers,   &! retain ecosys tracers for DMS, MacroMols
@@ -730,6 +742,13 @@ contains
          timeLevel = 1
       end if
 
+      useBaseState = .false.
+      baseTimeLevel = timeLevel
+      if (present(baseTimeLevelIn)) then
+         baseTimeLevel = baseTimeLevelIn
+         useBaseState = (baseTimeLevel /= timeLevel)
+      end if
+
       ! set flag to compute only active tracers (default false)
       if (present(activeTracersOnlyIn)) then
          activeTracersOnly = activeTracersOnlyIn
@@ -755,6 +774,11 @@ contains
 
       call mpas_pool_get_array(statePool,   'layerThickness', &
                                              layerThickness, timeLevel)
+      if (useBaseState) then
+         call mpas_pool_get_array(statePool, 'layerThickness', &
+                                  layerThicknessBase, baseTimeLevel)
+         !$acc enter data copyin(layerThicknessBase)
+      end if
       call mpas_pool_get_array(forcingPool, 'penetrativeTemperatureFlux', &
                                              penetrativeTemperatureFlux)
       call mpas_pool_get_array(forcingPool, 'fractionAbsorbed', &
@@ -871,6 +895,9 @@ contains
          ! Get tracers from pool, determine number of tracers in group
          call mpas_pool_get_array(tracersPool, groupName, &
                                   tracerGroup, timeLevel)
+         if (useBaseState) &
+            call mpas_pool_get_array(tracersPool, groupName, &
+                                     tracerGroupBase, baseTimeLevel)
          nTracersGroup = size(tracerGroup, dim=1)
 
          ! Get Tendency array
@@ -1253,10 +1280,21 @@ contains
          !     -div( layerThickness \phi u)
          ! Tracer budget is computed and stored within the tracer adv
          ! routine
-         call ocn_tracer_advection_tend(tracerGroup, &
+         if (useBaseState) then
+            !$acc enter data copyin(tracerGroupBase)
+            call ocn_tracer_advection_tend(tracerGroup, &
+                            normalThicknessFlux, vertAleTransportTop, &
+                            layerThickness, dt, tracerGroupTend, &
+                            computeBudgets, skipTracer, &
+                            tracersBase=tracerGroupBase, &
+                            layerThicknessBase=layerThicknessBase)
+            !$acc exit data delete(tracerGroupBase)
+         else
+            call ocn_tracer_advection_tend(tracerGroup, &
                             normalThicknessFlux, vertAleTransportTop, &
                             layerThickness, dt, tracerGroupTend, &
                             computeBudgets, skipTracer)
+         end if
          deallocate(skipTracer)
 
          !$acc update host (activeTracerHorizontalAdvectionEdgeFlux, &
@@ -1459,6 +1497,9 @@ contains
       end do ! loop over tracer groups
 
       !$acc exit data delete (normalThicknessFlux, layerThickness)
+      if (useBaseState) then
+         !$acc exit data delete(layerThicknessBase)
+      end if
 
       deallocate(normalThicknessFlux)
 
