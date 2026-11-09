@@ -1884,9 +1884,22 @@ module ocn_time_integration_split
          call mpas_timer_stop("se halo thickness")
 
          call mpas_timer_start('se tracer tend', .false.)
-         call ocn_tend_tracer(tendPool, statePool, forcingPool, &
-                              meshPool, swForcingPool, &
-                              dt, activeTracersOnly, 2)
+         ! The tracer tendency is computed from the time-centered
+         ! iterate (time level 2), but the update below adds it to the
+         ! start of the step (time level 1).  On the last iteration, the
+         ! monotone advection takes its low-order solution, bounds and
+         ! thickness from time level 1, so the update stays within the
+         ! bounds; earlier iterations only produce the next iterate.
+         if (splitExplicitStep == numTSIterations) then
+            call ocn_tend_tracer(tendPool, statePool, forcingPool, &
+                                 meshPool, swForcingPool, &
+                                 dt, activeTracersOnly, 2, &
+                                 baseTimeLevelIn=1)
+         else
+            call ocn_tend_tracer(tendPool, statePool, forcingPool, &
+                                 meshPool, swForcingPool, &
+                                 dt, activeTracersOnly, 2)
+         end if
 
          call mpas_pool_get_array(tracersPool, 'activeTracers', &
                                                 tracersGroupCur, 1)
