@@ -1028,6 +1028,7 @@ add_default($nl, 'config_verify_not_dry');
 add_default($nl, 'config_drying_safety_height');
 add_default($nl, 'config_use_subgrid_wetting_drying');
 add_default($nl, 'config_use_ssh_gradient_wetting_drying');
+add_default($nl, 'config_thin_film_cap_inflow_thickness');
 add_default($nl, 'config_land_ice_overburden_height');
 
 ###################################

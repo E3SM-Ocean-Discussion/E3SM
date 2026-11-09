@@ -658,6 +658,7 @@
 <config_drying_safety_height>1.0e-10</config_drying_safety_height>
 <config_use_subgrid_wetting_drying>.false.</config_use_subgrid_wetting_drying>
 <config_use_ssh_gradient_wetting_drying>.false.</config_use_ssh_gradient_wetting_drying>
+<config_thin_film_cap_inflow_thickness>.false.</config_thin_film_cap_inflow_thickness>
 <config_land_ice_overburden_height>0.0</config_land_ice_overburden_height>
 
 <!-- ocean_constants -->

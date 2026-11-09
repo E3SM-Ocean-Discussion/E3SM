@@ -1426,6 +1426,10 @@
 					description="If true, use take into account the ssh gradient across previously flux-limited edges in the wetting and drying algorithm"
 					possible_values=".true. or .false."
 		/>
+		<nml_option name="config_thin_film_cap_inflow_thickness" type="logical" default_value=".false." units="unitless"
+					description="If true, with wetting and drying, flow into a column thinner than config_spatially_variable_upwind_hmin uses the thinner of the two layers' thicknesses as its flux thickness, fading out linearly as the column thickens to config_spatially_variable_upwind_hmax.  Off by default: standard upwinding takes the upwind cell's thickness."
+					possible_values=".true. or .false."
+		/>
 		<nml_option name="config_land_ice_overburden_height" type="real" default_value="0.0" units="m"
 					description="The amount of pressure overburden allowed in grounded regions. If ice must float at level of critical thickness, set equal to -1 * critical thickness"
 					possible_values="Any real"
