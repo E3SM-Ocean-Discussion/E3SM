@@ -65,3 +65,23 @@ Base: E3SM master `6816738295` (2026-10-15).
 | Limit split-explicit tracer advection against the state it updates, not the time-centered one, which let salinity overshoot its bounds | xylar:ocn/fix-split-explicit-tracer-fct-base-state (E3SM-Ocean-Discussion#187, merged as `c0bb6902ab`) | none yet (branch is on E3SM master's history) |
 | Update the Physical Constants Dictionary to 0.3.0, which Polaris main requires | E3SM master's `1f86b72890` and `e15d4e6995` cherry-picked, via xylar:ocn/update-pcd-to-0.3.0-fanssie (E3SM-Ocean-Discussion#188, merged as `256d1c6d19`) | already on E3SM master |
 | Add an option (`config_thin_film_cap_inflow_thickness`, off by default) to cap the flux thickness of inflow into thin wetting-and-drying columns, whose upwind value drove jets through films opening at the grounding line | xylar:ocn/cap-thin-film-inflow-flux-thickness (E3SM-Ocean-Discussion#189, merged as `541e83b42d`) | none yet (branch is on E3SM master's history) |
+
+## Plan for E3SM pull requests
+
+The changes in the ledger reach E3SM master through a few pull requests, each with one conceptual focus, so that they can be reviewed and merged by early 2027. The land-ice melt equations and the ice-shelf melt coupling go first; everything else builds on them. This plan is updated as pull requests open and merge. Numbers without a repository are E3SM-Ocean-Discussion pull requests.
+
+"Production" below means E3SM's default ocean configuration: the `split_explicit_ab2` time integrator, centered flux thickness, no wetting and drying and explicit top drag. Pull requests that change production results need full non-BFB testing. Two pull requests change results only in configurations no production run uses: the `split_explicit` time integrator and prognostic MALI coupled to the ocean. Whether those count as production for testing is still open.
+
+| E3SM pull request | Includes | Production results | Notes |
+|---|---|---|---|
+| Modify land ice melt equations (E3SM#8047) | the fixes for E3SM#8047 | change for cryosphere configurations with active melt; unchanged without it | first |
+| Couple ice-shelf melt between MPAS-Ocean and MALI (E3SM#8887) | E3SM#8661, merged | change | after E3SM#8047; take in as much of the moving-grounding-line coupling below as possible before review. E3SM#8887 already takes glc's cell areas from the glc-to-ocean map and adds glc's side to the coupler budgets, so check how far 163 and 172 overlap it |
+| Fix ice-shelf melt and boundary-layer edge cases | 146, 150, 171, 147 | likely change with active melt (171's land-ice heat capacity); 146 matters only with implicit top drag, 150 only in nearly fresh water | after E3SM#8047; 147 (sea-ice salt limit) could instead be a separate one-line fix |
+| Add pressure-gradient and equation-of-state options for ice-shelf cavities | 148, 149 | unchanged (options off by default) | independent |
+| Support wetting and drying under land ice with a subglacial thin film | 119 with its fixes (`26fb0b6bed`, 164, 165), 141, 142, 145, 159, 160, 185, 189 | unchanged; 185 is unconditional but identical with centered flux thickness; 141 and 142 expected unchanged in cryosphere meshes, not yet checked | the largest; 185 and 189 (flux thickness at the thin film's edge) could be split off |
+| Support wetting and drying with the split-explicit time integrator | 175 | unchanged without wetting and drying or tidal forcing | after the thin-film pull request; 175 is a draft until its melt gap against RK4 closes |
+| Fix the split-explicit time integrator | 187, 176 and 180 (upstream draft 177), possibly 153 | unchanged: 187 touches `split_explicit`, not `split_explicit_ab2`; whether 153 changes `split_explicit_ab2` is not yet checked | changes `split_explicit` results |
+| Couple MPAS-Ocean and MALI for moving grounding lines | 162, 163, 166, 169, 170, 172, 173, 179, 181 | unchanged; results change only with prognostic MALI coupled to the ocean | move as much as possible into E3SM#8887 before it is reviewed; 173 needs the thin-film pull request |
+| Support idealized ice-shelf cases in E3SM | 143, 158, 161, 167, 184 | unchanged | independent |
+
+MALI's changes reach E3SM through MALI-Dev rather than through these pull requests: 151 and 183 (merges of MALI-Dev's `develop`), 156 (MALI-Dev/E3SM#213), 157 (MALI-Dev/E3SM#214), 168 (MALI-Dev/E3SM#216), 174 and 178 (MALI-Dev/E3SM#219) and 182 (MALI-Dev/E3SM#211). Already on E3SM master: 186 (E3SM#8984) and 188.
