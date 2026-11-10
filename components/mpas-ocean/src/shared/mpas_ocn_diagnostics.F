@@ -888,6 +888,11 @@ contains
          cell1, cell2, &! neighbor cell indices across an edge
          kmin, kmax     ! min,max active vertical levels
       real(kind=RKIND) :: columnThickness
+      logical :: capThinInflow ! cap the flux thickness into thin columns
+      real(kind=RKIND) :: &
+         capInto1, capInto2, &! weight of the cap for flow into cell1, cell2
+         capRampWidth,       &! column thickness over which the cap fades
+         thinLayer            ! the thinner of the two layers at an edge
       ! End preamble
       !-----------------------------------------------------------------
       ! Begin code
@@ -977,15 +982,33 @@ contains
 #endif
 
          else
+            ! With wetting and drying, flow from a deep column into a
+            ! thin one takes its flux thickness from the deep column's
+            ! layer, while the thin column's outflow takes its own, much
+            ! thinner layer, so continuity makes the outflow many times
+            ! faster than the inflow.  With
+            ! config_thin_film_cap_inflow_thickness, flow into a column
+            ! thinner than config_spatially_variable_upwind_hmin uses the
+            ! thinner of the two layers instead.  The cap fades out
+            ! linearly as the receiving column thickens to
+            ! config_spatially_variable_upwind_hmax, so the flux
+            ! thickness doesn't jump as a column fills.
+            capThinInflow = config_use_wetting_drying .and. &
+                            config_thin_film_cap_inflow_thickness
+            capRampWidth = max(config_spatially_variable_upwind_hmax - &
+                               config_spatially_variable_upwind_hmin, &
+                               1.0e-10_RKIND)
 #ifdef MPAS_OPENACC
             !$acc parallel loop &
             !$acc    present(normalVelocity, layerThickness, &
             !$acc            minLevelEdgeBot, maxLevelEdgeTop, &
             !$acc            layerThickEdgeFlux, cellsOnEdge) &
-            !$acc    private(k, kmin, kmax, cell1, cell2)
+            !$acc    private(k, kmin, kmax, cell1, cell2, capInto1, &
+            !$acc            capInto2, thinLayer)
 #else
             !$omp parallel
-            !$omp do schedule(runtime) private(k, kmin, kmax, cell1, cell2)
+            !$omp do schedule(runtime) private(k, kmin, kmax, cell1, cell2, &
+            !$omp    capInto1, capInto2, thinLayer)
 #endif
             do iEdge = 1, nEdgesAll
                kmin = minLevelEdgeBot(iEdge)
@@ -997,11 +1020,35 @@ contains
                   ! zero and NaN problems.
                   layerThickEdgeFlux(k,iEdge) = -1.0e34_RKIND
                end do
+               capInto1 = 0.0_RKIND
+               capInto2 = 0.0_RKIND
+               if (capThinInflow .and. kmax >= kmin) then
+                  capInto1 = min(1.0_RKIND, max(0.0_RKIND, &
+                     (config_spatially_variable_upwind_hmax - &
+                      (bottomDepth(cell1) + ssh(cell1)))/capRampWidth))
+                  capInto2 = min(1.0_RKIND, max(0.0_RKIND, &
+                     (config_spatially_variable_upwind_hmax - &
+                      (bottomDepth(cell2) + ssh(cell2)))/capRampWidth))
+               end if
                do k = kmin,kmax
                   if (normalVelocity(k,iEdge) > 0.0_RKIND) then
                      layerThickEdgeFlux(k,iEdge) = layerThickness(k,cell1)
+                     if (capInto2 > 0.0_RKIND) then
+                        thinLayer = min(layerThickness(k,cell1), &
+                                        layerThickness(k,cell2))
+                        layerThickEdgeFlux(k,iEdge) = &
+                           layerThickEdgeFlux(k,iEdge) - capInto2* &
+                           (layerThickEdgeFlux(k,iEdge) - thinLayer)
+                     end if
                   elseif (normalVelocity(k,iEdge) < 0.0_RKIND) then
                      layerThickEdgeFlux(k,iEdge) = layerThickness(k,cell2)
+                     if (capInto1 > 0.0_RKIND) then
+                        thinLayer = min(layerThickness(k,cell1), &
+                                        layerThickness(k,cell2))
+                        layerThickEdgeFlux(k,iEdge) = &
+                           layerThickEdgeFlux(k,iEdge) - capInto1* &
+                           (layerThickEdgeFlux(k,iEdge) - thinLayer)
+                     end if
                   else
                      layerThickEdgeFlux(k,iEdge) = &
                                          max(layerThickness(k,cell1), &

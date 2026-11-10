@@ -2468,6 +2468,14 @@ Valid values: .true. or .false.
 Default: Defined in namelist_defaults.xml
 </entry>
 
+<entry id="config_thin_film_cap_inflow_thickness" type="logical"
+	category="wetting_drying" group="wetting_drying">
+If true, with wetting and drying, flow into a column thinner than config_spatially_variable_upwind_hmin uses the thinner of the two layers' thicknesses as its flux thickness, fading out linearly as the column thickens to config_spatially_variable_upwind_hmax.  Off by default: standard upwinding takes the upwind cell's thickness.
+
+Valid values: .true. or .false.
+Default: Defined in namelist_defaults.xml
+</entry>
+
 <entry id="config_land_ice_overburden_height" type="real"
 	category="wetting_drying" group="wetting_drying">
 The amount of pressure overburden allowed in grounded regions. If ice must float at level of critical thickness, set equal to -1 * critical thickness
