@@ -32,7 +32,7 @@ Base: E3SM master `6816738295` (2026-10-15).
 | Add an option to limit Jacobian_from_TS to each cell's water column | xylar:ocn/limit-jacobian-pressure-gradient (E3SM-Ocean-Discussion#148, merged as `cf11862786`) | none yet |
 | Add an option to evaluate jm at each layer's depth | xylar:ocn/jm-eos-at-actual-depth (E3SM-Ocean-Discussion#149, merged as `a368328ed2`) | none yet |
 | Set the melt rate from the heat balance in nearly fresh water | xylar:ocn/fix-fresh-water-melt-rate (E3SM-Ocean-Discussion#150, merged as `9bc9914a4b`) | none yet |
-| Merge MALI-Dev's `develop` at `5e80df1145` (2026-10-09) | MALI-Dev:develop via xylar:mali/merge-mali-dev-develop (E3SM-Ocean-Discussion#151, merged as `a026eeb597`) | none yet |
+| Merge MALI-Dev's `develop` at `5e80df1145` (2026-10-09) | MALI-Dev:develop via xylar:mali/merge-mali-dev-develop (E3SM-Ocean-Discussion#151, merged as `a026eeb597`) | E3SM#9149 |
 | Remove the surface air temperature lapse rate from MALI's namelist | xylar:mali/remove-lapse-rate-from-namelist (E3SM-Ocean-Discussion#156, merged as `d1c104ddb4`) | MALI-Dev/E3SM#213 |
 | Let case variables name MALI's input files | xylar:mali/inputs-named-by-case-variables (E3SM-Ocean-Discussion#157, merged as `5cda8a32a0`) | MALI-Dev/E3SM#214 |
 | Let the MCT driver run a prognostic ocean without an atmosphere | xylar:cpl/allow-ocean-without-atmosphere (E3SM-Ocean-Discussion#158, merged as `4a0786855c`) | none yet |
@@ -58,7 +58,7 @@ Base: E3SM master `6816738295` (2026-10-15).
 | Let a case map glc's ice-shelf geometry to the ocean with its own map, `GLC2OCN_SHELF_SMAPNAME` (MCT driver; default the flux map) | xylar:cpl/smoothed-glc-geometry-map (E3SM-Ocean-Discussion#179, merged as `46549a6b31`) | none yet |
 | Ramp the land-ice pressure MPAS-Ocean imports from glc over each glc coupling interval, behind `config_glc_ice_shelf_coupling_ramp_land_ice_pressure` (default off) | xylar:ocn-glc/ramp-land-ice-pressure (E3SM-Ocean-Discussion#181, merged as `9d52375cfa`) | none yet |
 | Rebuild MALI's FEM grid only when its masks change; `config_always_compute_fem_grid` now defaults to `.false.` | xylar:mali/fix-fem-grid-rebuild-check-fanssie, the commits of MALI-Dev/E3SM#211 cherry-picked (E3SM-Ocean-Discussion#182, merged as `8ad4a25be0`) | MALI-Dev/E3SM#211 |
-| Merge MALI-Dev's `develop` at `10664726d3` (2026-11-07) | MALI-Dev:develop via xylar:mali/merge-mali-dev-develop-2026-11-07 (E3SM-Ocean-Discussion#183, merged as `7f3288a4a9`) | none yet |
+| Merge MALI-Dev's `develop` at `10664726d3` (2026-11-07) | MALI-Dev:develop via xylar:mali/merge-mali-dev-develop-2026-11-07 (E3SM-Ocean-Discussion#183, merged as `7f3288a4a9`) | E3SM#9149 |
 | Add `normalLayerThicknessFlux`, the thickness flux the integrator applies, for exact mean transports, behind `config_compute_normal_layer_thickness_flux` (default off) | xylar:ocn/add-normal-layer-thickness-flux (E3SM-Ocean-Discussion#184, merged as `c77fad6d3b`) | none yet |
 | Use the edge-mean thickness in momentum vertical advection, which upwind flux thicknesses at film edges had made run away | xylar:ocn/vadv-edge-mean-thickness (E3SM-Ocean-Discussion#185, merged as `3cafa3f0d7`) | none yet |
 | Initialize CVMix's boundary-layer index without KPP, so convection applies over the whole column and runs repeat | xylar:ocn/fix-uninitialized-cvmix-obl-index-fanssie (E3SM-Ocean-Discussion#186, merged as `8341aa1592`) | E3SM-Project/E3SM#8984 |
@@ -85,4 +85,4 @@ The changes in the ledger reach E3SM master through a few pull requests, each wi
 | Couple MPAS-Ocean and MALI for moving grounding lines | 162, 163, 166, 169, 170, 172, 173, 179, 181 | unchanged; results change only with prognostic MALI coupled to the ocean | move as much as possible into E3SM#8887 before it is reviewed; 173 needs the thin-film pull request |
 | Support idealized ice-shelf cases in E3SM | 143, 158, 161, 167, 184 | unchanged | independent |
 
-MALI's changes reach E3SM through MALI-Dev rather than through these pull requests: 151 and 183 (merges of MALI-Dev's `develop`), 156 (MALI-Dev/E3SM#213), 157 (MALI-Dev/E3SM#214), 168 (MALI-Dev/E3SM#216), 174 and 178 (MALI-Dev/E3SM#219) and 182 (MALI-Dev/E3SM#211). Already on E3SM master: 186 (E3SM#8984) and 188.
+MALI's changes reach E3SM through MALI-Dev rather than through these pull requests: 151 and 183 (merges of MALI-Dev's `develop`), 156 (MALI-Dev/E3SM#213), 157 (MALI-Dev/E3SM#214), 168 (MALI-Dev/E3SM#216), 174 and 178 (MALI-Dev/E3SM#219) and 182 (MALI-Dev/E3SM#211). E3SM#9149 brings all of them to E3SM master. Already on E3SM master: 186 (E3SM#8984) and 188.
