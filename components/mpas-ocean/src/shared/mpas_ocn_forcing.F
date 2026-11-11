@@ -121,7 +121,8 @@ contains
         !
         !************************************************
 
-        real (kind=RKIND) :: zTop, zBot, transmissionCoeffTop, transmissionCoeffBot
+        real (kind=RKIND) :: zTop, zBot, transmissionCoeffTop, transmissionCoeffBot, &
+                             totalAbsorbed
 
         real (kind=RKIND), dimension(:,:), pointer :: layerThickness, fractionAbsorbed, fractionAbsorbedRunoff, fractionAbsorbedSubglacialRunoff
 
@@ -164,6 +165,19 @@ contains
               zTop = zBot
               transmissionCoeffTop = transmissionCoeffBot
            end do
+
+           ! Renormalize so the column absorbs the whole flux.  Without this,
+           ! the flux that would pass below the sea floor goes into the bottom
+           ! layer, which in thin columns (e.g. under ice shelves near the
+           ! grounding line) is most of the flux in a very thin layer.  Where
+           ! the transmission at the sea floor is below roundoff, the total is
+           ! exactly 1 and the fractions are unchanged.
+           totalAbsorbed = 1.0_RKIND - transmissionCoeffTop
+           if (totalAbsorbed > 0.0_RKIND) then
+              do k = minLevelCell(iCell), maxLevelCell(iCell)
+                 fractionAbsorbed(k, iCell) = fractionAbsorbed(k, iCell) / totalAbsorbed
+              end do
+           end if
         end do
 
 !  now do river runoff separately
