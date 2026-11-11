@@ -209,6 +209,14 @@ contains
                       zTop = zBot
                       transmissionCoeffTop = transmissionCoeffBot
                    end do
+                   ! Renormalize, as for the surface fluxes above
+                   totalAbsorbed = 1.0_RKIND - transmissionCoeffTop
+                   if (totalAbsorbed > 0.0_RKIND) then
+                      do k = minLevelCell(iCell), maxLevelCell(iCell)
+                         fractionAbsorbedSubglacialRunoff(k, iCell) = &
+                            fractionAbsorbedSubglacialRunoff(k, iCell) / totalAbsorbed
+                      end do
+                   end if
                 end do
             else if ( trim(config_sgr_flux_vertical_location) == 'uniform' ) then
                 do iCell = 1, nCells
@@ -234,6 +242,14 @@ contains
                       zTop = zBot
                       transmissionCoeffTop = transmissionCoeffBot
                    end do
+                   ! Renormalize, as for the surface fluxes above
+                   totalAbsorbed = 1.0_RKIND - transmissionCoeffTop
+                   if (totalAbsorbed > 0.0_RKIND) then
+                      do k = minLevelCell(iCell), maxLevelCell(iCell)
+                         fractionAbsorbedSubglacialRunoff(k, iCell) = &
+                            fractionAbsorbedSubglacialRunoff(k, iCell) / totalAbsorbed
+                      end do
+                   end if
                 end do
             end if
         end if
