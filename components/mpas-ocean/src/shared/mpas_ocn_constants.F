@@ -72,6 +72,7 @@ module ocn_constants
       days_per_second  ,&! days per second
       salt_to_ppt      ,&! salt (kg/kg) to ppt
       ppt_to_salt      ,&! salt ppt to kg/kg
+      psu_to_g_per_kg  ,&! numerical conversion from ocean salinity (psu) to g/kg
       mass_to_Sv       ,&! mass flux to Sverdrups
       heat_to_PW       ,&! heat flux to Petawatts
       salt_to_Svppt    ,&! salt flux to Sv*ppt
@@ -150,6 +151,7 @@ contains
        days_per_second = 1._RKIND/86400._RKIND     ! days per second
        salt_to_ppt   = 1000._RKIND        ! salt (kg/kg) to ppt
        ppt_to_salt   = 1.e-3_RKIND        ! salt ppt to kg/kg
+       psu_to_g_per_kg = 1.0_RKIND        ! approximate; not a TEOS-10 conversion
        mass_to_Sv    = 1.0e-12_RKIND      ! mass flux to Sverdrups
        heat_to_PW    = 4.186e-15_RKIND    ! heat flux to Petawatts
        salt_to_Svppt = 1.0e-9_RKIND       ! salt flux to Sv*ppt
