@@ -1764,14 +1764,6 @@ Valid values: .true. or .false.
 Default: Defined in namelist_defaults.xml
 </entry>
 
-<entry id="config_frazil_heat_of_fusion" type="real"
-	category="frazil_ice" group="frazil_ice">
-Energy per kilogram released when sea water freezes. NOTE: test and make consistent with E3SM.
-
-Valid values: Any positive real number.
-Default: Defined in namelist_defaults.xml
-</entry>
-
 <entry id="config_use_frazil_ice_porosity" type="logical"
 	category="frazil_ice" group="frazil_ice">
 If true, use an internal porosity to set internal frazil salinity and that of specified passive tracers.
@@ -1814,7 +1806,7 @@ Default: Defined in namelist_defaults.xml
 
 <entry id="config_expel_excess_frazil_salt" type="logical"
 	category="frazil_ice" group="frazil_ice">
-If true, release frazil salt in the upper ocean layer in excess of the fixed salinity coupling assumption. False if using variable sea ice salinity coupling.
+If true, release frazil salt in the upper ocean layer in excess of the fixed salinity coupling assumption. False if using variable sea ice salinity coupling. Under land ice, frazil salt is always released, regardless of this setting.
 
 Valid values: .true. or .false.
 Default: Defined in namelist_defaults.xml

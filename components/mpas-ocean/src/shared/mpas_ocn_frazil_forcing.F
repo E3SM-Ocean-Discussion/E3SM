@@ -22,6 +22,7 @@ module ocn_frazil_forcing
    use mpas_kind_types
    use mpas_constants
    use mpas_derived_types
+   use mpas_log
    use mpas_pool_routines
    use mpas_timekeeping
    use mpas_timer
@@ -62,6 +63,7 @@ module ocn_frazil_forcing
    logical :: frazilFormationOn
    integer :: usePorosity   ! 1 when computing internal frazil salinity using porosity
                             ! 0 when using config_frazil_sea_ice_reference_salinity
+   real (kind=RKIND) :: frazilEffectiveSolidDensity
 !***********************************************************************
 
 contains
@@ -460,6 +462,7 @@ contains
       type (MPAS_timeInterval_type) :: timeStep
 
       real (kind=RKIND) :: newFrazilIceThickness, newThicknessWeightedSaltContent
+      real (kind=RKIND) :: newFrazilSolidThickness, newFrazilSolidMass
       real (kind=RKIND) :: sumNewFrazilIceThickness, sumNewThicknessWeightedSaltContent
       real (kind=RKIND) :: meltedFrazilIceThickness, meltedThicknessWeightedSaltContent
       real (kind=RKIND) :: sumNewFrazilEnergy, newFrazilEnergy, meltedFrazilEnergy
@@ -561,6 +564,7 @@ contains
       !$omp private(underFloatingLandIce, underLandIce, kBottomFrazil, columnTemperatureMin, k, sumNewFrazilIceThickness, &
       !$omp         sumNewThicknessWeightedSaltContent, oceanFreezingTemperature, potential, &
       !$omp         freezingEnergy, meltingEnergy, frazilSalinity, newFrazilIceThickness, &
+      !$omp         newFrazilSolidThickness, newFrazilSolidMass, &
       !$omp         newThicknessWeightedSaltContent, meltedFrazilIceThickness, &
       !$omp         meltedThicknessWeightedSaltContent, newFrazilEnergy, meltedFrazilEnergy, &
       !$omp         sumNewFrazilEnergy, meltedFraction)
@@ -635,40 +639,45 @@ contains
           if (freezingEnergy > 0) then
 
             ! get frazil salinity
-            if (underLandIce) then
-              frazilSalinity = usePorosity * config_frazil_ice_porosity * activeTracers(indexSalinity, k, iCell)
+            if (usePorosity == 1) then
+              frazilSalinity = config_frazil_ice_porosity * rho_sw / config_frazil_ice_density * &
+                               psu_to_g_per_kg * activeTracers(indexSalinity, k, iCell)
+            else if (underLandIce) then
+              frazilSalinity = 0.0_RKIND
             else
-              frazilSalinity = usePorosity * config_frazil_ice_porosity * activeTracers(indexSalinity, k, iCell) &
-                 + config_frazil_sea_ice_reference_salinity * (1 - usePorosity)
+              frazilSalinity = min(config_frazil_sea_ice_reference_salinity, &
+                                   psu_to_g_per_kg * activeTracers(indexSalinity, k, iCell))
             end if
-            frazilSalinity = min( frazilSalinity, activeTracers(indexSalinity, k, iCell) )
 
-            ! new frazil ice formation measured in meters
-            newFrazilIceThickness = freezingEnergy / (config_frazil_heat_of_fusion * config_frazil_ice_density)
+            ! new frazil ice formation measured in meters of solid and bulk ice
+            newFrazilSolidThickness = freezingEnergy / (latent_heat_fusion_mks * frazilEffectiveSolidDensity)
+            newFrazilIceThickness = newFrazilSolidThickness / &
+                                    (1.0_RKIND - usePorosity * config_frazil_ice_porosity)
             ! limit the frazil formed appropriately
-            newFrazilIceThickness = min(newFrazilIceThickness, layerThickness(k,iCell) * config_frazil_fractional_thickness_limit)
+            newFrazilIceThickness = min(newFrazilIceThickness, layerThickness(k,iCell) * &
+                                        config_frazil_fractional_thickness_limit * rho_sw / config_frazil_ice_density)
+            newFrazilSolidThickness = newFrazilIceThickness * (1.0_RKIND - usePorosity * config_frazil_ice_porosity)
+            newFrazilSolidMass = newFrazilSolidThickness * frazilEffectiveSolidDensity
 
             ! Determine new salt in frazil
             newThicknessWeightedSaltContent = newFrazilIceThickness * frazilSalinity &
                * config_frazil_ice_density * ppt_to_salt
 
             ! Determine new energy in frazil = latent + sensible heat
+            newFrazilEnergy = newFrazilSolidMass * latent_heat_fusion_mks
             if (config_include_sensible_heat_frazil) then
-               newFrazilEnergy = newFrazilIceThickness * config_frazil_ice_density * &
-                  config_frazil_heat_of_fusion - rho_sw * config_specific_heat_sea_water * &
-                  oceanFreezingTemperature * newFrazilIceThickness * config_frazil_ice_density/density(k,iCell)
-            else
-               newFrazilEnergy = newFrazilIceThickness * config_frazil_ice_density * config_frazil_heat_of_fusion
+               newFrazilEnergy = newFrazilEnergy - config_specific_heat_sea_water * oceanFreezingTemperature * &
+                                 newFrazilIceThickness * config_frazil_ice_density
             end if
 
             ! compute tendency to thickness, temperature and salinity
             ! layerTendency is scaled so that mass of ice created == mass of ocean water removed
 
             ! layer thickness decreased due to creation of frazil
-            ! note: -- this has to be density (not rho_sw) to keep buoyancy equal
-            frazilLayerThicknessTendency(k,iCell) = - newFrazilIceThickness * config_frazil_ice_density / density(k,iCell) / dt
+            frazilLayerThicknessTendency(k,iCell) = - newFrazilIceThickness * config_frazil_ice_density / rho_sw / dt
             ! salt is extracted with the frazil
-            frazilSalinityTendency(k,iCell) = - newThicknessWeightedSaltContent / dt
+            frazilSalinityTendency(k,iCell) = - newThicknessWeightedSaltContent / &
+                                             (rho_sw * ppt_to_salt * psu_to_g_per_kg * dt)
 
             ! ocean fluid temperature is warmed due to creation of frazil
             frazilTemperatureTendency(k,iCell) =  newFrazilEnergy / config_specific_heat_sea_water / rho_sw / dt
@@ -684,14 +693,14 @@ contains
             if (sumNewFrazilIceThickness > 0.0_RKIND) then
 
               ! Frazil melting
-              meltedFrazilIceThickness = meltingEnergy / (config_frazil_heat_of_fusion * config_frazil_ice_density)
+              meltedFrazilIceThickness = meltingEnergy / (sumNewFrazilEnergy / sumNewFrazilIceThickness)
 
               ! limit melting by what there is to melt
               meltedFrazilIceThickness = min(meltedFrazilIceThickness, sumNewFrazilIceThickness)
 
               ! limit melting by fraction of layer thickness
               meltedFrazilIceThickness = min(meltedFrazilIceThickness, layerThickness(k,iCell) &
-                                       * config_frazil_fractional_thickness_limit)
+                                       * config_frazil_fractional_thickness_limit * rho_sw / config_frazil_ice_density)
 
               ! track fraction of total frazil melted
               meltedFraction = max(0.0_RKIND,min(1.0_RKIND,meltedFrazilIceThickness/sumNewFrazilIceThickness))
@@ -705,12 +714,12 @@ contains
               ! compute tendency to thickness, temperature and salinity
 
               ! layer thickness increases due to melting of frazil
-              ! note -- scaling by local ocean density to mimimize surface pressure forcing errors
               frazilLayerThicknessTendency(k,iCell) = + meltedFrazilIceThickness * config_frazil_ice_density &
-                                                    / density(k,iCell) / dt
+                                                    / rho_sw / dt
 
               ! salt is released into ocean with the melting frazil
-              frazilSalinityTendency(k,iCell) = + meltedThicknessWeightedSaltContent/ dt
+              frazilSalinityTendency(k,iCell) = + meltedThicknessWeightedSaltContent/ &
+                                               (rho_sw * ppt_to_salt * psu_to_g_per_kg * dt)
 
               frazilTemperatureTendency(k,iCell) = - meltedFrazilEnergy / (rho_sw * config_specific_heat_sea_water) / dt
 
@@ -745,14 +754,16 @@ contains
                                                   + sumNewFrazilIceThickness * config_frazil_ice_density
            accumulatedLandIceFrazilEnergyNew(iCell) = accumulatedLandIceFrazilEnergyOld(iCell) &
                                                   + sumNewFrazilEnergy
-           ! There is no accumulatedLandIceFrazilSalinity because it is always 0
+           ! Land ice receives salt-free frazil.
            frazilSalinity = 0.0_RKIND
         else
            frazilSalinity = config_frazil_sea_ice_reference_salinity
         end if
 
-        !Determine salt expelled in the upper layer to if using fixed frazil salinity sea ice coupling
-        if (sumNewFrazilIceThickness > 0.0_RKIND .and. usePorosity .ge. 1 .and. config_expel_excess_frazil_salt) then
+        !Determine salt expelled in the upper layer if using fixed frazil salinity sea ice coupling,
+        !or always under land ice, where frazil salinity is assumed to be 0
+        if (sumNewFrazilIceThickness > 0.0_RKIND .and. usePorosity .ge. 1 .and. &
+            (config_expel_excess_frazil_salt .or. underLandIce)) then
            newThicknessWeightedSaltContent = sumNewFrazilIceThickness * frazilSalinity &
               * config_frazil_ice_density * ppt_to_salt
            if (newThicknessWeightedSaltContent > sumNewThicknessWeightedSaltContent) then
@@ -762,7 +773,8 @@ contains
            else
             !salt expelled at the surface
             frazilSalinityTendency(minLevelCell(iCell),iCell) = frazilSalinityTendency(minLevelCell(iCell),iCell) + &
-                max(0.0_RKIND,(sumNewThicknessWeightedSaltContent -  newThicknessWeightedSaltContent) ) / dt
+                max(0.0_RKIND,(sumNewThicknessWeightedSaltContent -  newThicknessWeightedSaltContent) ) / &
+                (rho_sw * ppt_to_salt * psu_to_g_per_kg * dt)
             accumulatedFrazilIceSalinityNew(iCell) = accumulatedFrazilIceSalinityOld(iCell) + newThicknessWeightedSaltContent
            endif
          endif ! if frazil ice is formed
@@ -840,7 +852,6 @@ contains
 
       integer :: iCell, k, nCells, nTracersEcosys, n
       integer, dimension(:), pointer :: nCellsArray
-      integer, pointer :: nVertLevels
       real (kind=RKIND) :: dt, columnTemperatureMin
 
       type (MPAS_timeInterval_type) :: timeStep
@@ -848,11 +859,10 @@ contains
       real (kind=RKIND) :: newFrazilIceThickness
       real (kind=RKIND) :: sumNewFrazilIceThickness, newThicknessWeightedEcosysContent
       real (kind=RKIND) :: meltedFrazilIceThickness, meltedThicknessWeightedEcosysContent
-      real (kind=RKIND) :: oceanFreezingTemperature
       real (kind=RKIND) :: frazilEcosys ! ecosys concentration of frazil ice
 
       real (kind=RKIND), pointer, dimension(:)     :: ssh
-      real (kind=RKIND), pointer, dimension(:,:)   :: layerThickness
+      real (kind=RKIND), pointer, dimension(:,:)   :: frazilLayerThicknessTendency
       real (kind=RKIND), pointer, dimension(:,:,:) :: activeTracers
       real (kind=RKIND), pointer, dimension(:,:,:) :: ecosysTracers
 
@@ -861,16 +871,10 @@ contains
       
       integer, dimension(:), pointer :: minLevelCell, maxLevelCell
       integer, pointer :: indexTemperaturePtr !< index in tracers array for temperature
-      integer, pointer :: indexSalinityPtr !< index in tracers array for salinity
       integer :: indexTemperature !< index in tracers array for temperature
-      integer :: indexSalinity !< index in tracers array for salinity
       integer :: kBottomFrazil ! k index where testing for frazil begins
 
       logical :: underFloatingLandIce, underLandIce ! indicates if we are under land ice
-
-      real (kind=RKIND) :: potential  ! scalar holding freezing/melt potential
-      real (kind=RKIND) :: freezingEnergy  ! energy available for freezing, positive definite
-      real (kind=RKIND) :: meltingEnergy ! energy available for melting, positive definite
 
       real (kind=RKIND), allocatable, dimension(:) :: sumNewThicknessWeightedEcosysContent
       err = 0
@@ -885,13 +889,9 @@ contains
 
       ! get dimensions
       call mpas_pool_get_dimension(meshPool, 'nCellsArray', nCellsArray)
-      call mpas_pool_get_dimension(meshPool, 'nVertLevels', nVertLevels)
       call mpas_pool_get_dimension(tracersPool, 'index_temperature', &
                                                  indexTemperaturePtr)
-      call mpas_pool_get_dimension(tracersPool, 'index_salinity', &
-                                                 indexSalinityPtr)
       indexTemperature = indexTemperaturePtr
-      indexSalinity    = indexSalinityPtr
 
       ! get mesh information
       call mpas_pool_get_array(meshPool, 'minLevelCell', minLevelCell)
@@ -899,7 +899,6 @@ contains
 
       ! get arrays
       ! note: state information is used to produce tendencies, so always grab "new" time level
-      call mpas_pool_get_array(statePool, 'layerThickness', layerThickness, 1)
       ! Don't need this because it's always zero.  Frazil ecosys tracers are expelled at the surface
       !call mpas_pool_get_array(statePool, 'accumulatedFrazilIceEcosys', accumulatedFrazilIceEcosysNew, 2)
       !call mpas_pool_get_array(statePool, 'accumulatedFrazilIceEcosys', accumulatedFrazilIceEcosysOld, 1)
@@ -907,6 +906,7 @@ contains
       call mpas_pool_get_array(tracersPool, 'activeTracers', activeTracers, 1)
       call mpas_pool_get_array(tracersPool, 'ecosysTracers', ecosysTracers, 1)
       call mpas_pool_get_array(ecosysFrazilForcingPool, 'frazilEcosysTracersTendency', frazilEcosysTracersTendency)
+      call mpas_pool_get_array(forcingPool, 'frazilLayerThicknessTendency', frazilLayerThicknessTendency)
       call mpas_pool_get_array(forcingPool, 'landIceMask', landIceMask)
       call mpas_pool_get_array(forcingPool, 'landIceFloatingMask', landIceFloatingMask)
 
@@ -927,8 +927,7 @@ contains
       !$omp parallel
       !$omp do schedule(runtime) &
       !$omp private(underFloatingLandIce, underLandIce, kBottomFrazil, columnTemperatureMin, k, sumNewFrazilIceThickness, &
-      !$omp         sumNewThicknessWeightedEcosysContent, oceanFreezingTemperature, potential, &
-      !$omp         freezingEnergy, meltingEnergy, frazilEcosys, newFrazilIceThickness, &
+      !$omp         sumNewThicknessWeightedEcosysContent, frazilEcosys, newFrazilIceThickness, &
       !$omp         newThicknessWeightedEcosysContent, meltedFrazilIceThickness, &
       !$omp         meltedThicknessWeightedEcosysContent, n)
       do iCell=1,nCells
@@ -987,30 +986,17 @@ contains
         ! loop from maximum depth of frazil creation to surface
         do k = kBottomFrazil, minLevelCell(iCell), -1
 
-          ! get freezing temperature
-          oceanFreezingTemperature = ocn_freezing_temperature(salinity=activeTracers(indexSalinity,k,iCell), &
-                                                              pressure=pressure(k,iCell), &
-                                                              inLandIceCavity=underLandIce)
-
-          potential = layerThickness(k,iCell) * config_specific_heat_sea_water &
-                    * rho_sw * (activeTracers(indexTemperature,k,iCell) - oceanFreezingTemperature)
-
-          freezingEnergy = max(0.0_RKIND, -potential)
-          meltingEnergy = max(0.0_RKIND, potential)
-
-          if (freezingEnergy > 0) then
+          if (frazilLayerThicknessTendency(k,iCell) < 0.0_RKIND) then
 
              ! new frazil ice formation measured in meters
-             newFrazilIceThickness = freezingEnergy / (config_frazil_heat_of_fusion * config_frazil_ice_density)
-
-             ! limit the frazil formed appropriately
-             newFrazilIceThickness = min(newFrazilIceThickness, layerThickness(k,iCell) * config_frazil_fractional_thickness_limit)
+             newFrazilIceThickness = -frazilLayerThicknessTendency(k,iCell) * dt * rho_sw / config_frazil_ice_density
 
              ! keep track of sum of frazil ice
              sumNewFrazilIceThickness = sumNewFrazilIceThickness + newFrazilIceThickness
 
              do n = 1, nTracersEcosys
-                frazilEcosys = (config_frazil_ice_porosity*usePorosity + (1-usePorosity)) * ecosysTracers(n, k, iCell)
+                frazilEcosys = (config_frazil_ice_porosity*usePorosity + &
+                               (1-usePorosity) * config_frazil_ice_density / rho_sw) * ecosysTracers(n, k, iCell)
                 ! needs to be an array
                 newThicknessWeightedEcosysContent = newFrazilIceThickness * frazilEcosys
 
@@ -1022,21 +1008,15 @@ contains
                     newThicknessWeightedEcosysContent
              end do
 
-          else
+          else if (frazilLayerThicknessTendency(k,iCell) > 0.0_RKIND) then
             ! ocean water is warm enough to melt frazil
 
             ! test to see if there is frazil to be melted
             if (sumNewFrazilIceThickness > 0.0_RKIND) then
 
                ! Frazil melting
-               meltedFrazilIceThickness = meltingEnergy / (config_frazil_heat_of_fusion * config_frazil_ice_density)
-
-               ! limit melting by what there is to melt
-               meltedFrazilIceThickness = min(meltedFrazilIceThickness, sumNewFrazilIceThickness)
-
-               ! limit melting by fraction of layer thickness
-               meltedFrazilIceThickness = min(meltedFrazilIceThickness, layerThickness(k,iCell) &
-                                       * config_frazil_fractional_thickness_limit)
+               meltedFrazilIceThickness = min(sumNewFrazilIceThickness, &
+                  frazilLayerThicknessTendency(k,iCell) * dt * rho_sw / config_frazil_ice_density)
 
                do n = 1, nTracersEcosys
 
@@ -1054,7 +1034,7 @@ contains
 
             endif  ! if (sumNewFrazilIceThickness > 0.0_RKIND)
 
-          endif  ! if (freezingEnergy < 0)
+          endif  ! frazil formation or melting
 
         enddo                    ! do k=kBottom,minLevelCell,-1
        
@@ -1104,6 +1084,47 @@ contains
 
       usePorosity = 0
       if(config_use_frazil_ice_porosity) usePorosity = 1
+
+      if (.not. frazilFormationOn) return
+
+      if (config_frazil_ice_density <= 0.0_RKIND .or. rho_sw <= 0.0_RKIND) then
+         call mpas_log_write('Frazil density and reference density must be positive', MPAS_LOG_ERR)
+         err = 1
+         return
+      endif
+
+      frazilEffectiveSolidDensity = config_frazil_ice_density
+      if (config_use_frazil_ice_porosity) then
+         if (config_frazil_ice_porosity < 0.0_RKIND .or. config_frazil_ice_porosity > 1.0_RKIND) then
+            call mpas_log_write('Frazil porosity must be between 0 and 1', MPAS_LOG_ERR)
+            err = 1
+            return
+         endif
+
+         if (config_frazil_ice_porosity * rho_sw >= config_frazil_ice_density) then
+            call mpas_log_write('Frazil porosity times reference density must be less than frazil density', MPAS_LOG_ERR)
+            err = 1
+            return
+         endif
+
+         if (config_frazil_ice_porosity > 0.0_RKIND .and. config_frazil_ice_density >= rho_sw) then
+            call mpas_log_write('Frazil density must be less than reference density when porosity is positive', MPAS_LOG_ERR)
+            err = 1
+            return
+         endif
+
+         frazilEffectiveSolidDensity = (config_frazil_ice_density - config_frazil_ice_porosity * rho_sw) / &
+                                      (1.0_RKIND - config_frazil_ice_porosity)
+         if (frazilEffectiveSolidDensity <= 1.0e-3_RKIND .or. &
+             frazilEffectiveSolidDensity > config_frazil_ice_density .or. &
+             (config_frazil_ice_porosity > 0.0_RKIND .and. &
+              frazilEffectiveSolidDensity >= config_frazil_ice_density)) then
+            call mpas_log_write('Effective solid density must exceed 1e-3 kg/m^3 and be less than bulk density ' // &
+                                '(equal is allowed at zero porosity)', MPAS_LOG_ERR)
+            err = 1
+            return
+         endif
+      endif
 
    end subroutine ocn_frazil_forcing_init!}}}
 
