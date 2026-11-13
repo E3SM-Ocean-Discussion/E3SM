@@ -1097,14 +1097,20 @@ contains
 
       frazilEffectiveSolidDensity = config_frazil_ice_density
       if (config_use_frazil_ice_porosity) then
-         if (config_frazil_ice_porosity < 0.0_RKIND .or. config_frazil_ice_porosity >= 1.0_RKIND) then
-            call mpas_log_write('Frazil porosity must be at least 0 and less than 1', MPAS_LOG_ERR)
+         if (config_frazil_ice_porosity < 0.0_RKIND .or. config_frazil_ice_porosity > 1.0_RKIND) then
+            call mpas_log_write('Frazil porosity must be between 0 and 1', MPAS_LOG_ERR)
             err = 1
             return
          endif
 
          if (config_frazil_ice_porosity * rho_sw >= config_frazil_ice_density) then
             call mpas_log_write('Frazil porosity times reference density must be less than frazil density', MPAS_LOG_ERR)
+            err = 1
+            return
+         endif
+
+         if (config_frazil_ice_porosity > 0.0_RKIND .and. config_frazil_ice_density >= rho_sw) then
+            call mpas_log_write('Frazil density must be less than reference density when porosity is positive', MPAS_LOG_ERR)
             err = 1
             return
          endif
