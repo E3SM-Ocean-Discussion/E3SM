@@ -650,7 +650,7 @@ contains
             end if
 
             ! new frazil ice formation measured in meters of solid and bulk ice
-            newFrazilSolidThickness = freezingEnergy / (config_frazil_heat_of_fusion * frazilEffectiveSolidDensity)
+            newFrazilSolidThickness = freezingEnergy / (latent_heat_fusion_mks * frazilEffectiveSolidDensity)
             newFrazilIceThickness = newFrazilSolidThickness / &
                                     (1.0_RKIND - usePorosity * config_frazil_ice_porosity)
             ! limit the frazil formed appropriately
@@ -664,7 +664,7 @@ contains
                * config_frazil_ice_density * ppt_to_salt
 
             ! Determine new energy in frazil = latent + sensible heat
-            newFrazilEnergy = newFrazilSolidMass * config_frazil_heat_of_fusion
+            newFrazilEnergy = newFrazilSolidMass * latent_heat_fusion_mks
             if (config_include_sensible_heat_frazil) then
                newFrazilEnergy = newFrazilEnergy - config_specific_heat_sea_water * oceanFreezingTemperature * &
                                  newFrazilIceThickness * config_frazil_ice_density
@@ -1087,10 +1087,8 @@ contains
 
       if (.not. frazilFormationOn) return
 
-      if (config_frazil_ice_density <= 0.0_RKIND .or. config_frazil_heat_of_fusion <= 0.0_RKIND .or. &
-          rho_sw <= 0.0_RKIND) then
-         call mpas_log_write('Frazil density, heat of fusion, and reference density must be positive', &
-                             MPAS_LOG_ERR)
+      if (config_frazil_ice_density <= 0.0_RKIND .or. rho_sw <= 0.0_RKIND) then
+         call mpas_log_write('Frazil density and reference density must be positive', MPAS_LOG_ERR)
          err = 1
          return
       endif

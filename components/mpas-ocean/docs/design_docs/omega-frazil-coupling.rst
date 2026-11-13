@@ -119,8 +119,9 @@ Algorithm Design
 Algorithm Design: Ocean is the single source of frazil mass, salt and energy
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-In each ocean time step, frazil forms in layer :math:`k` when the layer
-temperature falls below the freezing point. The thickness of new frazil ice is
+In the original formulation described here, frazil forms in layer :math:`k`
+when the layer temperature falls below the freezing point. The thickness of new
+frazil ice is
 
 .. math::
 
@@ -128,7 +129,7 @@ temperature falls below the freezing point. The thickness of new frazil ice is
                 \alpha\, h_k \right),
 
 where :math:`E_k` is the freezing energy, :math:`L_f` is
-``config_frazil_heat_of_fusion``, :math:`\rho_i` is
+the frazil heat of fusion (now ``latent_heat_fusion_mks``), :math:`\rho_i` is
 ``config_frazil_ice_density``, :math:`h_k` is the layer thickness and
 :math:`\alpha` is ``config_frazil_fractional_thickness_limit``. The salt mass
 per unit area carried by the new frazil is

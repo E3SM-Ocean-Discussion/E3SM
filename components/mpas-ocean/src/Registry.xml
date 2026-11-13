@@ -1106,10 +1106,6 @@
 					description="If frazil formation is used, controls if frazil fluxes are computed under land ice."
 					possible_values=".true. or .false."
 		/>
-		<nml_option name="config_frazil_heat_of_fusion" type="real" default_value="3.34e5" units="J kg^-1"
-					description="Energy per kilogram released when sea water freezes. NOTE: test and make consistent with E3SM."
-					possible_values="Any positive real number."
-		/>
 		<nml_option name="config_use_frazil_ice_porosity" type="logical" default_value=".false."
 					description="If true, use an internal porosity to set internal frazil salinity and that of specified passive tracers."
 					possible_values=".true. or .false."
