@@ -204,7 +204,8 @@ module ocn_time_integration_split
          normalBarotropicVelocityRef ! ub for the baroclinic Coriolis term
 
       real (kind=RKIND), dimension(:), allocatable :: &
-         openFraction        ! open share of the column flux thickness
+         openFraction,      &! open share of the column flux thickness
+         ubDecide            ! ub that keeps a layer at rest open
 
       logical :: layerDryingLimit ! limit drying layer by layer
       real (kind=RKIND) :: openThicknessSum, openFluxSum, ubRef
@@ -692,7 +693,8 @@ module ocn_time_integration_split
       openFraction(:) = 1.0_RKIND
       if (layerDryingLimit) &
          allocate(layerClosed(nVertLevels, nEdgesAll + 1), &
-                  bclVelSave(nVertLevels, nEdgesAll + 1))
+                  bclVelSave(nVertLevels, nEdgesAll + 1), &
+                  ubDecide(nEdgesAll + 1))
 
       do splitExplicitStep = 1, numTSIterations
 
@@ -829,10 +831,23 @@ module ocn_time_integration_split
          ! RK4, and the open share of each column's flux thickness
          if (layerDryingLimit) then
             layerClosed(:,:) = 0.0_RKIND
+            ! A layer at rest on an edge stays open where the barotropic
+            ! flow enters its drying cell, so a closed edge can reopen:
+            ! ub at the start of the step in the first iteration, and at
+            ! the middle of the step after that, as for ubRef
+            if (splitExplicitStep == 1) then
+               ubDecide(1:nEdgesAll) = normalBarotropicVelocityCur(1:nEdgesAll)
+            else
+               ubDecide(1:nEdgesAll) = 0.5_RKIND* &
+                  (normalBarotropicVelocityCur(1:nEdgesAll) + &
+                   normalBarotropicVelocityNew(1:nEdgesAll))
+            end if
+            ubDecide(nEdgesAll + 1) = 0.0_RKIND
             call ocn_wetting_drying_wettingVelocity(domain, &
                     layerThickEdgeFlux, layerThicknessCur, layerThicknessNew, &
                     normalVelocityNew, dt, landIceMask, landIcePressure, &
-                    landIceDraft, layerClosed, err)
+                    landIceDraft, layerClosed, err, &
+                    normalBarotropicVelocity=ubDecide)
             do iEdge = 1, nEdgesAll
                do k = 1, nVertLevels
                   layerOpen(k,iEdge) = 1.0_RKIND - layerClosed(k,iEdge)
@@ -2778,7 +2793,7 @@ module ocn_time_integration_split
       if (config_split_pv_coriolis) &
          deallocate(btrCoriolisWeights, normalBarotropicVelocityRef)
       deallocate(layerOpen, openFraction)
-      if (layerDryingLimit) deallocate(layerClosed, bclVelSave)
+      if (layerDryingLimit) deallocate(layerClosed, bclVelSave, ubDecide)
 
       !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
       ! END large iteration loop
