@@ -570,7 +570,13 @@ contains
             !$omp parallel
             !$omp do schedule(runtime) private(freshwaterFlux, heatFlux)
             do iCell = 1, nCells
-               if (landIceFloatingMask(iCell) == 0) cycle
+               if (landIceFloatingMask(iCell) == 0) then
+                  ! no fluxes where the ice is grounded (see below)
+                  landIceFreshwaterFlux(iCell) = 0.0_RKIND
+                  landIceHeatFlux(iCell) = 0.0_RKIND
+                  heatFluxToLandIce(iCell) = 0.0_RKIND
+                  cycle
+               end if
 
                ! linearized equaiton for the S and p dependent potential freezing temperature
                landIceInterfaceTracers(indexIT,iCell) = ocn_freezing_temperature( &
@@ -679,7 +685,15 @@ contains
 
             ! modulate the fluxes by the landIceFloatingFraction
             do iCell = 1, nCells
-               if (landIceFloatingMask(iCell) == 0) cycle
+               if (landIceFloatingMask(iCell) == 0) then
+                  ! no fluxes where the ice is grounded.  With wetting and
+                  ! drying, the floating mask changes in time, so this also
+                  ! clears fluxes left from before a cell grounded.
+                  landIceFreshwaterFlux(iCell) = 0.0_RKIND
+                  landIceHeatFlux(iCell) = 0.0_RKIND
+                  heatFluxToLandIce(iCell) = 0.0_RKIND
+                  cycle
+               end if
 
                landIceFreshwaterFlux(iCell) = landIceFloatingFraction(iCell)*landIceFreshwaterFlux(iCell)
                landIceHeatFlux(iCell) = landIceFloatingFraction(iCell)*landIceHeatFlux(iCell)
