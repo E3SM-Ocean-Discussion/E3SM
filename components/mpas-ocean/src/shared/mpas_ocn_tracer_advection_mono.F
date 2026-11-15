@@ -688,11 +688,11 @@ module ocn_tracer_advection_mono
            kmin = minLevelCell(iCell)
            kmax = maxLevelCell(iCell)
 
-           ! take care of top cell
-           tracerMax(kmin,iCell) = max(tracerCur(1,iCell), &
-                                       tracerCur(2,iCell))
-           tracerMin(kmin,iCell) = min(tracerCur(1,iCell), &
-                                       tracerCur(2,iCell))
+           ! take care of top cell (a single-layer column has no neighbor)
+           tracerMax(kmin,iCell) = max(tracerCur(kmin,iCell), &
+                                       tracerCur(min(kmin+1,kmax),iCell))
+           tracerMin(kmin,iCell) = min(tracerCur(kmin,iCell), &
+                                       tracerCur(min(kmin+1,kmax),iCell))
            do k=kmin+1,kmax-1
               tracerMax(k,iCell) = max(tracerCur(k-1,iCell), &
                                        tracerCur(k  ,iCell), &
@@ -703,9 +703,9 @@ module ocn_tracer_advection_mono
            end do
            ! finish with bottom cell
            tracerMax(kmax,iCell) = max(tracerCur(kmax  ,iCell), &
-                                       tracerCur(kmax-1,iCell))
+                                       tracerCur(max(kmax-1,kmin),iCell))
            tracerMin(kmax,iCell) = min(tracerCur(kmax  ,iCell), &
-                                       tracerCur(kmax-1,iCell))
+                                       tracerCur(max(kmax-1,kmin),iCell))
         end do ! cell loop
 #ifndef MPAS_OPENACC
         !$omp end do
