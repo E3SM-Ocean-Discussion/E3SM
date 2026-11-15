@@ -637,7 +637,17 @@ contains
 
    end subroutine ocn_wetting_velocity_factor_on_cell_edges!}}}
 
-   subroutine ocn_wetting_drying_update_land_ice(landIceFloatingMask, landIceFloatingFraction, err)
+   subroutine ocn_wetting_drying_update_land_ice(landIceMask, landIceFloatingMask, &
+                                                 landIceFloatingFraction, err)
+
+      !-----------------------------------------------------------------
+      !
+      ! input variables
+      !
+      !-----------------------------------------------------------------
+
+      integer, dimension(:), intent(in) :: &
+         landIceMask             !< Input: mask indicating where land ice is present
 
       !-----------------------------------------------------------------
       !
@@ -674,7 +684,9 @@ contains
       !$omp parallel
       !$omp do schedule(runtime)
       do iCell = 1, nCellsAll
-         if (landIceDraftForSsh(iCell) < -bottomDepth(iCell)) then
+         ! ice can only float where there is land ice
+         if ((landIceMask(iCell) == 0) .or. &
+             (landIceDraftForSsh(iCell) < -bottomDepth(iCell))) then
             landIceFloatingMask(iCell) = 0
             landIceFloatingFraction(iCell) = 0.0_RKIND
          else
