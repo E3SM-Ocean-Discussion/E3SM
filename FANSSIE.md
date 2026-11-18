@@ -20,7 +20,7 @@ Base: E3SM master `6816738295` (2026-10-15).
 | New land-ice melt equations and options | cbegeman:ocn/modify-land-ice-melt-equations | E3SM#8047 |
 | Fixes for E3SM#8047 | xylar:ocn/modify-land-ice-melt-equations-fixes | suggested for cherry-picking on E3SM#8047; not in it yet |
 | Two-way land-ice coupling in driver-moab | E3SM-Project:rljacob/mbcpl/port-mali | E3SM#8661 |
-| Ice-shelf melt coupling between MPAS-Ocean and MALI, including the three rows above | xylar:ocn-glc/ice-shelf-melt-coupling | E3SM#8887, rebased onto master on 2026-11-06; FAnSSIE has the pre-rebase commits (`456d451074`) |
+| Ice-shelf melt coupling between MPAS-Ocean and MALI, including the three rows above | xylar:ocn-glc/ice-shelf-melt-coupling | E3SM#8887, rebased onto master on 2026-11-18 (head `2ea00a926c`), with 162, 163, 166, 172, 179, 181 and 193; FAnSSIE has the pre-rebase commits (`456d451074`) |
 | Wetting and drying with RK4 and a subglacial thin film | cbegeman:ocn/limit-grounded-land-ice-pressure | E3SM-Ocean-Discussion#119 |
 | Copy land-ice pressure only over nCellsAll, a fix for E3SM-Ocean-Discussion#119 | `26fb0b6bed` from xylar:ocn/thin-film-wetting-drying, cherry-picked | suggested on E3SM-Ocean-Discussion#119; not in it yet |
 | Zero land-ice fluxes where the ice is grounded | xylar:ocn/fix-land-ice-fluxes-in-grounded-cells | E3SM-Ocean-Discussion#141 |
@@ -39,24 +39,24 @@ Base: E3SM master `6816738295` (2026-10-15).
 | Add wetting and drying and tidal forcing to E3SM's MPAS-Ocean | xylar:ocn/wetting-drying-tidal-forcing-in-e3sm (E3SM-Ocean-Discussion#159, merged as `5431b386d1`) | none yet |
 | Keep the input floating fraction with wetting and drying | xylar:ocn/keep-floating-fraction-with-wetting-drying (E3SM-Ocean-Discussion#160, merged as `f1bf51f815`) | none yet |
 | Let case variables name MPAS-Ocean's input files | xylar:ocn/inputs-named-by-case-variables (E3SM-Ocean-Discussion#161, merged as `ca14c03594`) | none yet |
-| Add an option that keeps glc's runoff out of the ocean | xylar:cpl/glc-runoff-to-ocean-option (E3SM-Ocean-Discussion#162, merged as `07136f62cf`) | none yet |
-| Conserve glc-ocean fluxes under ice shelves and without an atmosphere | xylar:cpl/ocean-coupler-areas-from-glc-map (E3SM-Ocean-Discussion#163, merged as `4bb91b23e3`); needs E3SM-Ocean-Discussion#162 | none yet |
+| Add an option that keeps glc's runoff out of the ocean | xylar:cpl/glc-runoff-to-ocean-option (E3SM-Ocean-Discussion#162, merged as `07136f62cf`) | E3SM#8887 (`3110f4572f`) |
+| Conserve glc-ocean fluxes under ice shelves and without an atmosphere | xylar:cpl/ocean-coupler-areas-from-glc-map (E3SM-Ocean-Discussion#163, merged as `4bb91b23e3`); needs E3SM-Ocean-Discussion#162 | E3SM#8887 (`3e5c914877`, `1399560f1d`) |
 | Apply the grounded-ice pressure cap in one threaded loop, a fix for E3SM-Ocean-Discussion#119 | xylar:ocn/thread-safe-land-ice-pressure-cap (E3SM-Ocean-Discussion#164, merged as `771214f3f7`) | suggested for E3SM-Ocean-Discussion#119; not in it yet |
 | Convert land-ice pressure to depth with one ocean density, a fix for E3SM-Ocean-Discussion#119 | xylar:ocn/land-ice-pressure-cap-ocean-density (E3SM-Ocean-Discussion#165, merged as `059ee8fa41`); needs E3SM-Ocean-Discussion#164 | suggested for E3SM-Ocean-Discussion#119; not in it yet |
-| Update the land-ice mask from the ice fraction during a run | xylar:ocn/land-ice-mask-from-fraction (E3SM-Ocean-Discussion#166, merged as `76001323e6`) | none yet |
+| Update the land-ice mask from the ice fraction during a run | xylar:ocn/land-ice-mask-from-fraction (E3SM-Ocean-Discussion#166, merged as `76001323e6`) | E3SM#8887 (`786a8e42eb`, `0cdbd3c295`) |
 | Write the land-ice geometry to monthly means when coupled to glc | xylar:ocn/land-ice-geometry-in-monthly-means (E3SM-Ocean-Discussion#167, merged as `bf0c452408`) | none yet |
 | Make MALI's data-mode export follow its thickness file | xylar:mali/update-masks-after-data-mode-read (E3SM-Ocean-Discussion#168, merged as `62ef616442`) | MALI-Dev/E3SM#216 |
 | Skip frazil and melt where glc has too little floating ice to receive them | xylar:ocn/skip-frazil-without-glc-floating-ice (E3SM-Ocean-Discussion#169, merged as `3022261e84`) | none yet |
 | Treat slivers of imported land ice as open ocean | xylar:ocn/ignore-tiny-glc-ice-fractions (E3SM-Ocean-Discussion#170, merged as `a9d9e2ff64`); needs E3SM-Ocean-Discussion#169 | none yet |
 | Take the heat capacity of land ice from E3SM's constants, as MALI does | xylar:ocn/land-ice-heat-capacity-matches-mali (E3SM-Ocean-Discussion#171, merged as `9f52dc417d`) | none yet |
-| Book the enthalpy of ice-shelf water in glc's heat budget | xylar:cpl/ice-enthalpy-in-glc-heat-budget (E3SM-Ocean-Discussion#172, merged as `7611b2feca`) | none yet |
+| Book the enthalpy of ice-shelf water in glc's heat budget | xylar:cpl/ice-enthalpy-in-glc-heat-budget (E3SM-Ocean-Discussion#172, merged as `7611b2feca`) | E3SM#8887 (`7cd7a5a847`, `63ff7a6949`) |
 | Melt in thin-film cells under glc's floating ice | xylar:ocn/thin-film-melt-under-glc-floating-ice (E3SM-Ocean-Discussion#173, merged as `609a726fb9`) | none yet |
 | Let a case variable set MALI's data-mode reference time | xylar:landice/data-mode-reference-time (E3SM-Ocean-Discussion#174, merged as `2bb65b8d15`); needs E3SM-Ocean-Discussion#157 | MALI-Dev/E3SM#219 |
 | Split the PV-flux Coriolis form between the split integrators' modes, behind `config_split_pv_coriolis` (default off) | xylar:se-pv-coriolis (E3SM-Ocean-Discussion#176, merged as `50788758b0`) | E3SM-Ocean-Discussion#177 (for discussion, against master) |
 | Skip MALI's ocean thermal-forcing fields when their packages are off | xylar:landice/skip-inactive-thermal-forcing-fields (E3SM-Ocean-Discussion#178, merged as `5beb3f4f34`) | MALI-Dev/E3SM#219 (second commit) |
 | Let E3SM namelists set `config_split_pv_coriolis` | xylar:se-pv-coriolis (E3SM-Ocean-Discussion#180, merged as `83956f591f`); needs E3SM-Ocean-Discussion#176 | E3SM-Ocean-Discussion#177 (second commit; for discussion, against master) |
-| Let a case map glc's ice-shelf geometry to the ocean with its own map, `GLC2OCN_SHELF_SMAPNAME` (MCT driver; default the flux map) | xylar:cpl/smoothed-glc-geometry-map (E3SM-Ocean-Discussion#179, merged as `46549a6b31`) | none yet |
-| Ramp the land-ice pressure MPAS-Ocean imports from glc over each glc coupling interval, behind `config_glc_ice_shelf_coupling_ramp_land_ice_pressure` (default off) | xylar:ocn-glc/ramp-land-ice-pressure (E3SM-Ocean-Discussion#181, merged as `9d52375cfa`) | none yet |
+| Let a case map glc's ice-shelf geometry to the ocean with its own map, `GLC2OCN_SHELF_SMAPNAME` (MCT driver; default the flux map) | xylar:cpl/smoothed-glc-geometry-map (E3SM-Ocean-Discussion#179, merged as `46549a6b31`) | E3SM#8887 (`33c90dbe1d`) |
+| Ramp the land-ice pressure MPAS-Ocean imports from glc over each glc coupling interval, behind `config_glc_ice_shelf_coupling_ramp_land_ice_pressure` (default off) | xylar:ocn-glc/ramp-land-ice-pressure (E3SM-Ocean-Discussion#181, merged as `9d52375cfa`) | E3SM#8887 (`a199457173`) |
 | Rebuild MALI's FEM grid only when its masks change; `config_always_compute_fem_grid` now defaults to `.false.` | xylar:mali/fix-fem-grid-rebuild-check-fanssie, the commits of MALI-Dev/E3SM#211 cherry-picked (E3SM-Ocean-Discussion#182, merged as `8ad4a25be0`) | MALI-Dev/E3SM#211 |
 | Merge MALI-Dev's `develop` at `10664726d3` (2026-11-07) | MALI-Dev:develop via xylar:mali/merge-mali-dev-develop-2026-11-07 (E3SM-Ocean-Discussion#183, merged as `7f3288a4a9`) | E3SM#9149 |
 | Add `normalLayerThicknessFlux`, the thickness flux the integrator applies, for exact mean transports, behind `config_compute_normal_layer_thickness_flux` (default off) | xylar:ocn/add-normal-layer-thickness-flux (E3SM-Ocean-Discussion#184, merged as `c77fad6d3b`) | none yet |
@@ -66,7 +66,7 @@ Base: E3SM master `6816738295` (2026-10-15).
 | Update the Physical Constants Dictionary to 0.3.0, which Polaris main requires | E3SM master's `1f86b72890` and `e15d4e6995` cherry-picked, via xylar:ocn/update-pcd-to-0.3.0-fanssie (E3SM-Ocean-Discussion#188, merged as `256d1c6d19`) | already on E3SM master |
 | Add an option (`config_thin_film_cap_inflow_thickness`, off by default) to cap the flux thickness of inflow into thin wetting-and-drying columns, whose upwind value drove jets through films opening at the grounding line | xylar:ocn/cap-thin-film-inflow-flux-thickness (E3SM-Ocean-Discussion#189, merged as `541e83b42d`) | none yet (branch is on E3SM master's history) |
 | Renormalize the vertical distribution of surface fluxes (and of subglacial runoff) over each column, instead of putting what would pass below the sea floor into the bottom layer, which in thin columns under ice shelves made frazil and concentrated salt | xylar:ocn/renormalize-surface-flux-absorption (E3SM-Ocean-Discussion#190, merged as `7b66c46036`) | none yet (branch is on E3SM master's history) |
-| Add the case variable `GLC2OCN_SHELF_MASK` (`below_sea_level` by default, bit-for-bit); `ungrounded` leaves grounded ice out of MALI's ice-shelf geometry export, to match an ocean initial condition that averages over floating ice only | xylar:cpl/glc2ocn-shelf-mask (E3SM-Ocean-Discussion#193, merged as `82f0e06056`) | suggested for cherry-picking on E3SM#8887; not in it yet |
+| Add the case variable `GLC2OCN_SHELF_MASK` (`below_sea_level` by default, bit-for-bit); `ungrounded` leaves grounded ice out of MALI's ice-shelf geometry export, to match an ocean initial condition that averages over floating ice only | xylar:cpl/glc2ocn-shelf-mask (E3SM-Ocean-Discussion#193, merged as `82f0e06056`) | E3SM#8887 (`2ea00a926c`) |
 
 ## Plan for E3SM pull requests
 
