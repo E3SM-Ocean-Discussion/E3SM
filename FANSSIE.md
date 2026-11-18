@@ -66,6 +66,7 @@ Base: E3SM master `6816738295` (2026-10-15).
 | Update the Physical Constants Dictionary to 0.3.0, which Polaris main requires | E3SM master's `1f86b72890` and `e15d4e6995` cherry-picked, via xylar:ocn/update-pcd-to-0.3.0-fanssie (E3SM-Ocean-Discussion#188, merged as `256d1c6d19`) | already on E3SM master |
 | Add an option (`config_thin_film_cap_inflow_thickness`, off by default) to cap the flux thickness of inflow into thin wetting-and-drying columns, whose upwind value drove jets through films opening at the grounding line | xylar:ocn/cap-thin-film-inflow-flux-thickness (E3SM-Ocean-Discussion#189, merged as `541e83b42d`) | none yet (branch is on E3SM master's history) |
 | Renormalize the vertical distribution of surface fluxes (and of subglacial runoff) over each column, instead of putting what would pass below the sea floor into the bottom layer, which in thin columns under ice shelves made frazil and concentrated salt | xylar:ocn/renormalize-surface-flux-absorption (E3SM-Ocean-Discussion#190, merged as `7b66c46036`) | none yet (branch is on E3SM master's history) |
+| Add the case variable `GLC2OCN_SHELF_MASK` (`below_sea_level` by default, bit-for-bit); `ungrounded` leaves grounded ice out of MALI's ice-shelf geometry export, to match an ocean initial condition that averages over floating ice only | xylar:cpl/glc2ocn-shelf-mask (E3SM-Ocean-Discussion#193, merged as `82f0e06056`) | suggested for cherry-picking on E3SM#8887; not in it yet |
 
 ## Plan for E3SM pull requests
 
