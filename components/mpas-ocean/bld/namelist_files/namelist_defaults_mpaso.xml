@@ -444,6 +444,7 @@
 <config_glc_ice_shelf_coupling_ramp_land_ice_pressure>.false.</config_glc_ice_shelf_coupling_ramp_land_ice_pressure>
 <config_glc_ice_shelf_coupling_interval>0</config_glc_ice_shelf_coupling_interval>
 <config_glc_ice_shelf_coupling_min_floating_fraction>1.0e-3</config_glc_ice_shelf_coupling_min_floating_fraction>
+<config_glc_ice_shelf_coupling_cap_melt>.false.</config_glc_ice_shelf_coupling_cap_melt>
 
 <!-- shortwaveRadiation -->
 <config_sw_absorption_type>'jerlov'</config_sw_absorption_type>

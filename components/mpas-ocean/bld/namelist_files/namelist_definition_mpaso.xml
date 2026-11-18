@@ -1528,6 +1528,14 @@ Valid values: Any real number between 0 and 1
 Default: Defined in namelist_defaults.xml
 </entry>
 
+<entry id="config_glc_ice_shelf_coupling_cap_melt" type="logical"
+	category="coupling" group="coupling">
+If .true. and config_glc_ice_shelf_coupling is .true., the ocean melts at most the floating ice GLC makes available.  GLC sends the mass of its floating ice up to a reference thickness after each GLC coupling interval, and the ocean limits its cumulative melt in each cell to that mass until GLC sends the next.  Heat the ocean does not use for melt stays in the ocean.  The ocean sends the fraction of the available ice it melted, which GLC removes at the start of its next interval, and sends only refreezing and frazil as a net ice-shelf melt flux.  GLC must set config_ocean_melt_fraction_coupling to the same value.
+
+Valid values: .true. or .false.
+Default: Defined in namelist_defaults.xml
+</entry>
+
 
 <!-- shortwaveRadiation -->
 

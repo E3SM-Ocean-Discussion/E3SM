@@ -38,6 +38,8 @@ module mpaso_cpl_indices
   integer :: index_o2x_Foxo_ismf_frazil !frazil part of Foxo_ismf, for the coupler budgets
   integer :: index_o2x_So_tfrz_isf  !ice shelf-ocean interface temperature times So_liflfrac
   integer :: index_o2x_So_liflfrac  !floating fraction weighting the interface temperature
+  integer :: index_o2x_So_ismf_frac_pos !fraction of glc's available ice melted per second, positive-parity export
+  integer :: index_o2x_So_ismf_frac_neg !fraction of glc's available ice melted per second, negative-parity export
 
   integer :: index_o2x_So_tf3d(glc_nzoc_max) !ocean thermal forcing at predefined z-levels
   integer :: index_o2x_So_tf3d_mask(glc_nzoc_max) !mask ofocean thermal forcing at predefined z-levels
@@ -156,6 +158,8 @@ module mpaso_cpl_indices
   integer :: index_x2o_Sg_icemask_floating_fluxes
   integer :: index_x2o_Sg_below_sea_level_mask
   integer :: index_x2o_Fogg_hcond
+  integer :: index_x2o_Fogg_ismf_avail
+  integer :: index_x2o_Sg_ismf_parity
 
 
   ! drv -> ocn (BGC)
@@ -232,6 +236,8 @@ contains
     index_o2x_Foxo_ismf_frazil = mct_avect_indexra(o2x,'Foxo_ismf_frazil',perrWith='quiet')
     index_o2x_So_tfrz_isf   = mct_avect_indexra(o2x,'So_tfrz_isf',perrWith='quiet')
     index_o2x_So_liflfrac   = mct_avect_indexra(o2x,'So_liflfrac',perrWith='quiet')
+    index_o2x_So_ismf_frac_pos = mct_avect_indexra(o2x,'So_ismf_frac_pos',perrWith='quiet')
+    index_o2x_So_ismf_frac_neg = mct_avect_indexra(o2x,'So_ismf_frac_neg',perrWith='quiet')
 
     if (glc_nzoc > 0) then
        do iLev = 1, glc_nzoc
@@ -350,6 +356,9 @@ contains
     index_x2o_Sg_icemask_floating_fluxes = mct_avect_indexra(x2o,'Sg_icemask_floating_fluxes',perrWith='quiet')
     index_x2o_Sg_below_sea_level_mask = mct_avect_indexra(x2o,'Sg_below_sea_level_mask')
     index_x2o_Fogg_hcond = mct_avect_indexra(x2o,'Fogg_hcond')
+    ! only driver-mct, which supports ice-shelf coupling, provides these fields
+    index_x2o_Fogg_ismf_avail = mct_avect_indexra(x2o,'Fogg_ismf_avail',perrWith='quiet')
+    index_x2o_Sg_ismf_parity = mct_avect_indexra(x2o,'Sg_ismf_parity',perrWith='quiet')
 
     if (wav_ocn_coup == 'twoway') then
        index_x2o_Sw_ustokes_wavenumber_1 = mct_avect_indexra(x2o,'Sw_ustokes_wavenumber_1')
