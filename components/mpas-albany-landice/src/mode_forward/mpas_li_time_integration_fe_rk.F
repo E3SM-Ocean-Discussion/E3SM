@@ -114,6 +114,8 @@ module li_time_integration_fe_rk
       logical, pointer :: config_restore_calving_front, &
                           config_restore_calving_front_prevent_retreat
       logical, pointer :: config_calculate_damage
+      logical, pointer :: config_ocean_melt_fraction_coupling
+      real (kind=RKIND), dimension(:), pointer :: oceanMeltRemovalPending
       logical, pointer :: config_finalize_damage_after_advection
       logical, pointer :: config_update_velocity_before_calving
       character (len=StrKIND), pointer :: config_thickness_advection, &
@@ -317,6 +319,15 @@ module li_time_integration_fe_rk
       ! to preserve the accuracy of time integration.
       call li_calculate_mask(meshPool, velocityPool, geometryPool, err_tmp)
       err = ior(err, err_tmp)
+      ! In the coupling interval's first time step, remove the ice the ocean
+      ! melted over the last interval.  This comes after the masks are
+      ! computed, so the velocity solves within the RK loop use the same
+      ! masks as the previous step's final solve, and before the fields are
+      ! saved, because the SSP RK stages blend the saved thickness back in.
+      if (li_ocean_melt_removal_requested) then
+         call apply_ocean_melt_removal(domain, err_tmp)
+         err = ior(err, err_tmp)
+      endif
       ! Save relevant fields before RK loop, to be used in update at the end
       temperaturePrev(:,:) = temperature(:,:)
       waterFracPrev(:,:) = waterFrac(:,:)
@@ -586,6 +597,15 @@ module li_time_integration_fe_rk
       basalMassBalApplied(:) = basalMassBalAccum(:)
       groundedBasalMassBalApplied(:) = groundedBasalMassBalAccum(:)
       floatingBasalMassBalApplied(:) = floatingBasalMassBalAccum(:)
+      ! the ice the ocean melted, removed at the start of the coupling
+      ! interval, counts in the interval's first time step
+      call mpas_pool_get_config(liConfigs, 'config_ocean_melt_fraction_coupling', config_ocean_melt_fraction_coupling)
+      if (config_ocean_melt_fraction_coupling) then
+         call mpas_pool_get_array(geometryPool, 'oceanMeltRemovalPending', oceanMeltRemovalPending)
+         basalMassBalApplied(:) = basalMassBalApplied(:) - oceanMeltRemovalPending(:) / deltatFull
+         floatingBasalMassBalApplied(:) = floatingBasalMassBalApplied(:) - oceanMeltRemovalPending(:) / deltatFull
+         oceanMeltRemovalPending(:) = 0.0_RKIND
+      endif
       fluxAcrossGroundingLine(:) = fluxAcrossGroundingLineAccum(:)
       fluxAcrossGroundingLineOnCells(:) = fluxAcrossGroundingLineOnCellsAccum(:)
       calvingThickness(:) = calvingThicknessAccum(:)
@@ -1692,6 +1712,87 @@ module li_time_integration_fe_rk
 
    !--------------------------------------------------------------------
     end subroutine advance_clock
+
+
+!***********************************************************************
+!
+!  routine apply_ocean_melt_removal
+!
+!> \brief   Removes the ice the ocean melted over the last coupling interval
+!> \details
+!>  Removes oceanMeltRemovalRequest from the base of each column, records
+!>  the removed mass in oceanMeltRemovalPending (added to the applied basal
+!>  mass balance at the end of the step) and any shortfall, updates halos
+!>  and writes the totals to the log.  Masks are not recomputed here.
+!-----------------------------------------------------------------------
+   subroutine apply_ocean_melt_removal(domain, err)
+
+      type (domain_type), intent(inout) :: domain
+      integer, intent(out) :: err
+
+      type (block_type), pointer :: block
+      type (mpas_pool_type), pointer :: meshPool, geometryPool, thermalPool, scratchPool
+      real (kind=RKIND), dimension(:), pointer :: oceanMeltRemovalRequest, &
+                                                  oceanMeltRemovedThickness, &
+                                                  oceanMeltShortfallThickness, &
+                                                  oceanMeltRemovalPending, areaCell
+      real (kind=RKIND), pointer :: config_ice_density
+      integer, pointer :: nCellsSolve
+      real (kind=RKIND), dimension(3) :: localSums, globalSums
+      character (len=StrKIND) :: message
+      integer :: i, err_tmp
+
+      err = 0
+      localSums(:) = 0.0_RKIND
+      call mpas_pool_get_config(liConfigs, 'config_ice_density', config_ice_density)
+
+      block => domain % blocklist
+      do while (associated(block))
+         call mpas_pool_get_subpool(block % structs, 'mesh', meshPool)
+         call mpas_pool_get_subpool(block % structs, 'geometry', geometryPool)
+         call mpas_pool_get_subpool(block % structs, 'thermal', thermalPool)
+         call mpas_pool_get_subpool(block % structs, 'scratch', scratchPool)
+         call mpas_pool_get_dimension(meshPool, 'nCellsSolve', nCellsSolve)
+         call mpas_pool_get_array(meshPool, 'areaCell', areaCell)
+         call mpas_pool_get_array(geometryPool, 'oceanMeltRemovalRequest', oceanMeltRemovalRequest)
+         call mpas_pool_get_array(geometryPool, 'oceanMeltRemovedThickness', oceanMeltRemovedThickness)
+         call mpas_pool_get_array(geometryPool, 'oceanMeltShortfallThickness', oceanMeltShortfallThickness)
+         call mpas_pool_get_array(geometryPool, 'oceanMeltRemovalPending', oceanMeltRemovalPending)
+
+         call li_advection_remove_basal_ice(meshPool, geometryPool, thermalPool, scratchPool, &
+                                            oceanMeltRemovalRequest, oceanMeltRemovedThickness, err_tmp)
+         err = ior(err, err_tmp)
+
+         oceanMeltShortfallThickness(:) = oceanMeltRemovalRequest(:) - oceanMeltRemovedThickness(:)
+         oceanMeltRemovalPending(:) = config_ice_density * oceanMeltRemovedThickness(:)
+         do i = 1, nCellsSolve
+            localSums(1) = localSums(1) + areaCell(i) * config_ice_density * oceanMeltRemovalRequest(i)
+            localSums(2) = localSums(2) + areaCell(i) * config_ice_density * oceanMeltRemovedThickness(i)
+            localSums(3) = localSums(3) + areaCell(i) * config_ice_density * oceanMeltShortfallThickness(i)
+         end do
+         oceanMeltRemovalRequest(:) = 0.0_RKIND
+
+         block => block % next
+      end do
+
+      call mpas_dmpar_sum_real_array(domain % dminfo, 3, localSums, globalSums)
+      write(message, '(a,es24.16,a,es24.16,a,es24.16)') &
+         'Ocean melt removed (kg): requested ', globalSums(1), &
+         ', removed ', globalSums(2), ', shortfall ', globalSums(3)
+      call mpas_log_write(trim(message))
+
+      ! the thickness and tracers changed on owned cells
+      call mpas_dmpar_field_halo_exch(domain, 'thickness')
+      call mpas_dmpar_field_halo_exch(domain, 'layerThickness')
+      call mpas_dmpar_field_halo_exch(domain, 'temperature')
+      call mpas_dmpar_field_halo_exch(domain, 'waterFrac')
+      call mpas_dmpar_field_halo_exch(domain, 'enthalpy')
+      call mpas_dmpar_field_halo_exch(domain, 'damage')
+      call mpas_dmpar_field_halo_exch(domain, 'passiveTracer2d')
+
+      li_ocean_melt_removal_requested = .false.
+
+   end subroutine apply_ocean_melt_removal
 
 
 end module li_time_integration_fe_rk

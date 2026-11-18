@@ -1017,6 +1017,22 @@ Valid values: Any real value between 0 and 1
 Default: Defined in namelist_defaults.xml
 </entry>
 
+<entry id="config_ocean_melt_fraction_coupling" type="logical"
+	category="iceshelf_melt" group="iceshelf_melt">
+If .true., the ocean (MPAS-Ocean in E3SM) melts at most the floating ice MALI makes available.  After each coupling interval, MALI sends the mass of each floating cell's ice up to config_ocean_melt_reference_thickness.  The ocean sends back the fraction of that ice it melted, and MALI removes that fraction of the thickness it sent from the base of each cell in the first time step of its next coupling interval, after that step's masks are set.  Refreezing and frazil still arrive as floatingBasalMassBal.  Requires the fields oceanCoverageFraction and oceanMapRowSum, and the ocean's config_glc_ice_shelf_coupling_cap_melt must have the same value.
+
+Valid values: .true. or .false.
+Default: Defined in namelist_defaults.xml
+</entry>
+
+<entry id="config_ocean_melt_reference_thickness" type="real"
+	category="iceshelf_melt" group="iceshelf_melt">
+If config_ocean_melt_fraction_coupling is .true., the thickness up to which MALI makes each floating cell's ice available for the ocean to melt.  It must exceed the largest melt in one coupling interval, so that melt under thicker ice is not limited.
+
+Valid values: Any positive real value
+Default: Defined in namelist_defaults.xml
+</entry>
+
 
 <!-- physical_parameters -->
 

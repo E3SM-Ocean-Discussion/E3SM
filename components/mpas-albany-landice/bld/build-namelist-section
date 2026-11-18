@@ -146,6 +146,8 @@ add_default($nl, 'config_invalid_value_TF');
 add_default($nl, 'config_weight_value_cell');
 add_default($nl, 'config_invalid_value_ocn_intr_temp');
 add_default($nl, 'config_min_floating_frac');
+add_default($nl, 'config_ocean_melt_fraction_coupling');
+add_default($nl, 'config_ocean_melt_reference_thickness');
 
 #######################################
 # Namelist group: physical_parameters #

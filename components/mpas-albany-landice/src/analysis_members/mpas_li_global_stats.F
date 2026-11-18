@@ -177,6 +177,8 @@ contains
       real (kind=RKIND), dimension(:), pointer ::  basalMassBalApplied
       real (kind=RKIND), dimension(:), pointer ::  groundedBasalMassBalApplied
       real (kind=RKIND), dimension(:), pointer ::  floatingBasalMassBalApplied
+      real (kind=RKIND), dimension(:), pointer ::  oceanMeltShortfallThickness
+      integer, dimension(:), pointer :: oceanMeltFullRemovalMask
       real (kind=RKIND), dimension(:), pointer ::  calvingThickness
       real (kind=RKIND), dimension(:), pointer ::  calvingThicknessGrounded
       real (kind=RKIND), dimension(:), pointer ::  faceMeltingThickness
@@ -219,6 +221,7 @@ contains
       real (kind=RKIND), pointer ::  totalGroundedSfcMassBal, totalFloatingSfcMassBal
       real (kind=RKIND), pointer ::  totalFaceMeltingFlux
       real (kind=RKIND), pointer ::  totalGroundedBasalMassBal, totalFloatingBasalMassBal
+      real (kind=RKIND), pointer ::  totalOceanMeltShortfall, oceanMeltFullRemovalCount
       real (kind=RKIND), pointer ::  avgNetAccumulation
       real (kind=RKIND), pointer ::  avgGroundedBasalMelt
       real (kind=RKIND), pointer ::  avgSubshelfMelt
@@ -249,6 +252,7 @@ contains
       real (kind=RKIND) ::  blockSumSfcMassBal, blockSumBasalMassBal
       real (kind=RKIND) ::  blockSumGroundedSfcMassBal, blockSumFloatingSfcMassBal
       real (kind=RKIND) ::  blockSumGroundedBasalMassBal, blockSumFloatingBasalMassBal
+      real (kind=RKIND) ::  blockSumOceanMeltShortfall, blockSumOceanMeltFullRemoval
       real (kind=RKIND) ::  blockSumCalvingFlux
       real (kind=RKIND) ::  blockSumCalvingFluxGrounded
       real (kind=RKIND) ::  blockSumFaceMeltingFlux
@@ -294,6 +298,8 @@ contains
       blockSumBasalMassBal = 0.0_RKIND
       blockSumGroundedBasalMassBal = 0.0_RKIND
       blockSumFloatingBasalMassBal = 0.0_RKIND
+      blockSumOceanMeltShortfall = 0.0_RKIND
+      blockSumOceanMeltFullRemoval = 0.0_RKIND
       blockSumCalvingFlux = 0.0_RKIND
       blockSumCalvingFluxGrounded = 0.0_RKIND
       blockSumFaceMeltingFlux = 0.0_RKIND
@@ -350,6 +356,8 @@ contains
          call mpas_pool_get_array(geometryPool, 'basalMassBalApplied', basalMassBalApplied)
          call mpas_pool_get_array(geometryPool, 'groundedBasalMassBalApplied', groundedBasalMassBalApplied)
          call mpas_pool_get_array(geometryPool, 'floatingBasalMassBalApplied', floatingBasalMassBalApplied)
+         call mpas_pool_get_array(geometryPool, 'oceanMeltShortfallThickness', oceanMeltShortfallThickness)
+         call mpas_pool_get_array(geometryPool, 'oceanMeltFullRemovalMask', oceanMeltFullRemovalMask)
          call mpas_pool_get_array(geometryPool, 'calvingThickness', calvingThickness)
          call mpas_pool_get_array(geometryPool, 'calvingThicknessGrounded', calvingThicknessGrounded)
          call mpas_pool_get_array(geometryPool, 'faceMeltingThickness', faceMeltingThickness)
@@ -418,6 +426,11 @@ contains
             blockSumBasalMassBal = blockSumBasalMassBal + areaCell(iCell) * basalMassBalApplied(iCell) * scyr
             blockSumGroundedBasalMassBal = blockSumGroundedBasalMassBal + areaCell(iCell) * groundedBasalMassBalApplied(iCell) * scyr
             blockSumFloatingBasalMassBal = blockSumFloatingBasalMassBal + areaCell(iCell) * floatingBasalMassBalApplied(iCell) * scyr
+
+            ! ocean melt MALI could not remove (kg) and cells where the reference
+            ! thickness was too small, at the start of the coupling interval
+            blockSumOceanMeltShortfall = blockSumOceanMeltShortfall + areaCell(iCell) * oceanMeltShortfallThickness(iCell) * rhoi
+            blockSumOceanMeltFullRemoval = blockSumOceanMeltFullRemoval + real(oceanMeltFullRemovalMask(iCell), RKIND)
 
             ! mass loss due do calving (kg yr^{-1})
             blockSumCalvingFlux = blockSumCalvingFlux + calvingThickness(iCell) * &
@@ -568,6 +581,9 @@ contains
       else
          nVars = 18
       endif
+      sums(nVars + 1) = blockSumOceanMeltShortfall
+      sums(nVars + 2) = blockSumOceanMeltFullRemoval
+      nVars = nVars + 2
 
       call mpas_dmpar_sum_real_array(dminfo, nVars, sums(1:nVars), reductions(1:nVars))
 
@@ -591,6 +607,8 @@ contains
          call mpas_pool_get_array(globalStatsAMPool, 'totalGroundedBasalMassBal', totalGroundedBasalMassBal)
          call mpas_pool_get_array(globalStatsAMPool, 'avgGroundedBasalMelt', avgGroundedBasalMelt)
          call mpas_pool_get_array(globalStatsAMPool, 'totalFloatingBasalMassBal', totalFloatingBasalMassBal)
+         call mpas_pool_get_array(globalStatsAMPool, 'totalOceanMeltShortfall', totalOceanMeltShortfall)
+         call mpas_pool_get_array(globalStatsAMPool, 'oceanMeltFullRemovalCount', oceanMeltFullRemovalCount)
          call mpas_pool_get_array(globalStatsAMPool, 'avgSubshelfMelt', avgSubshelfMelt)
          call mpas_pool_get_array(globalStatsAMPool, 'totalCalvingFlux', totalCalvingFlux)
          call mpas_pool_get_array(globalStatsAMPool, 'totalCalvingFluxGrounded', totalCalvingFluxGrounded)
@@ -642,6 +660,8 @@ contains
             totalChnlWaterFluxTerrestrialMargin = reductions(28)
             totalFlotationFraction = reductions(29)
          endif
+         totalOceanMeltShortfall = reductions(nVars - 1)
+         oceanMeltFullRemovalCount = reductions(nVars)
 
          if (totalIceArea > 0.0_RKIND) then
             iceThicknessMean = totalIceVolume / totalIceArea
