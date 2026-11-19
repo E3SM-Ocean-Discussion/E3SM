@@ -1106,21 +1106,17 @@
 					description="If frazil formation is used, controls if frazil fluxes are computed under land ice."
 					possible_values=".true. or .false."
 		/>
-		<nml_option name="config_frazil_heat_of_fusion" type="real" default_value="3.34e5" units="J kg^-1"
-					description="Energy per kilogram released when sea water freezes. NOTE: test and make consistent with E3SM."
-					possible_values="Any positive real number."
-		/>
 		<nml_option name="config_use_frazil_ice_porosity" type="logical" default_value=".false."
 					description="If true, use an internal porosity to set internal frazil salinity and that of specified passive tracers."
 					possible_values=".true. or .false."
 		/>
 		<nml_option name="config_frazil_ice_density" type="real" default_value="1000.0" units="kg m^-3"
-					description="Assumed density of frazil. NOTE: test and make consistent with E3SM."
+					description="Bulk frazil density when porosity is disabled. With porosity enabled, bulk density is calculated from porosity and the reference freshwater and seawater densities."
 					possible_values="Any positive real number."
 		/>
 		<nml_option name="config_frazil_ice_porosity" type="real" default_value="1.0" units="1"
-					description="If frazil porosity is used, sets the porosity of internal ocean frazil ice."
-					possible_values="Positive real number from 0 to 1"
+					description="If frazil porosity is used, sets the porewater fraction of freshwater-equivalent bulk frazil thickness."
+					possible_values="Real number from 0 inclusive to 1 exclusive"
 		/>
 		<nml_option name="config_frazil_fractional_thickness_limit" type="real" default_value="0.1" units="non-dimensional"
 					description="maximum fraction of layer thickness than can be used or created at an instant by frazil."
@@ -1131,7 +1127,7 @@
 					possible_values=".true. or .false."
 		/>
 		<nml_option name="config_expel_excess_frazil_salt" type="logical" default_value=".true."
-					description="If true, release frazil salt in the upper ocean layer in excess of the fixed salinity coupling assumption. False if using variable sea ice salinity coupling."
+					description="If true, release frazil salt in the upper ocean layer in excess of the fixed salinity coupling assumption. False if using variable sea ice salinity coupling. Under land ice, frazil salt is always released, regardless of this setting."
 					possible_values=".true. or .false."
 		/>
 		<nml_option name="config_specific_heat_sea_water" type="real" default_value="3985.0" units="J kg^-1 C^-1"
@@ -2305,7 +2301,6 @@
 			<var name="accumulatedFrazilIceMass"/>
 			<var name="accumulatedFrazilIceEnergy"/>
 			<var name="accumulatedFrazilIceSalinity"/>
-			<var name="accumulatedFrazilIceEnergy"/>
 			<var name="accumulatedLandIceMass"/>
 			<var name="accumulatedLandIceHeat"/>
 			<var name="accumulatedLandIceFrazilMass"/>
