@@ -177,21 +177,27 @@ Algorithm Design: Variable frazil salinity
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 With frazil porosity enabled (``config_use_frazil_ice_porosity = .true.``),
-the frazil salinity in each layer is
+the solid ice thickness is expressed as its freshwater-equivalent thickness
+using ``rho_fw``. Porewater is represented at ``rho_sw``, so the bulk density
+and frazil salinity in each layer are
 
 .. math::
 
-   S_{f,k} = \phi \, S_k,
+   \rho_f = (1-\phi)\rho_{fw} + \phi\rho_{sw}, \qquad
+   S_{f,k} = \frac{\phi\rho_{sw}}{\rho_f}\,C_S S_k,
 
-where :math:`\phi` (``config_frazil_ice_porosity``, between 0 and 1) is the
-frazil porosity and :math:`S_k` is the ocean salinity in layer :math:`k`.
-With porosity disabled, the frazil salinity is the fixed reference salinity
-:math:`S_{ref}` (``config_frazil_sea_ice_reference_salinity``), limited so
-that frazil does not take more salt than the layer contains:
+where :math:`\phi` (``config_frazil_ice_porosity``) is the porewater fraction
+of the freshwater-equivalent bulk thickness, :math:`S_k` is ocean salinity,
+and :math:`C_S` (``psu_to_g_per_kg``) converts ocean salinity to the frazil
+salinity convention. The valid range is :math:`0 \leq \phi < 1` because frazil
+must contain solid ice. With porosity disabled, the bulk and solid densities
+instead use ``config_frazil_ice_density``, and frazil salinity is the fixed
+reference salinity :math:`S_{ref}` (``config_frazil_sea_ice_reference_salinity``),
+limited so that frazil does not take more salt than the layer contains:
 
 .. math::
 
-   S_{f,k} = \min\left( S_{ref},\; S_k \right).
+   S_{f,k} = \min\left( S_{ref},\; C_S S_k \right).
 
 In the original fixed-salinity coupling, the sea ice assumes that new ice
 has salinity :math:`S_{ref}`. With porosity enabled, the ocean therefore
@@ -222,7 +228,7 @@ on melt, so salt is not conserved.
 
 Land-ice exception: frazil that forms under land ice (ice-shelf cavities) is
 not passed to the sea ice, and its salinity is assumed to be 0. With porosity
-on, however, the layer loop still removes salt :math:`\phi S_k` from the
+on, however, the layer loop still removes salt carried by porewater from the
 ocean as this frazil forms. To keep salt in the ocean, the expulsion step is
 always applied under land ice, regardless of
 ``config_expel_excess_frazil_salt``. Because the target salinity is 0 under
@@ -497,8 +503,9 @@ options, plus the following in ``user_nl_mpaso``:
    config_frazil_ice_porosity = 0.85
    config_expel_excess_frazil_salt = .false.
 
-A porosity below 1 is used so that the frazil salinity, :math:`0.85 \, S_k`,
-is lower than the ocean salinity. This exercises a variable frazil salinity
+A porosity below 1 ensures a positive solid ice fraction, so the resulting
+frazil salinity is lower than the ocean salinity in the same mass-salinity
+convention. This exercises a variable frazil salinity
 that differs from both the ocean salinity and the fixed reference salinity.
 
 The test uses the CRYO1850 compset, which has ice-shelf cavities with frazil

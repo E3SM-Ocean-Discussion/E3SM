@@ -1774,7 +1774,9 @@ Default: Defined in namelist_defaults.xml
 
 <entry id="config_frazil_ice_density" type="real"
 	category="frazil_ice" group="frazil_ice">
-Assumed density of frazil. NOTE: test and make consistent with E3SM.
+Bulk frazil density when porosity is disabled. With porosity enabled, bulk
+density is calculated from porosity and the reference freshwater and seawater
+densities.
 
 Valid values: Any positive real number.
 Default: Defined in namelist_defaults.xml
@@ -1782,9 +1784,10 @@ Default: Defined in namelist_defaults.xml
 
 <entry id="config_frazil_ice_porosity" type="real"
 	category="frazil_ice" group="frazil_ice">
-If frazil porosity is used, sets the porosity of internal ocean frazil ice.
+If frazil porosity is used, sets the porewater fraction of freshwater-equivalent
+bulk frazil thickness.
 
-Valid values: Positive real number from 0 to 1
+Valid values: Real number from 0 inclusive to 1 exclusive.
 Default: Defined in namelist_defaults.xml
 </entry>
 
