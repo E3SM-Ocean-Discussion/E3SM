@@ -1636,8 +1636,8 @@ contains
                   consistentSSH = .false.
 
                   call mpas_log_write( &
-                     ' Warning: Sea surface height outside of acceptable range (20m)', &
-                     MPAS_LOG_ERR)
+                     ' Warning: Sea surface height $r outside of acceptable range (20m)', &
+                     realArgs=(/ thickDepth - bottomDepth(iCell) /))
                   call mpas_log_write( &
                      ' iCell: $i, minLevelCell(iCell), maxLevelCell(iCell): $i, $i, bottomDepth(iCell): $r, sum(h): $r', &
                      intArgs=(/iCell, minLevelCell(iCell), maxLevelCell(iCell) /), &
@@ -1648,7 +1648,8 @@ contains
 
          if (.not. consistentSSH) call mpas_log_write( &
             'Warning: SSH not consistent - ' // &
-            'initial layerThickness does not match bottomDepth.')
+            'initial layerThickness does not match bottomDepth.', &
+            MPAS_LOG_ERR)
 
       endif ! config_check_ssh_consistency
 
@@ -1664,9 +1665,9 @@ contains
                  ' fatal error: bottomDepth and maxLevelCell do not match:',  &
                  MPAS_LOG_ERR)
                call mpas_log_write( &
-                 ' iCell: $i, maxLevelCell(iCell): $i, bottomDepth(iCell): $r', &
+                 ' iCell: $i, maxLevelCell(iCell): $i, bottomDepth(iCell): $r, refBottomDepth: $r, refBottomDepthTop: $r', &
                  intArgs=(/iCell, kmax /), &
-                 realArgs=(/ bottomDepth(iCell) /) )
+                 realArgs=(/ bottomDepth(iCell), refBottomDepth(kmax), refBottomDepthTopOfCell(kmax) /) )
             endif
          enddo ! cell loop
       endif ! check_zlevel_consistency

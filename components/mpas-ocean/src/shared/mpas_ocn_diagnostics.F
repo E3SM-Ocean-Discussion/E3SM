@@ -719,6 +719,7 @@ contains
 !> \details
 !>  This routine computes the water column thickness on edges, wctEdge, which
 !>  can either be the mean or an upwind value, depending on user input.
+!>  This should be the thickness used for fluxes on the barotropic time step
 !
 !-----------------------------------------------------------------------
 
@@ -795,7 +796,8 @@ contains
 #ifdef MPAS_OPENACC
          !$acc enter data copyin(baroclinicThickness, deltaSSH, btrVelocity, wctEdge)
          !$acc parallel loop &
-         !$acc    present(baroclinicThickness, btrVelocity, deltaSSH, cellsOnEdge, maxLevelEdgeTop, wctEdge) &
+         !$acc    present(baroclinicThickness, btrVelocity, deltaSSH, cellsOnEdge, maxLevelEdgeTop, wctEdge, &
+         !$acc            upwindFactor) &
          !$acc    private(cell1, cell2, iEdge)
 #else
          !$omp parallel
@@ -812,6 +814,15 @@ contains
             else
                wctEdge(iEdge) = max(deltaSSH(cell1), deltaSSH(cell2)) &
                                 + baroclinicThickness(iEdge)
+            end if
+            ! With spatially variable upwinding, the layer thicknesses that
+            ! make up baroclinicThickness are a blend of upwind and centered
+            ! values, so blend the SSH change the same way
+            if (config_use_spatially_variable_upwind) then
+               wctEdge(iEdge) = upwindFactor(iEdge)*wctEdge(iEdge) &
+                  + (1.0_RKIND - upwindFactor(iEdge)) * &
+                    (0.5_RKIND*(deltaSSH(cell1) + deltaSSH(cell2)) &
+                     + baroclinicThickness(iEdge))
             end if
          end do
 #ifndef MPAS_OPENACC
@@ -3346,7 +3357,7 @@ contains
 !
 !-----------------------------------------------------------------------
 
-   subroutine ocn_split_pv_coriolis_weights(btrCoriolisWeights)!{{{
+   subroutine ocn_split_pv_coriolis_weights(btrCoriolisWeights, layerOpen)!{{{
 
       ! RK4 adds the planetary Coriolis term to layer k at edge e as
       !    sum_j w_ej u_k(j) hf_k(j) (q_k(e) + q_k(j))/2,
@@ -3362,9 +3373,11 @@ contains
 
       real (kind=RKIND), dimension(:,:), intent(out) :: &
          btrCoriolisWeights !< Output: W_ej, indexed as weightsOnEdge
+      real (kind=RKIND), dimension(:,:), intent(in), optional :: &
+         layerOpen !< Input: per-layer drying factor, 1 where open
 
       integer :: iEdge, j, k, eoe, nEdges
-      real (kind=RKIND) :: thicknessSum, weightSum
+      real (kind=RKIND) :: thicknessSum, weightSum, openE, openJ
 
       call mpas_timer_start("ocn_split_pv_coriolis_weights")
 
@@ -3372,7 +3385,8 @@ contains
 
 #ifndef MPAS_OPENACC
       !$omp parallel
-      !$omp do schedule(runtime) private(j, k, eoe, thicknessSum, weightSum)
+      !$omp do schedule(runtime) private(j, k, eoe, thicknessSum, weightSum, &
+      !$omp    openE, openJ)
 #endif
       do iEdge = 1, nEdgesAll
          btrCoriolisWeights(:,iEdge) = 0.0_RKIND
@@ -3380,7 +3394,9 @@ contains
 
          thicknessSum = 0.0_RKIND
          do k = minLevelEdgeBot(iEdge), maxLevelEdgeTop(iEdge)
-            thicknessSum = thicknessSum + layerThickEdgeFlux(k,iEdge)
+            openE = 1.0_RKIND
+            if (present(layerOpen)) openE = layerOpen(k,iEdge)
+            thicknessSum = thicknessSum + openE*layerThickEdgeFlux(k,iEdge)
          end do
          if (thicknessSum <= 0.0_RKIND) cycle
 
@@ -3390,7 +3406,13 @@ contains
             ! Layers inactive at eoe have an unset flux thickness and
             ! carry no flux
             do k = minLevelEdgeBot(iEdge), maxLevelEdgeTop(iEdge)
-               weightSum = weightSum + layerThickEdgeFlux(k,iEdge)* &
+               openE = 1.0_RKIND
+               openJ = 1.0_RKIND
+               if (present(layerOpen)) then
+                  openE = layerOpen(k,iEdge)
+                  openJ = layerOpen(k,eoe)
+               end if
+               weightSum = weightSum + openE*openJ*layerThickEdgeFlux(k,iEdge)* &
                   max(layerThickEdgeFlux(k,eoe), 0.0_RKIND)* &
                   0.5_RKIND*(normPlanetVortEdge(k,iEdge) &
                            + normPlanetVortEdge(k,eoe))
@@ -3423,7 +3445,7 @@ contains
 !-----------------------------------------------------------------------
 
    subroutine ocn_split_pv_coriolis_baroclinic(statePool, &
-      btrCoriolisWeights, normalBarotropicVelocityRef, timeLevelIn)!{{{
+      btrCoriolisWeights, normalBarotropicVelocityRef, timeLevelIn, layerOpen)!{{{
 
       ! With u_k = ub + u'_k, RK4's planetary term on layer k is
       !    sum_j w_ej (ub(j) + u'_k(j)) hf_k(j) (q_k(e) + q_k(j))/2.
@@ -3440,9 +3462,11 @@ contains
       real (kind=RKIND), dimension(:), intent(in) :: &
          normalBarotropicVelocityRef !< Input: reference barotropic velocity
       integer, intent(in), optional :: timeLevelIn !< Input: Input time level for state pool
+      real (kind=RKIND), dimension(:,:), intent(in), optional :: &
+         layerOpen !< Input: per-layer drying factor, 1 where open
 
       integer :: iEdge, j, k, eoe, timeLevel
-      real (kind=RKIND) :: btrCoriolis
+      real (kind=RKIND) :: btrCoriolis, openJ
       real (kind=RKIND), dimension(:,:), pointer :: normalVelocity, normalBaroclinicVelocity
 
       if (present(timeLevelIn)) then
@@ -3458,7 +3482,7 @@ contains
 
 #ifndef MPAS_OPENACC
       !$omp parallel
-      !$omp do schedule(runtime) private(j, k, eoe, btrCoriolis)
+      !$omp do schedule(runtime) private(j, k, eoe, btrCoriolis, openJ)
 #endif
       do iEdge = 1, nEdgesOwned
          btrCoriolis = 0.0_RKIND
@@ -3474,8 +3498,10 @@ contains
                eoe = edgesOnEdge(j,iEdge)
                ! Layers inactive at eoe have an unset flux thickness and
                ! carry no flux
+               openJ = 1.0_RKIND
+               if (present(layerOpen)) openJ = layerOpen(k,eoe)
                normalVelocity(k,iEdge) = normalVelocity(k,iEdge) &
-                  + weightsOnEdge(j,iEdge)* &
+                  + openJ*weightsOnEdge(j,iEdge)* &
                     (normalBarotropicVelocityRef(eoe) &
                    + normalBaroclinicVelocity(k,eoe))* &
                     max(layerThickEdgeFlux(k,eoe), 0.0_RKIND)* &
