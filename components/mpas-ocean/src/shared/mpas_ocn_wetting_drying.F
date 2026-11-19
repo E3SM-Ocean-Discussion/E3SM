@@ -52,8 +52,9 @@ module ocn_wetting_drying
    !
    !--------------------------------------------------------------------
 
-   public :: ocn_wetting_drying_verify, ocn_prevent_drying_rk4
-   public :: ocn_wetting_velocity_factor_on_cell_edges
+   public :: ocn_wetting_drying_verify, ocn_prevent_drying_rk4, &
+             ocn_wetting_drying_outflux_barotropic_factor, &
+             ocn_wetting_velocity_factor_on_cell_edges
    public :: ocn_wetting_drying_update_land_ice
 
    !--------------------------------------------------------------------
@@ -414,6 +415,179 @@ contains
      end if
 
    end subroutine ocn_prevent_drying_rk4 !}}}
+
+!***********************************************************************
+!
+!  routine ocn_wetting_drying_wettingVelocity
+!
+!> \brief   Computes velocity to prevent cell drying
+!> \author  Phillip J. Wolfram
+!> \date    03/19/2018
+!> \details
+!>  This routine adds wetting velocity opposed to drying motion
+!>  to prevent cells from drying.
+!
+!-----------------------------------------------------------------------
+   subroutine ocn_wetting_drying_outflux_barotropic_factor(sshCur, btrVelocity, wctEdge, dt, &
+                     wettingVelocityBarotropic, err)!{{{
+
+      !-----------------------------------------------------------------
+      !
+      ! input variables
+      !
+      !-----------------------------------------------------------------
+
+      real (kind=RKIND), dimension(:), intent(in) :: &
+         sshCur, &      !< current SSH
+         btrVelocity, & !< barotropic velocity on edges used to predict sshNew from only outflux
+         wctEdge        !< column thickness on edges used to predict the outflux
+
+      real (kind=RKIND), intent(in) :: dt !< time step in s
+
+      !-----------------------------------------------------------------
+      !
+      ! input/output variables
+      !
+      !-----------------------------------------------------------------
+
+      real (kind=RKIND), dimension(:), intent(inout) :: &
+         wettingVelocityBarotropic !< Input/Output: velocity wettingVelocityFactor
+
+      !-----------------------------------------------------------------
+      !
+      ! output variables
+      !
+      !-----------------------------------------------------------------
+
+      integer, intent(out) :: err !< Output: error flag
+
+      !-----------------------------------------------------------------
+      !
+      ! local variables
+      !
+      !-----------------------------------------------------------------
+
+      integer :: cell1, cell2, iEdge, iCell, i, cellNei
+
+      real (kind=RKIND) :: divFlux, divOutFlux
+      real (kind=RKIND) :: wct, wctNei, sshNei
+      real (kind=RKIND) :: hCrit, hRampMin, hRampMax, hRampFactor
+      real (kind=RKIND), dimension(:), allocatable :: sshNew
+
+      character (len=100) :: log_string
+
+      err = 0
+
+      wettingVelocityBarotropic(:) = 1.0_RKIND
+
+      if (.not. config_use_wetting_drying .or. &
+          .not. config_zero_drying_velocity) then
+         return
+      endif
+
+      ! need predicted transport velocity to limit drying flux
+      allocate(sshNew(nCellsAll))
+      do iCell = 1, nCellsAll
+        divOutFlux = 0.0_RKIND
+        do i = 1, nEdgesOnCell(iCell)
+          iEdge = edgesOnCell(i, iCell)
+          ! only consider divergence flux leaving the cell
+          if ( btrVelocity(iEdge) * edgeSignOnCell(i, iCell) < 0.0_RKIND ) then
+            divOutFlux = divOutFlux + &
+                         btrVelocity(iEdge) * edgeSignOnCell(i, iCell) * &
+                         wctEdge(iEdge) * dvEdge(iEdge) * invAreaCell(iCell)
+          end if
+        end do
+        sshNew(iCell) = sshCur(iCell) + dt * divOutFlux
+      enddo
+
+      hRampFactor = config_zero_drying_velocity_ramp_factor
+      !$omp parallel
+      !$omp do schedule(runtime) private(i, iEdge, wct, hCrit, hRampMin, hRampMax, cellNei, sshNei, wctNei)
+      do iCell = 1, nCellsAll
+
+        if (maxLevelCell(iCell) == 0) cycle
+
+        wct = sshNew(iCell) + bottomDepth(iCell)
+        hCrit = (config_drying_min_cell_height + config_drying_safety_height) * &
+                (maxLevelCell(iCell) - minLevelCell(iCell) + 1)
+                
+        hRampMax = config_zero_drying_velocity_ramp_hmax * &
+                   (maxLevelCell(iCell) - minLevelCell(iCell) + 1)
+
+        ! if layer thickness is too small, limit divergence flux outwards with
+        ! opposite velocity
+        if (wct <= hCrit) then
+          do i = 1, nEdgesOnCell(iCell)
+            iEdge = edgesOnCell(i, iCell)
+            if ( btrVelocity(iEdge) * edgeSignOnCell(i, iCell) < 0.0_RKIND ) then
+              wettingVelocityBarotropic(iEdge) = 0.0_RKIND
+            end if
+          end do
+
+          if (config_zero_drying_velocity_gradSSH) then
+            do i = 1, nEdgesOnCell(iCell)
+              iEdge = edgesOnCell(i, iCell)
+              ! Allow flux across edges that are anticipated to be motionless but have an ssh gradient from a wet cell into a dry cell
+              if ( btrVelocity(iEdge) * edgeSignOnCell(i, iCell) == 0.0_RKIND ) then
+                cellNei = merge( cellsOnEdge(2, iEdge), cellsOnEdge(1, iEdge), iCell == cellsOnEdge(1, iEdge) )
+                ! a neighbor beyond nCellsAll is land, where the edge carries no
+                ! flow, or outside this block, where the barotropic solution is not
+                ! valid
+                if ( cellNei > nCellsAll ) cycle
+                sshNei = sshNew(cellNei)
+                wctNei = sshNew(cellNei) + bottomDepth(cellNei)
+                if ( wctNei > hCrit .and. sshNew(iCell) < sshNei ) then
+                  wettingVelocityBarotropic(iEdge) = 1.0_RKIND
+                else
+                  wettingVelocityBarotropic(iEdge) = 0.0_RKIND
+                end if     
+              end if
+            end do
+          end if     
+
+        elseif (config_zero_drying_velocity_ramp .and. &
+               (wct > hCrit) .and. &
+               (wct <= hRampMax)) then
+
+          hRampMin = config_zero_drying_velocity_ramp_hmin * (maxLevelCell(iCell) - minLevelCell(iCell) + 1)
+
+          ! Following O'Dea et al. (2021), if total upwinded wct is less than
+          ! 2*critical thickness, apply damping at each edge
+          do i = 1, nEdgesOnCell(iCell)
+            iEdge = edgesOnCell(i, iCell)
+            if ( btrVelocity(iEdge) * edgeSignOnCell(i, iCell) <= 0.0_RKIND ) then
+              wettingVelocityBarotropic(iEdge) = &
+                tanh(hRampFactor * (wct - hRampMin)/(hRampMax - hRampMin))
+            end if
+          end do
+
+          if (config_zero_drying_velocity_gradSSH) then
+            do i = 1, nEdgesOnCell(iCell)
+              iEdge = edgesOnCell(i, iCell)
+              ! Then go back through all the edges with 0 flux and disallow flux across
+              ! edges that do not have an ssh gradient from a wet cell into a dry cell
+              if ( btrVelocity(iEdge) * edgeSignOnCell(i, iCell) == 0.0_RKIND ) then
+                cellNei = merge( cellsOnEdge(2, iEdge), cellsOnEdge(1, iEdge), iCell == cellsOnEdge(1, iEdge) )
+                ! a neighbor beyond nCellsAll is land, where the edge carries no
+                ! flow, or outside this block, where the barotropic solution is not
+                ! valid
+                if ( cellNei > nCellsAll ) cycle
+                sshNei = sshNew(cellNei)
+                wctNei = sshNew(cellNei) + bottomDepth(cellNei)
+                if ( wctNei <= hCrit .or. sshNew(iCell) >= sshNei ) then
+                  wettingVelocityBarotropic(iEdge) = 0.0_RKIND
+                end if     
+              end if
+            end do
+          end if
+        end if
+
+      end do
+      !$omp end do
+      !$omp end parallel
+
+   end subroutine ocn_wetting_drying_outflux_barotropic_factor !}}}
 
 
 !***********************************************************************
