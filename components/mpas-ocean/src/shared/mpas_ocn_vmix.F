@@ -314,7 +314,8 @@ contains
       do iEdge = 1, nEdgesOwned
         Nsurf = minLevelEdgeBot(iEdge)
         N = maxLevelEdgeTop(iEdge)
-        if (N .gt. 0) then
+        ! with minLevelCell > 1, an edge's two columns may share no level
+        if (N .gt. 0 .and. N .ge. Nsurf) then
 
          cell1 = cellsOnEdge(1,iEdge)
          cell2 = cellsOnEdge(2,iEdge)
@@ -381,6 +382,9 @@ contains
            normalVelocity(N+1:nVertLevels,iEdge) = 0.0_RKIND
 
          end if ! N=Nsurf, i.e. single layer
+        else if (N .gt. 0) then
+           ! no level is shared, so there is no velocity on this edge
+           normalVelocity(:,iEdge) = 0.0_RKIND
         end if
       end do
 #ifndef MPAS_OPENACC
@@ -514,7 +518,8 @@ contains
       do iEdge = 1, nEdgesOwned
         N = maxLevelEdgeTop(iEdge)
         Nsurf = minLevelEdgeBot(iEdge)
-        if (N .gt. 0) then
+        ! with minLevelCell > 1, an edge's two columns may share no level
+        if (N .gt. 0 .and. N .ge. Nsurf) then
 
          cell1 = cellsOnEdge(1,iEdge)
          cell2 = cellsOnEdge(2,iEdge)
@@ -574,6 +579,9 @@ contains
            normalVelocity(N+1:nVertLevels,iEdge) = 0.0_RKIND
 
          end if ! N=Nsurf, i.e. single layer
+        else if (N .gt. 0) then
+           ! no level is shared, so there is no velocity on this edge
+           normalVelocity(:,iEdge) = 0.0_RKIND
         end if
       end do
 #ifndef MPAS_OPENACC
@@ -691,7 +699,8 @@ contains
       do iEdge = 1, nEdgesOwned
         Nsurf = minLevelEdgeBot(iEdge)
         N = maxLevelEdgeTop(iEdge)
-        if (N .gt. 0) then
+        ! with minLevelCell > 1, an edge's two columns may share no level
+        if (N .gt. 0 .and. N .ge. Nsurf) then
 
          cell1 = cellsOnEdge(1,iEdge)
          cell2 = cellsOnEdge(2,iEdge)
@@ -744,6 +753,9 @@ contains
            normalVelocity(1:Nsurf-1,iEdge) = 0.0_RKIND
            normalVelocity(N+1:nVertLevels,iEdge) = 0.0_RKIND
          end if ! one active layer
+        else if (N .gt. 0) then
+           ! no level is shared, so there is no velocity on this edge
+           normalVelocity(:,iEdge) = 0.0_RKIND
         end if
       end do
 #ifndef MPAS_OPENACC
@@ -942,7 +954,8 @@ contains
       do iEdge = 1, nEdgesOwned
         Nsurf = minLevelEdgeBot(iEdge)
         N = maxLevelEdgeTop(iEdge)
-        if (N .gt. 0) then
+        ! with minLevelCell > 1, an edge's two columns may share no level
+        if (N .gt. 0 .and. N .ge. Nsurf) then
 
          cell1 = cellsOnEdge(1,iEdge)
          cell2 = cellsOnEdge(2,iEdge)
@@ -1014,6 +1027,9 @@ contains
            normalVelocity(N+1:nVertLevels,iEdge) = 0.0_RKIND
 
          endif ! one active layer
+        else if (N .gt. 0) then
+           ! no level is shared, so there is no velocity on this edge
+           normalVelocity(:,iEdge) = 0.0_RKIND
         end if
       end do
 #ifndef MPAS_OPENACC
@@ -1162,7 +1178,8 @@ contains
       do iEdge = 1, nEdgesOwned
         Nsurf = minLevelEdgeBot(iEdge)
         N = maxLevelEdgeTop(iEdge)
-        if (N .gt. 0) then
+        ! with minLevelCell > 1, an edge's two columns may share no level
+        if (N .gt. 0 .and. N .ge. Nsurf) then
 
          cell1 = cellsOnEdge(1,iEdge)
          cell2 = cellsOnEdge(2,iEdge)
@@ -1239,6 +1256,9 @@ contains
            normalVelocity(N+1:nVertLevels,iEdge) = 0.0_RKIND
 
          endif ! one active layer
+        else if (N .gt. 0) then
+           ! no level is shared, so there is no velocity on this edge
+           normalVelocity(:,iEdge) = 0.0_RKIND
         end if
       end do
 #ifndef MPAS_OPENACC
@@ -1351,6 +1371,21 @@ contains
       do iCell = 1, nCellsOwned
          Nsurf = minLevelCell(iCell)
          N = maxLevelCell(iCell)
+
+         if (N == Nsurf) then
+            ! a single active layer has no interior interfaces to diffuse
+            ! across; apply only the nonlocal flux, as the bottom-layer
+            ! update below does
+            if ( config_cvmix_kpp_nonlocal_with_implicit_mix ) then
+               do iTracer = 1, num_tracers
+                  tracers(iTracer,N,iCell) = tracers(iTracer,N,iCell) + dt*tracerGroupSurfaceFlux(iTracer,iCell) &
+                         * vertNonLocalFlux(1,N,iCell) / layerThickness(N,iCell)
+               enddo
+            endif
+            tracers(:,1:Nsurf-1,iCell) = -1e34
+            tracers(:,N+1:nVertLevels,iCell) = -1e34
+            cycle
+         endif
 
          ! tridiagonal matrix algorithm
          C(Nsurf) = -2.0_RKIND*dt*vertDiffTopOfCell(Nsurf+1,iCell) &
