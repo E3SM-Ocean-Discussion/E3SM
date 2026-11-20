@@ -956,8 +956,13 @@ module ocn_time_integration_si
                   thicknessSum = thicknessSum + &
                                  layerThickEdgeFlux(k,iEdge)
                enddo
-               barotropicForcing(iEdge) = &
+               if (maxLevelEdgeTop(iEdge) < minLevelEdgeBot(iEdge)) then
+                  ! the edge's two columns share no level
+                  barotropicForcing(iEdge) = 0.0_RKIND
+               else
+                  barotropicForcing(iEdge) = &
                               normalThicknessFluxSum/thicknessSum/dt
+               end if
 
                do k = minLevelEdgeBot(iEdge), maxLevelEdgeTop(iEdge)
                   ! These two steps are together here:
@@ -1510,7 +1515,7 @@ module ocn_time_integration_si
             !$omp private(temp_mask,cell1,cell2)
 #endif
             do iEdge = 1,nEdgesHalo( edgeHaloComputeCounter-1 )
-               temp_mask = edgeMask(1, iEdge)
+               temp_mask = edgeMask(minLevelEdgeBot(iEdge), iEdge)
    
                cell1 = cellsOnEdge(1,iEdge)
                cell2 = cellsOnEdge(2,iEdge)
@@ -1590,7 +1595,7 @@ module ocn_time_integration_si
             !$omp private(temp_mask,cell1,cell2)
 #endif
             do iEdge = 1,nEdgesHalo(2)
-               temp_mask = edgeMask(1, iEdge)
+               temp_mask = edgeMask(minLevelEdgeBot(iEdge), iEdge)
    
                cell1 = cellsOnEdge(1,iEdge)
                cell2 = cellsOnEdge(2,iEdge)
@@ -1892,7 +1897,7 @@ module ocn_time_integration_si
             !$omp private(temp_mask,cell1,cell2)
 #endif
             do iEdge = 1, nEdgesHalo(2)
-               temp_mask = edgeMask(1, iEdge)
+               temp_mask = edgeMask(minLevelEdgeBot(iEdge), iEdge)
    
                cell1 = cellsOnEdge(1,iEdge)
                cell2 = cellsOnEdge(2,iEdge)
@@ -1971,7 +1976,7 @@ module ocn_time_integration_si
             !$omp private(temp_mask,cell1,cell2)
 #endif
             do iEdge = 1, nEdgesOwned
-               temp_mask = edgeMask(1, iEdge)
+               temp_mask = edgeMask(minLevelEdgeBot(iEdge), iEdge)
    
                cell1 = cellsOnEdge(1,iEdge)
                cell2 = cellsOnEdge(2,iEdge)
@@ -2164,9 +2169,14 @@ module ocn_time_integration_si
                               layerThickEdgeFlux(k,iEdge)
             enddo
 
-            normalVelocityCorrection = useVelocityCorrection* &
-                          ((barotropicThicknessFlux(iEdge) -  &
-                            normalThicknessFluxSum)/thicknessSum)
+            if (maxLevelEdgeTop(iEdge) < minLevelEdgeBot(iEdge)) then
+               ! the edge's two columns share no level
+               normalVelocityCorrection = 0.0_RKIND
+            else
+               normalVelocityCorrection = useVelocityCorrection* &
+                             ((barotropicThicknessFlux(iEdge) - &
+                               normalThicknessFluxSum)/thicknessSum)
+            end if
 
             do k = 1, nVertLevels
 
