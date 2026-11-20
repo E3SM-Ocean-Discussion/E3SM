@@ -1160,7 +1160,7 @@ module ocn_time_integration_split_ab2
                !$omp         temp_mask)
                do iEdge = 1, nEdges
 
-                  temp_mask = edgeMask(1, iEdge)
+                  temp_mask = edgeMask(minLevelEdgeBot(iEdge), iEdge)
 
                   cell1 = cellsOnEdge(1,iEdge)
                   cell2 = cellsOnEdge(2,iEdge)
@@ -1410,7 +1410,7 @@ module ocn_time_integration_split_ab2
                !$omp         sshCell1, sshCell2, temp_mask)
                do iEdge = 1, nEdges
 
-                  temp_mask = edgeMask(1,iEdge)
+                  temp_mask = edgeMask(minLevelEdgeBot(iEdge), iEdge)
 
                   cell1 = cellsOnEdge(1,iEdge)
                   cell2 = cellsOnEdge(2,iEdge)
