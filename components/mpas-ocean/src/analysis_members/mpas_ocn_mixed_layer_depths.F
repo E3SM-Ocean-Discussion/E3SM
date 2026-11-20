@@ -168,7 +168,7 @@ contains
       integer, pointer :: nVertLevels
       integer :: k, iCell, i, refIndex, nCells, refLevel(1)
       integer, pointer :: index_temperature
-      integer, dimension(:), pointer :: maxLevelCell, nCellsArray
+      integer, dimension(:), pointer :: minLevelCell, maxLevelCell, nCellsArray
 
       logical :: found_temp_mld, found_den_mld
 !      real (kind=RKIND), dimension(:), pointer ::  areaCell
@@ -208,6 +208,7 @@ contains
 
          call mpas_pool_get_dimension(tracersPool, 'index_temperature', index_temperature)
 
+         call mpas_pool_get_array(meshPool, 'minLevelCell', minLevelCell)
          call mpas_pool_get_array(meshPool, 'maxLevelCell', maxLevelCell)
 
          call mpas_pool_get_array(tracersPool, 'activeTracers', tracers, timeLevel)
@@ -228,7 +229,7 @@ contains
            !$omp parallel
            !$omp do schedule(runtime) private(k)
            do iCell = 1,nCells
-             do k = 1,maxLevelCell(iCell)
+             do k = minLevelCell(iCell),maxLevelCell(iCell)
                 pressureAdjustedForLandIce(k,iCell) = pressureAdjustedForLandIce(k,iCell)   &
                                                         - landIcePressure(iCell)
              end do
@@ -249,7 +250,7 @@ contains
 
                found_temp_mld = .false.
 
-               do k=1, maxLevelCell(iCell)-1
+               do k=minLevelCell(iCell), maxLevelCell(iCell)-1
                   if(pressureAdjustedForLandIce(k+1,iCell) > config_AM_mixedLayerDepths_reference_pressure) then
                      localvals(2:3)=tracers(index_temperature,k:k+1,iCell)
                      localvals(5:6)=pressureAdjustedForLandIce(k:k+1,iCell)
@@ -312,7 +313,7 @@ contains
 
                found_temp_mld=.false.
 
-               do k=2,maxLevelCell(iCell)-1
+               do k=minLevelCell(iCell)+1,maxLevelCell(iCell)-1
                      dz=abs(pressureAdjustedForLandIce(k-1,iCell)-pressureAdjustedForLandIce(k,iCell)) + 1.0E-15_RKIND
                      temperatureGradient(k,1) = abs(tracers(index_temperature,k-1,iCell) - tracers(index_temperature,k,iCell)) / dz
                      temperatureGradient(k,2) = k
@@ -320,13 +321,13 @@ contains
 
 ! smooth the gradients to eliminate reduce single point maxima
 
-               do k=2,maxLevelCell(iCell)-1
+               do k=minLevelCell(iCell)+1,maxLevelCell(iCell)-1
                   temperatureGradient(k,1) = (temperatureGradient(k-1,1) + temperatureGradient(k,1) &
                                            + temperatureGradient(k+1,1)) / float(3)
                end do
 
 
-               do k=2, maxLevelCell(iCell)-1
+               do k=minLevelCell(iCell)+1, maxLevelCell(iCell)-1
                   if(.not. found_temp_mld .and. temperatureGradient(k+1,1) .ge. config_AM_mixedLayerDepths_temp_gradient_threshold) then
                     call interp_bw_levels(zTop(k,iCell),zTop(k+1,iCell),temperatureGradient(k,1),temperatureGradient(k+1,1), &
                            config_AM_mixedLayerDepths_temp_gradient_threshold, interp_local,mldTemp,temperatureGradient(k-1,1),zTop(k-1,iCell))
@@ -342,6 +343,7 @@ contains
 
                 if(.not. found_temp_mld) then
                     refLevel=maxloc(temperatureGradient(:,1))
+                    refLevel(1) = max(refLevel(1), minLevelCell(iCell))
                     tGradientMLD(iCell) = abs(zTop(refLevel(1),iCell))
                 end if
 
@@ -380,7 +382,7 @@ contains
 
                found_den_mld=.false.
 
-               do k=2,maxLevelCell(iCell)-1
+               do k=minLevelCell(iCell)+1,maxLevelCell(iCell)-1
                      dz=abs(pressureAdjustedForLandIce(k-1,iCell)-pressureAdjustedForLandIce(k,iCell)) + 1.0E-15_RKIND
                      densityGradient(k,1) = abs(potentialDensity(k-1,iCell)-potentialDensity(k,iCell)) / dz
                      densityGradient(k,2) = k
@@ -388,12 +390,12 @@ contains
 
 ! smooth the gradients to eliminate reduce single point maxima
 
-               do k=2,maxLevelCell(iCell)-1
+               do k=minLevelCell(iCell)+1,maxLevelCell(iCell)-1
                   densityGradient(k,1) = (densityGradient(k-1,1) + densityGradient(k,1) + densityGradient(k+1,1)) / float(3)
                end do
 
 
-               do k=2, maxLevelCell(iCell)-1
+               do k=minLevelCell(iCell)+1, maxLevelCell(iCell)-1
                   if(.not. found_den_mld .and. densityGradient(k+1,1) .ge. config_AM_mixedLayerDepths_den_gradient_threshold) then
                     call interp_bw_levels(zTop(k,iCell),zTop(k+1,iCell),densityGradient(k,1),densityGradient(k+1,1),           &
                            config_AM_mixedLayerDepths_den_gradient_threshold, interp_local,mldTemp,densityGradient(k-1,1),zTop(k-1,iCell))
