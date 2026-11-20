@@ -615,10 +615,14 @@ contains
                  end do
 
                  do kIndexOBL = minLevelEdgeBot(iEdge), maxLevelEdgeTop(iEdge)
-                    normalVelocityAv = normalVelocitySum(surfaceAverageIndex(kIndexOBL )) / &
-                        layerThicknessEdgeSum(surfaceAverageIndex(kIndexOBL))
-                    tangentialVelocityAv = tangentialVelocitySum(surfaceAverageIndex(kIndexOBL)) / &
-                        layerThicknessEdgeSum(surfaceAverageIndex(kIndexOBL))
+                    ! the cell's surface layer may begin above the top level
+                    ! the edge shares with its neighbor, where the edge sums
+                    ! are not set
+                    kav = max(surfaceAverageIndex(kIndexOBL), minLevelEdgeBot(iEdge))
+                    normalVelocityAv = normalVelocitySum(kav) / &
+                        layerThicknessEdgeSum(kav)
+                    tangentialVelocityAv = tangentialVelocitySum(kav) / &
+                        layerThicknessEdgeSum(kav)
                     delU2 = (normalVelocityAv - normalVelocity(kIndexOBL, iEdge))**2 + &
                             (tangentialVelocityAv - tangentialVelocity(kIndexOBL, iEdge))**2
                     deltaVelocitySquared(kIndexOBL) = deltaVelocitySquared(kIndexOBL) + edgeAreaFractionOfCell(i,iCell) * delU2
