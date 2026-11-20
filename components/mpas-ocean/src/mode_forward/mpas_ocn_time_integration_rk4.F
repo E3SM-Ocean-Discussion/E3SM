@@ -1314,7 +1314,8 @@ module ocn_time_integration_rk4
                   !$omp parallel
                   !$omp do schedule(runtime) private(k)
                   do iCell = 1, nCells
-                     do k = 1, maxLevelCell(iCell)
+                     ! layers above minLevelCell have no thickness to divide by
+                     do k = minLevelCell(iCell), maxLevelCell(iCell)
                         tracersGroupProvis(:, k, iCell) = ( layerThicknessCur(k, iCell) * tracersGroupCur(:, k, iCell)  &
                                                  + rkSubstepWeight * tracersGroupTend(:, k, iCell) &
                                                    ) / layerThicknessProvis(k, iCell)
