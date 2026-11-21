@@ -582,7 +582,7 @@ contains
                        exit
                     end if
                  enddo
-                 topIndex = max(1, surfaceAverageIndex(kIndexOBL) - 1)
+                 topIndex = max(minLevelCell(iCell), surfaceAverageIndex(kIndexOBL) - 1)
               end do
 
               ! compute the turbulent scales in order to compute the bulk Richardson number
@@ -598,7 +598,9 @@ contains
               do i = 1, nEdgesOnCell(iCell)
                  iEdge = edgesOnCell(i, iCell)
 
-                 deltaVelocitySquared(1:minLevelEdgeBot(iEdge)) = 0.0_RKIND
+                 ! deltaVelocitySquared accumulates over the edges and was
+                 ! zeroed above, so an edge adds nothing above its shared
+                 ! levels rather than resetting the sum there
 
                  normalVelocitySum(minLevelEdgeBot(iEdge)) = normalVelocity(minLevelEdgeBot(iEdge), iEdge)* &
                                                           layerThickEdgeMean(minLevelEdgeBot(iEdge),iEdge)
