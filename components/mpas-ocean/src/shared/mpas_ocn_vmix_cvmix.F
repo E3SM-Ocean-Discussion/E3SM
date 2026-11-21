@@ -440,9 +440,10 @@ contains
          RiTemp(1:maxLevelCell(iCell)+1) = RiSmoothed(1:maxLevelCell(iCell)+1)
 
          ! Use a 1-2-1 filter to remove 2 dz noise in RiTopOfCell
-         ! Note: loop limits here must not be minLevelCell or non-bfb changes are introduced
+         ! Note: the top interface of the column, minLevelCell, is not
+         ! smoothed; smoothing it changes answers
          do nsmooth=1,config_cvmix_num_ri_smooth_loops
-            do k=2,maxLevelCell(iCell)
+            do k=minLevelCell(iCell)+1,maxLevelCell(iCell)
                  RiSmoothed(k) = (RiTemp(k-1) + 2.0_RKIND*RiTemp(k) + RiTemp(k+1))  / 4.0_RKIND
             enddo
             RiTemp(1:maxLevelCell(iCell)) = RiSmoothed(1:maxLevelCell(iCell))
