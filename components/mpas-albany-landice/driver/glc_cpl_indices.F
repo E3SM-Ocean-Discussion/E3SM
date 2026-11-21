@@ -22,6 +22,8 @@ module glc_cpl_indices
   integer, public :: index_x2g_Foxo_ismf   = 0 !net ice-shelf melt flux from the ocean, normalized by the floating fraction
   integer, public :: index_x2g_So_tfrz_isf = 0 !ice-ocean interface temperature weighted by the ocean floating fraction
   integer, public :: index_x2g_So_liflfrac = 0 !ocean floating fraction used as the weight for So_tfrz_isf
+  integer, public :: index_x2g_So_ismf_frac_pos = 0 !fraction of the available ice the ocean melted per second, positive-parity export
+  integer, public :: index_x2g_So_ismf_frac_neg = 0 !fraction of the available ice the ocean melted per second, negative-parity export
 
   integer, public :: index_g2x_Fogg_rofi = 0 ! frozen runoff -> ocn
   integer, public :: index_g2x_Figg_rofi = 0 ! frozen runoff -> ice
@@ -35,6 +37,8 @@ module glc_cpl_indices
   integer, public :: index_g2x_Sg_icemask_floating = 0 !floating mask
   integer, public :: index_g2x_Sg_below_sea_level_mask = 0 !mask of where the bed is below sea level
   integer, public :: index_g2x_Fogg_hcond = 0 !conductive heat flux into the ocean under floating ice
+  integer, public :: index_g2x_Fogg_ismf_avail = 0 !mass of floating ice available for the ocean to melt
+  integer, public :: index_g2x_Sg_ismf_parity = 0 !sign alternating with each export of Fogg_ismf_avail
   integer, public :: index_g2x_Sg_icemask_coupled_fluxes = 0 !ice mask for coupled fluxes
 
 contains
@@ -84,6 +88,10 @@ contains
 
     index_x2g_So_tfrz_isf =               mct_avect_indexra(x2g,'So_tfrz_isf',perrwith='quiet')
     index_x2g_So_liflfrac =               mct_avect_indexra(x2g,'So_liflfrac',perrwith='quiet')
+    index_x2g_So_ismf_frac_pos =          mct_avect_indexra(x2g,'So_ismf_frac_pos',perrwith='quiet')
+    index_x2g_So_ismf_frac_neg =          mct_avect_indexra(x2g,'So_ismf_frac_neg',perrwith='quiet')
+    ! fractions of the floating ice glc made available that the ocean melted,
+    ! per second, for glc's exports with each parity
     ! ice-ocean interface temperature (K) weighted by the ocean floating
     ! fraction, and that weight
 
@@ -129,6 +137,10 @@ contains
     index_g2x_Sg_icemask_floating =       mct_avect_indexra(g2x,'Sg_icemask_floating',perrwith='quiet')
     index_g2x_Sg_below_sea_level_mask =   mct_avect_indexra(g2x,'Sg_below_sea_level_mask',perrwith='quiet')
     index_g2x_Fogg_hcond =                mct_avect_indexra(g2x,'Fogg_hcond',perrwith='quiet')
+    index_g2x_Fogg_ismf_avail =           mct_avect_indexra(g2x,'Fogg_ismf_avail',perrwith='quiet')
+    index_g2x_Sg_ismf_parity =            mct_avect_indexra(g2x,'Sg_ismf_parity',perrwith='quiet')
+    ! the mass of floating ice (kg/m^2) available for the ocean to melt, and
+    ! the sign of the export it comes from
     index_g2x_Sg_icemask_coupled_fluxes = mct_avect_indexra(g2x,'Sg_icemask_coupled_fluxes',perrwith='quiet')
     ! mask of ice sheet grid coverage where we are potentially sending non-zero
     ! fluxes (state: current snapshot)

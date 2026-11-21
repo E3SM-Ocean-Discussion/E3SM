@@ -1174,6 +1174,7 @@ contains
       do while(associated(block_ptr))
          call mpas_pool_get_subpool(block_ptr % structs, 'forcing', forcingPool)
          call ocn_time_average_coupled_init(forcingPool)
+         call ocn_surface_land_ice_fluxes_init_glc_melt_interval(forcingPool)
          block_ptr => block_ptr % next
       end do
 
@@ -1205,6 +1206,7 @@ contains
             call mpas_timer_start("land_ice_build_arrays", .false.)
             call ocn_surface_land_ice_fluxes_build_arrays(meshPool, &
                                                           forcingPool, scratchPool, statePool, ierr)
+            call ocn_surface_land_ice_fluxes_cap_glc_melt(meshPool, forcingPool, dt, ierr)
             call mpas_timer_stop("land_ice_build_arrays")
             call ocn_surface_land_ice_fluxes_accumulate_fluxes(meshPool, forcingPool, &
                                                                statePool, dt, ierr)
@@ -3184,10 +3186,21 @@ contains
    logical :: newRamp
    real (kind=RKIND) :: rampWeight
 
+   logical, pointer :: config_glc_ice_shelf_coupling_cap_melt
+   real (kind=RKIND), dimension(:), pointer :: landIceGlcMeltAvailable, &
+                                               landIceGlcMeltParity, &
+                                               landIceGlcMeltUsed
+   type (field1DReal), pointer :: landIceGlcMeltAvailableField, &
+                                  landIceGlcMeltParityField, &
+                                  landIceGlcMeltUsedField
+   real (kind=RKIND) :: newParity
+
    call mpas_pool_get_config(domain % configs, 'config_glc_ice_shelf_coupling_min_floating_fraction', &
                              config_glc_ice_shelf_coupling_min_floating_fraction)
    call mpas_pool_get_config(domain % configs, 'config_glc_ice_shelf_coupling_import_geometry', &
                              config_glc_ice_shelf_coupling_import_geometry)
+   call mpas_pool_get_config(domain % configs, 'config_glc_ice_shelf_coupling_cap_melt', &
+                             config_glc_ice_shelf_coupling_cap_melt)
 
    if (rampLandIcePressure) then
       ! where the ramp stands in the current glc coupling interval and, if this is the
@@ -3222,9 +3235,27 @@ contains
       if (rampLandIcePressure) then
          call mpas_pool_get_array(forcingPool, 'landIcePressureRampStart', landIcePressureRampStart)
       end if
+      if (config_glc_ice_shelf_coupling_cap_melt) then
+         call mpas_pool_get_array(forcingPool, 'landIceGlcMeltAvailable', landIceGlcMeltAvailable)
+         call mpas_pool_get_array(forcingPool, 'landIceGlcMeltParity', landIceGlcMeltParity)
+         call mpas_pool_get_array(forcingPool, 'landIceGlcMeltUsed', landIceGlcMeltUsed)
+      end if
 
       do i = 1, nCellsSolve
          n = n + 1
+
+         ! the floating ice glc makes available to melt.  Its export's parity
+         ! arrives times the fraction of the cell glc covers, so only its sign
+         ! is used.  A new export starts a new limit on the cumulative melt.
+         if (config_glc_ice_shelf_coupling_cap_melt) then
+            landIceGlcMeltAvailable(i) = max(x2o_o(index_x2o_Fogg_ismf_avail, n), 0.0_RKIND)
+            newParity = sign(1.0_RKIND, x2o_o(index_x2o_Sg_ismf_parity, n))
+            if (x2o_o(index_x2o_Sg_ismf_parity, n) == 0.0_RKIND) newParity = 0.0_RKIND
+            if ((newParity /= 0.0_RKIND) .and. (newParity /= landIceGlcMeltParity(i))) then
+               landIceGlcMeltParity(i) = newParity
+               landIceGlcMeltUsed(i) = 0.0_RKIND
+            end if
+         end if
 
          belowSeaLevelFraction = x2o_o(index_x2o_Sg_below_sea_level_mask, n)
          ! glc's floating mask as the coupler maps the geometry, which may be
@@ -3296,6 +3327,15 @@ contains
    call mpas_pool_get_field(forcingPool, 'landIceConductiveHeatFlux', landIceConductiveHeatFluxField)
    call mpas_dmpar_exch_halo_field(landIceGlcFloatingFractionField)
    call mpas_dmpar_exch_halo_field(landIceConductiveHeatFluxField)
+
+   if (config_glc_ice_shelf_coupling_cap_melt) then
+      call mpas_pool_get_field(forcingPool, 'landIceGlcMeltAvailable', landIceGlcMeltAvailableField)
+      call mpas_pool_get_field(forcingPool, 'landIceGlcMeltParity', landIceGlcMeltParityField)
+      call mpas_pool_get_field(forcingPool, 'landIceGlcMeltUsed', landIceGlcMeltUsedField)
+      call mpas_dmpar_exch_halo_field(landIceGlcMeltAvailableField)
+      call mpas_dmpar_exch_halo_field(landIceGlcMeltParityField)
+      call mpas_dmpar_exch_halo_field(landIceGlcMeltUsedField)
+   end if
 
    if (config_glc_ice_shelf_coupling_import_geometry) then
       call mpas_pool_get_field(forcingPool, 'landIcePressure', landIcePressureField)
@@ -3833,6 +3873,11 @@ contains
 !  floating fraction where it is computed, and the weight is sent as well,
 !  so glc can divide the remapped temperature by the remapped weight.
 !
+!  If config_glc_ice_shelf_coupling_cap_melt is .true., melt is sent instead
+!  as the fraction of glc's available ice melted per second, separately for
+!  glc's exports of each parity, and the net ice-shelf melt flux holds only
+!  refreezing and frazil.
+!
 ! !INPUT/OUTPUT PARAMETERS:
 
    real (kind=RKIND), intent(inout) :: o2x_o(:,:)
@@ -3866,14 +3911,25 @@ contains
 
    real (kind=RKIND), pointer :: config_glc_ice_shelf_coupling_min_floating_fraction
 
-   logical, pointer :: frazilIceActive
+   logical, pointer :: frazilIceActive, config_glc_ice_shelf_coupling_cap_melt
+
+   real (kind=RKIND), dimension(:), pointer :: landIceGlcMeltFractionPositive, &
+                                               landIceGlcMeltFractionNegative, &
+                                               landIceGlcFreezeMass, &
+                                               landIceGlcMeltAvailable, &
+                                               areaCell
+   real (kind=RKIND), dimension(2) :: localMelt, globalMelt
+   character (len=StrKIND) :: meltMessage
 
    real (kind=RKIND) :: netFlux, frazilFlux, weight
 
    call mpas_pool_get_package(domain % packages, 'frazilIceActive', frazilIceActive)
    call mpas_pool_get_config(domain % configs, 'config_glc_ice_shelf_coupling_min_floating_fraction', &
                              config_glc_ice_shelf_coupling_min_floating_fraction)
+   call mpas_pool_get_config(domain % configs, 'config_glc_ice_shelf_coupling_cap_melt', &
+                             config_glc_ice_shelf_coupling_cap_melt)
 
+   localMelt(:) = 0.0_RKIND
    n = 0
    block_ptr => domain % blocklist
    do while(associated(block_ptr))
@@ -3894,13 +3950,33 @@ contains
       if ( frazilIceActive ) then
          call mpas_pool_get_array(statePool, 'accumulatedFrazilIceMass', accumulatedFrazilIceMass, 1)
       end if
+      if (config_glc_ice_shelf_coupling_cap_melt) then
+         call mpas_pool_get_array(forcingPool, 'landIceGlcMeltFractionPositive', landIceGlcMeltFractionPositive)
+         call mpas_pool_get_array(forcingPool, 'landIceGlcMeltFractionNegative', landIceGlcMeltFractionNegative)
+         call mpas_pool_get_array(forcingPool, 'landIceGlcFreezeMass', landIceGlcFreezeMass)
+         call mpas_pool_get_array(forcingPool, 'landIceGlcMeltAvailable', landIceGlcMeltAvailable)
+         call mpas_pool_get_array(meshPool, 'areaCell', areaCell)
+      end if
 
       do i = 1, nCellsSolve
          n = n + 1
 
          ! net mass flux out of the ice shelf per unit cell area: melt minus the
-         ! frazil that MPAS-Ocean passes to glc under land ice
-         netFlux = avgLandIceFreshwaterFlux(i)
+         ! frazil that MPAS-Ocean passes to glc under land ice.  If the melt is
+         ! limited by glc's available ice, it goes to glc as fractions of that
+         ! ice instead, and only refreezing and frazil remain.
+         if (config_glc_ice_shelf_coupling_cap_melt) then
+            o2x_o(index_o2x_So_ismf_frac_pos, n) = landIceGlcMeltFractionPositive(i) / ocn_cpl_dt
+            o2x_o(index_o2x_So_ismf_frac_neg, n) = landIceGlcMeltFractionNegative(i) / ocn_cpl_dt
+            netFlux = landIceGlcFreezeMass(i) / ocn_cpl_dt
+            ! the mass melted this interval for glc's exports of each parity
+            localMelt(1) = localMelt(1) + areaCell(i) * landIceGlcMeltFractionPositive(i) * landIceGlcMeltAvailable(i)
+            localMelt(2) = localMelt(2) + areaCell(i) * landIceGlcMeltFractionNegative(i) * landIceGlcMeltAvailable(i)
+         else
+            netFlux = avgLandIceFreshwaterFlux(i)
+            if (index_o2x_So_ismf_frac_pos > 0) o2x_o(index_o2x_So_ismf_frac_pos, n) = 0.0_RKIND
+            if (index_o2x_So_ismf_frac_neg > 0) o2x_o(index_o2x_So_ismf_frac_neg, n) = 0.0_RKIND
+         end if
          frazilFlux = 0.0_RKIND
          if ( frazilIceActive ) then
             if ( landIceMask(i) == 1 ) then
@@ -3935,6 +4011,13 @@ contains
 
       block_ptr => block_ptr % next
    end do
+
+   if (config_glc_ice_shelf_coupling_cap_melt) then
+      call mpas_dmpar_sum_real_array(domain % dminfo, 2, localMelt, globalMelt)
+      write(meltMessage, '(a,es24.16,a,es24.16)') 'glc ice melted this interval (kg): positive-parity export ', &
+         globalMelt(1), ', negative-parity export ', globalMelt(2)
+      call mpas_log_write(trim(meltMessage))
+   end if
 
 !-----------------------------------------------------------------------
 !EOC

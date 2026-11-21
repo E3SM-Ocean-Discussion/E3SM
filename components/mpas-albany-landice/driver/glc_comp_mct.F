@@ -839,6 +839,12 @@ contains
 !
 !-----------------------------------------------------------------------
 
+    ! the floating ice available for the ocean to melt, unless a restart holds it
+    call glc_ocean_melt_record_export(initial=.true., errorCode=errorCode)
+    if (errorCode /= 0) then
+       call mpas_log_write('Error in glc_ocean_melt_record_export', MPAS_LOG_CRIT)
+    endif
+
 #ifdef HAVE_MOAB
     g2x_gm2 = 0.0_RKIND
     call glc_export_mct(g2x_gm2, errorCode)
@@ -1001,6 +1007,11 @@ contains
 #endif
       err = ior(err,err_tmp)
 
+      ! find the ice the ocean melted over the last coupling interval, for the
+      ! interval's first time step to remove
+      call glc_ocean_melt_remove(err_tmp)
+      err = ior(err,err_tmp)
+
       ! Initialize time average fields
       block => domain % blocklist
       do while(associated(block))
@@ -1145,6 +1156,11 @@ contains
          call mpas_pool_shift_time_levels(geometryPool)
          block => block % next
       end do
+
+      ! the floating ice available for the ocean to melt in this export, recorded
+      ! before any restart is written so a restart sends the same export again
+      call glc_ocean_melt_record_export(initial=.false., errorCode=err_tmp)
+      err = ior(err,err_tmp)
 
 
       ! Check if coupler wants us to write a restart file.
@@ -1667,6 +1683,273 @@ contains
 !=================================================================================
 
 
+!***********************************************************************
+!BOP
+! !IROUTINE: glc_ocean_melt_record_export
+! !INTERFACE:
+
+   subroutine glc_ocean_melt_record_export(initial, errorCode)
+   use li_mask
+
+! !DESCRIPTION:
+!  If config_ocean_melt_fraction_coupling is .true., record the floating ice
+!  MALI makes available for the ocean to melt in its next export: each
+!  floating cell's thickness up to config_ocean_melt_reference_thickness.
+!  Each export flips oceanMeltExportParity and replaces the thickness kept
+!  for that parity, so the thicknesses of the latest two exports are kept:
+!  the ocean melts some of the ice from the earlier export before the later
+!  one reaches it.  At initialization, nothing is recorded if a restart
+!  already holds an export, so a restarted run sends the same export again.
+!
+! !INPUT PARAMETERS:
+
+   logical, intent(in) :: initial
+
+! !OUTPUT PARAMETERS:
+
+   integer, intent(out) :: errorCode
+
+!EOP
+!-----------------------------------------------------------------------
+
+   type (block_type), pointer :: block
+   type (mpas_pool_type), pointer :: meshPool, geometryPool
+   logical, pointer :: config_ocean_melt_fraction_coupling
+   real (kind=RKIND), pointer :: config_ocean_melt_reference_thickness
+   integer, pointer :: nCells, oceanMeltExportParity
+   integer, dimension(:), pointer :: cellMask
+   real (kind=RKIND), dimension(:), pointer :: thickness, oceanMapRowSum, &
+                                               oceanMeltThicknessSentPositive, &
+                                               oceanMeltThicknessSentNegative, &
+                                               oceanMeltFractionRemovedPositive, &
+                                               oceanMeltFractionRemovedNegative, &
+                                               oceanMeltThicknessSent, &
+                                               oceanMeltFractionRemoved
+   real (kind=RKIND) :: localMaxRowSum, globalMaxRowSum
+   integer :: i
+
+   errorCode = 0
+
+   call mpas_pool_get_config(domain % configs, 'config_ocean_melt_fraction_coupling', &
+                             config_ocean_melt_fraction_coupling)
+   if (.not. config_ocean_melt_fraction_coupling) return
+   call mpas_pool_get_config(domain % configs, 'config_ocean_melt_reference_thickness', &
+                             config_ocean_melt_reference_thickness)
+
+   if (initial) then
+      ! the map row sums, from the initial condition or a restart, are required
+      localMaxRowSum = 0.0_RKIND
+      block => domain % blocklist
+      do while (associated(block))
+         call mpas_pool_get_subpool(block % structs, 'geometry', geometryPool)
+         call mpas_pool_get_array(geometryPool, 'oceanMapRowSum', oceanMapRowSum)
+         localMaxRowSum = max(localMaxRowSum, maxval(oceanMapRowSum))
+         block => block % next
+      end do
+      call mpas_dmpar_max_real(domain % dminfo, localMaxRowSum, globalMaxRowSum)
+      if (globalMaxRowSum <= 0.0_RKIND) then
+         call mpas_log_write('config_ocean_melt_fraction_coupling = .true. requires oceanCoverageFraction ' // &
+                             'and oceanMapRowSum in the input or restart file', MPAS_LOG_ERR)
+         errorCode = 1
+         return
+      endif
+   endif
+
+   block => domain % blocklist
+   do while (associated(block))
+      call mpas_pool_get_subpool(block % structs, 'mesh', meshPool)
+      call mpas_pool_get_subpool(block % structs, 'geometry', geometryPool)
+      call mpas_pool_get_dimension(meshPool, 'nCells', nCells)
+      call mpas_pool_get_array(geometryPool, 'oceanMeltExportParity', oceanMeltExportParity)
+      call mpas_pool_get_array(geometryPool, 'thickness', thickness)
+      call mpas_pool_get_array(geometryPool, 'cellMask', cellMask)
+      call mpas_pool_get_array(geometryPool, 'oceanMeltThicknessSentPositive', oceanMeltThicknessSentPositive)
+      call mpas_pool_get_array(geometryPool, 'oceanMeltThicknessSentNegative', oceanMeltThicknessSentNegative)
+      call mpas_pool_get_array(geometryPool, 'oceanMeltFractionRemovedPositive', oceanMeltFractionRemovedPositive)
+      call mpas_pool_get_array(geometryPool, 'oceanMeltFractionRemovedNegative', oceanMeltFractionRemovedNegative)
+
+      if (initial) then
+         if (oceanMeltExportParity /= 0) then
+            ! a restart holds the latest export, which is sent again
+            block => block % next
+            cycle
+         endif
+         ! no export yet: the first has positive parity
+         oceanMeltExportParity = -1
+         oceanMeltThicknessSentPositive(:) = 0.0_RKIND
+         oceanMeltThicknessSentNegative(:) = 0.0_RKIND
+         oceanMeltFractionRemovedPositive(:) = 0.0_RKIND
+         oceanMeltFractionRemovedNegative(:) = 0.0_RKIND
+         call mpas_log_write('Ocean melt fraction coupling: first export of the ice available for the ocean to melt')
+      endif
+
+      oceanMeltExportParity = -oceanMeltExportParity
+      if (oceanMeltExportParity > 0) then
+         oceanMeltThicknessSent => oceanMeltThicknessSentPositive
+         oceanMeltFractionRemoved => oceanMeltFractionRemovedPositive
+      else
+         oceanMeltThicknessSent => oceanMeltThicknessSentNegative
+         oceanMeltFractionRemoved => oceanMeltFractionRemovedNegative
+      endif
+
+      do i = 1, nCells
+         if (li_mask_is_floating_ice(cellMask(i))) then
+            oceanMeltThicknessSent(i) = min(thickness(i), config_ocean_melt_reference_thickness)
+         else
+            oceanMeltThicknessSent(i) = 0.0_RKIND
+         endif
+         oceanMeltFractionRemoved(i) = 0.0_RKIND
+      end do
+
+      block => block % next
+   end do
+
+   end subroutine glc_ocean_melt_record_export
+
+!***********************************************************************
+!BOP
+! !IROUTINE: glc_ocean_melt_remove
+! !INTERFACE:
+
+   subroutine glc_ocean_melt_remove(errorCode)
+   use li_advection, only: li_ocean_melt_removal_requested
+
+! !DESCRIPTION:
+!  If config_ocean_melt_fraction_coupling is .true., find the ice the ocean
+!  melted over the last coupling interval, for MALI's first time step of the
+!  interval to remove from the base of each cell after it sets that step's
+!  masks.  For MALI's latest two exports, the ocean sends the fraction of the
+!  available ice it melted per second, mapped to MALI's cells.  Scaled by the
+!  fraction of the cell the ocean covers over the map's row sum, times the
+!  coupling interval and the thickness MALI made available, this is the
+!  thickness the ocean melted from each cell, whose area integral equals the
+!  ocean's melt to roundoff.  Cells thicker than
+!  config_ocean_melt_reference_thickness that lose all the ice they made
+!  available are flagged.  The first time step records any part a cell does
+!  not hold as a shortfall and adds the removed mass to
+!  floatingBasalMassBalApplied at its end.
+!
+! !OUTPUT PARAMETERS:
+
+   integer, intent(out) :: errorCode
+
+!EOP
+!-----------------------------------------------------------------------
+
+   type (block_type), pointer :: block
+   type (mpas_pool_type), pointer :: meshPool, geometryPool, thermalPool, &
+                                     scratchPool
+   logical, pointer :: config_ocean_melt_fraction_coupling
+   real (kind=RKIND), pointer :: config_ocean_melt_reference_thickness, config_ice_density
+   integer, pointer :: nCells, nCellsSolve
+   integer, dimension(:), pointer :: oceanMeltFullRemovalMask
+   real (kind=RKIND), dimension(:), pointer :: oceanCoverageFraction, oceanMapRowSum, &
+                                               oceanMeltThicknessSentPositive, &
+                                               oceanMeltThicknessSentNegative, &
+                                               oceanMeltFractionRatePositive, &
+                                               oceanMeltFractionRateNegative, &
+                                               oceanMeltFractionRemovedPositive, &
+                                               oceanMeltFractionRemovedNegative, &
+                                               oceanMeltRemovedThickness, &
+                                               oceanMeltShortfallThickness, &
+                                               oceanMeltRemovalPending, &
+                                               oceanMeltRemovalRequest
+   real (kind=RKIND), dimension(:), allocatable :: removeThickness
+   real (kind=RKIND), dimension(:), pointer :: areaCell
+   real (kind=RKIND) :: ratio, fractionPositive, fractionNegative, thicknessLimit
+   real (kind=RKIND), dimension(5) :: localSums, globalSums
+   character (len=StrKIND) :: message
+   real (kind=RKIND), parameter :: fullRemovalTolerance = 1.0e-12_RKIND
+   integer :: i, err_tmp
+
+   errorCode = 0
+
+   call mpas_pool_get_config(domain % configs, 'config_ocean_melt_fraction_coupling', &
+                             config_ocean_melt_fraction_coupling)
+   if (.not. config_ocean_melt_fraction_coupling) return
+   call mpas_pool_get_config(domain % configs, 'config_ocean_melt_reference_thickness', &
+                             config_ocean_melt_reference_thickness)
+   call mpas_pool_get_config(domain % configs, 'config_ice_density', config_ice_density)
+   thicknessLimit = config_ocean_melt_reference_thickness
+   localSums(:) = 0.0_RKIND
+
+   block => domain % blocklist
+   do while (associated(block))
+      call mpas_pool_get_subpool(block % structs, 'mesh', meshPool)
+      call mpas_pool_get_subpool(block % structs, 'geometry', geometryPool)
+      call mpas_pool_get_subpool(block % structs, 'thermal', thermalPool)
+      call mpas_pool_get_subpool(block % structs, 'scratch', scratchPool)
+      call mpas_pool_get_dimension(meshPool, 'nCells', nCells)
+      call mpas_pool_get_dimension(meshPool, 'nCellsSolve', nCellsSolve)
+
+      call mpas_pool_get_array(geometryPool, 'oceanCoverageFraction', oceanCoverageFraction)
+      call mpas_pool_get_array(geometryPool, 'oceanMapRowSum', oceanMapRowSum)
+      call mpas_pool_get_array(geometryPool, 'oceanMeltThicknessSentPositive', oceanMeltThicknessSentPositive)
+      call mpas_pool_get_array(geometryPool, 'oceanMeltThicknessSentNegative', oceanMeltThicknessSentNegative)
+      call mpas_pool_get_array(geometryPool, 'oceanMeltFractionRatePositive', oceanMeltFractionRatePositive)
+      call mpas_pool_get_array(geometryPool, 'oceanMeltFractionRateNegative', oceanMeltFractionRateNegative)
+      call mpas_pool_get_array(geometryPool, 'oceanMeltFractionRemovedPositive', oceanMeltFractionRemovedPositive)
+      call mpas_pool_get_array(geometryPool, 'oceanMeltFractionRemovedNegative', oceanMeltFractionRemovedNegative)
+      call mpas_pool_get_array(geometryPool, 'oceanMeltRemovedThickness', oceanMeltRemovedThickness)
+      call mpas_pool_get_array(geometryPool, 'oceanMeltShortfallThickness', oceanMeltShortfallThickness)
+      call mpas_pool_get_array(geometryPool, 'oceanMeltFullRemovalMask', oceanMeltFullRemovalMask)
+      call mpas_pool_get_array(geometryPool, 'oceanMeltRemovalPending', oceanMeltRemovalPending)
+      call mpas_pool_get_array(meshPool, 'areaCell', areaCell)
+
+      allocate(removeThickness(nCells))
+      removeThickness(:) = 0.0_RKIND
+      oceanMeltFullRemovalMask(:) = 0
+
+      do i = 1, nCellsSolve
+         if (oceanMapRowSum(i) > 0.0_RKIND) then
+            ratio = oceanCoverageFraction(i) / oceanMapRowSum(i)
+         else
+            ratio = 0.0_RKIND
+         endif
+         fractionPositive = ratio * oceanMeltFractionRatePositive(i) * real(glc_cpl_dt, RKIND)
+         fractionNegative = ratio * oceanMeltFractionRateNegative(i) * real(glc_cpl_dt, RKIND)
+         removeThickness(i) = fractionPositive * oceanMeltThicknessSentPositive(i) &
+                            + fractionNegative * oceanMeltThicknessSentNegative(i)
+         localSums(1) = localSums(1) + areaCell(i) * config_ice_density * fractionPositive &
+                                       * oceanMeltThicknessSentPositive(i)
+         localSums(2) = localSums(2) + areaCell(i) * config_ice_density * fractionNegative &
+                                       * oceanMeltThicknessSentNegative(i)
+
+         oceanMeltFractionRemovedPositive(i) = oceanMeltFractionRemovedPositive(i) + fractionPositive
+         oceanMeltFractionRemovedNegative(i) = oceanMeltFractionRemovedNegative(i) + fractionNegative
+         if (((oceanMeltThicknessSentPositive(i) >= thicknessLimit) .and. &
+              (oceanMeltFractionRemovedPositive(i) >= 1.0_RKIND - fullRemovalTolerance)) .or. &
+             ((oceanMeltThicknessSentNegative(i) >= thicknessLimit) .and. &
+              (oceanMeltFractionRemovedNegative(i) >= 1.0_RKIND - fullRemovalTolerance))) then
+            oceanMeltFullRemovalMask(i) = 1
+         endif
+      end do
+
+      ! the first time step removes it, after the masks for that step are
+      ! computed, so the removal does not change the masks its velocity
+      ! solves use
+      call mpas_pool_get_array(geometryPool, 'oceanMeltRemovalRequest', oceanMeltRemovalRequest)
+      oceanMeltRemovalRequest(:) = removeThickness(:)
+      do i = 1, nCellsSolve
+         localSums(5) = localSums(5) + real(oceanMeltFullRemovalMask(i), RKIND)
+      end do
+
+      deallocate(removeThickness)
+
+      block => block % next
+   end do
+
+   call mpas_dmpar_sum_real_array(domain % dminfo, 5, localSums, globalSums)
+   write(message, '(a,es24.16,a,es24.16,a,i0)') &
+      'Ocean melt requested (kg): positive-parity export ', globalSums(1), &
+      ', negative-parity export ', globalSums(2), &
+      ', cells with full removal ', nint(globalSums(5))
+   call mpas_log_write(trim(message))
+
+   li_ocean_melt_removal_requested = .true.
+
+   end subroutine glc_ocean_melt_remove
+
    subroutine glc_import_mct(x2g_g, errorCode)
 
 ! !INPUT/OUTPUT PARAMETERS:
@@ -1710,6 +1993,9 @@ contains
    real (kind=RKIND), dimension(:,:), pointer :: ismip6shelfMelt_3dThermalForcing
    integer, dimension(:,:), pointer :: orig3dOceanMask
    real (kind=RKIND), dimension(:), pointer :: iceOceanInterfaceTemperature
+   real (kind=RKIND), dimension(:), pointer :: oceanMeltFractionRatePositive, &
+                                               oceanMeltFractionRateNegative
+   logical, pointer :: config_ocean_melt_fraction_coupling
    real(kind=RKIND), pointer :: config_invalid_value_TF
    real(kind=RKIND), pointer :: config_min_floating_frac, config_invalid_value_ocn_intr_temp
    character(len=StrKIND), pointer :: config_smb_source
@@ -1729,6 +2015,8 @@ contains
     call mpas_pool_get_config(domain % configs, 'config_min_floating_frac', config_min_floating_frac)
     call mpas_pool_get_config(domain % configs, 'config_invalid_value_ocn_intr_temp', &
                               config_invalid_value_ocn_intr_temp)
+    call mpas_pool_get_config(domain % configs, 'config_ocean_melt_fraction_coupling', &
+                              config_ocean_melt_fraction_coupling)
 
     n = 0
     block => domain % blocklist
@@ -1748,6 +2036,8 @@ contains
          call mpas_pool_get_array(geometryPool, 'floatingBasalMassBal',floatingBasalMassBal)
          call mpas_pool_get_array(thermalPool, 'surfaceTemperature',surfaceTemperature)
          call mpas_pool_get_array(thermalPool, 'iceOceanInterfaceTemperature', iceOceanInterfaceTemperature)
+         call mpas_pool_get_array(geometryPool, 'oceanMeltFractionRatePositive', oceanMeltFractionRatePositive)
+         call mpas_pool_get_array(geometryPool, 'oceanMeltFractionRateNegative', oceanMeltFractionRateNegative)
          call mpas_pool_get_array(geometryPool, 'ismip6shelfMelt_3dThermalForcing', ismip6shelfMelt_3dThermalForcing)
          call mpas_pool_get_array(extrapOceanDataPool, 'orig3dOceanMask', orig3dOceanMask)
 !         call mpas_pool_get_array(thermalPool, 'basalOceanHeatflx',basalOceanHeatflx)
@@ -1773,6 +2063,18 @@ contains
                floatingBasalMassBal(i) = -x2g_g(index_x2g_Foxo_ismf, n)
             else
                floatingBasalMassBal(i) = 0.0_RKIND
+            endif
+
+            ! with config_ocean_melt_fraction_coupling, melt arrives instead as the
+            ! fractions of the ice MALI made available that the ocean melted, per
+            ! second, and Foxo_ismf holds only refreezing and frazil
+            oceanMeltFractionRatePositive(i) = 0.0_RKIND
+            oceanMeltFractionRateNegative(i) = 0.0_RKIND
+            if (config_ocean_melt_fraction_coupling) then
+               if (index_x2g_So_ismf_frac_pos > 0) &
+                  oceanMeltFractionRatePositive(i) = x2g_g(index_x2g_So_ismf_frac_pos, n)
+               if (index_x2g_So_ismf_frac_neg > 0) &
+                  oceanMeltFractionRateNegative(i) = x2g_g(index_x2g_So_ismf_frac_neg, n)
             endif
 
             ! ice-ocean interface temperature from the ocean, weighted by the ocean
@@ -1854,7 +2156,10 @@ contains
    real (kind=RKIND), dimension(:), pointer :: avgFloatingBMBFlux
    real (kind=RKIND), dimension(:), pointer :: bedTopography
    real (kind=RKIND), dimension(:), pointer :: basalConductiveFlux
+   real (kind=RKIND), dimension(:), pointer :: oceanMeltThicknessSent
    integer, dimension(:), pointer :: cellMask
+   integer, pointer :: oceanMeltExportParity
+   logical, pointer :: config_ocean_melt_fraction_coupling
    real (kind=RKIND) :: belowSeaLevelMask
    !-------------------------------------------------------------------
 
@@ -1867,6 +2172,8 @@ contains
     call mpas_pool_get_config(domain % configs, 'config_basal_mass_bal_float', config_basal_mass_bal_float)
     call mpas_pool_get_config(domain % configs, 'config_ice_density', config_ice_density)
     call mpas_pool_get_config(domain % configs, 'config_thermal_solver', config_thermal_solver)
+    call mpas_pool_get_config(domain % configs, 'config_ocean_melt_fraction_coupling', &
+                              config_ocean_melt_fraction_coupling)
 
     do while (associated(block))
          call mpas_pool_get_subpool(block % structs, 'mesh', meshPool)
@@ -1889,6 +2196,12 @@ contains
          call mpas_pool_get_array(geometryPool, 'cellMask', cellMask)
          call mpas_pool_get_array(geometryPool, 'bedTopography', bedTopography)
          call mpas_pool_get_array(thermalPool, 'basalConductiveFlux', basalConductiveFlux)
+         call mpas_pool_get_array(geometryPool, 'oceanMeltExportParity', oceanMeltExportParity)
+         if (oceanMeltExportParity < 0) then
+            call mpas_pool_get_array(geometryPool, 'oceanMeltThicknessSentNegative', oceanMeltThicknessSent)
+         else
+            call mpas_pool_get_array(geometryPool, 'oceanMeltThicknessSentPositive', oceanMeltThicknessSent)
+         endif
 
          do i = 1, nCellsSolve
             n = n + 1
@@ -1955,6 +2268,18 @@ contains
                g2x_g(index_g2x_Fogg_hcond, n) = basalConductiveFlux(i)
             else
                g2x_g(index_g2x_Fogg_hcond, n) = 0.0_RKIND
+            endif
+
+            ! the floating ice available for the ocean to melt, as a mass per
+            ! unit area, and the parity of this export
+            if ((index_g2x_Fogg_ismf_avail > 0) .and. (index_g2x_Sg_ismf_parity > 0)) then
+               if (config_ocean_melt_fraction_coupling) then
+                  g2x_g(index_g2x_Fogg_ismf_avail, n) = config_ice_density * oceanMeltThicknessSent(i)
+                  g2x_g(index_g2x_Sg_ismf_parity, n) = real(oceanMeltExportParity, RKIND)
+               else
+                  g2x_g(index_g2x_Fogg_ismf_avail, n) = 0.0_RKIND
+                  g2x_g(index_g2x_Sg_ismf_parity, n) = 0.0_RKIND
+               endif
             endif
 
          end do

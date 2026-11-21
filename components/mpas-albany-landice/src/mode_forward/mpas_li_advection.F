@@ -39,6 +39,10 @@ module li_advection
    !
    !--------------------------------------------------------------------
 
+   !> Whether the coupler driver has set oceanMeltRemovalRequest for the
+   !> next time step to remove
+   logical, public :: li_ocean_melt_removal_requested = .false.
+
    !--------------------------------------------------------------------
    !
    ! Public member functions
@@ -48,7 +52,8 @@ module li_advection
              li_layer_normal_velocity, &
              li_update_geometry, &
              li_grounded_to_floating, &
-             li_apply_atm_lapse_rate
+             li_apply_atm_lapse_rate, &
+             li_advection_remove_basal_ice
 
    !--------------------------------------------------------------------
    !
@@ -840,6 +845,150 @@ module li_advection
    !--------------------------------------------------------------------
    end subroutine li_update_geometry
 
+
+
+!***********************************************************************
+!
+!  subroutine li_advection_remove_basal_ice
+!
+!> \brief   Removes given thicknesses of ice from the base of each column
+!> \author  Xylar Asay-Davis
+!> \date    17 November 2026
+!> \details
+!>  This routine removes up to removeThickness of ice from the base of
+!>  each locally owned column, melting layers from the bottom up as basal
+!>  ablation does in apply_mass_balance, and returns the thickness actually
+!>  removed, which is less only where a column holds less ice.  The layers
+!>  and, where tracers are advected, the tracers are then remapped to the
+!>  standard sigma coordinate.  Halos of thickness and tracers must be
+!>  updated afterward, and masks and geometry recomputed.  It is used to
+!>  remove the ice the ocean has melted at the start of a coupling interval.
+!
+!-----------------------------------------------------------------------
+
+   subroutine li_advection_remove_basal_ice(&
+        meshPool,               &
+        geometryPool,           &
+        thermalPool,            &
+        scratchPool,            &
+        removeThickness,        &
+        removedThickness,       &
+        err)
+
+      use li_setup, only: li_calculate_layerThickness
+
+      type (mpas_pool_type), intent(in) :: &
+           meshPool               !< Input: mesh information
+
+      real (kind=RKIND), dimension(:), intent(in) :: &
+           removeThickness        !< Input: thickness to remove from each cell (m)
+
+      type (mpas_pool_type), intent(inout) :: &
+           geometryPool           !< Input/output: geometry information to be updated
+
+      type (mpas_pool_type), intent(inout) :: &
+           thermalPool            !< Input/output: temperature/enthalpy information to be updated
+
+      type (mpas_pool_type), intent(inout) :: &
+           scratchPool            !< Input/output: work arrays for tracers
+
+      real (kind=RKIND), dimension(:), intent(out) :: &
+           removedThickness       !< Output: thickness removed from each cell (m)
+
+      integer, intent(out) :: &
+           err                    !< Output: error flag
+
+      type (field3DReal), pointer :: advectedTracersField
+      type (field2DReal), pointer :: surfaceTracersField, basalTracersField
+      real (kind=RKIND), dimension(:,:,:), pointer :: advectedTracers
+      real (kind=RKIND), dimension(:,:), pointer :: surfaceTracers, basalTracers
+      real (kind=RKIND), dimension(:,:), pointer :: layerThickness
+      real (kind=RKIND), dimension(:), pointer :: thickness
+      character (len=StrKIND), pointer :: config_thickness_advection, config_tracer_advection
+      integer, pointer :: nCellsSolve, nVertLevels
+      integer :: iCell, iLayer, nTracers, err_tmp
+      logical :: advectTracers
+      real (kind=RKIND) :: basalAblat
+
+      err = 0
+
+      call mpas_pool_get_dimension(meshPool, 'nCellsSolve', nCellsSolve)
+      call mpas_pool_get_dimension(meshPool, 'nVertLevels', nVertLevels)
+      call mpas_pool_get_array(geometryPool, 'thickness', thickness)
+      call mpas_pool_get_array(geometryPool, 'layerThickness', layerThickness)
+      call mpas_pool_get_config(liConfigs, 'config_thickness_advection', config_thickness_advection)
+      call mpas_pool_get_config(liConfigs, 'config_tracer_advection', config_tracer_advection)
+
+      ! tracers are remapped whenever advection carries them
+      advectTracers = .not. ((trim(config_thickness_advection) == 'fo') .and. &
+                             (trim(config_tracer_advection) == 'none'))
+
+      call mpas_pool_get_field(scratchPool, 'workTracerLevelCell', advectedTracersField)
+      call mpas_allocate_scratch_field(advectedTracersField, .true.)
+      advectedTracers => advectedTracersField % array
+
+      call mpas_pool_get_field(scratchPool, 'workTracerCell', surfaceTracersField)
+      call mpas_allocate_scratch_field(surfaceTracersField, .true.)
+      surfaceTracers => surfaceTracersField % array
+
+      call mpas_pool_get_field(scratchPool, 'workTracerCell2', basalTracersField)
+      call mpas_allocate_scratch_field(basalTracersField, .true.)
+      basalTracers => basalTracersField % array
+
+      call li_calculate_layerThickness(meshPool, thickness, layerThickness)
+
+      if (advectTracers) then
+         call tracer_setup(&
+              meshPool,          &
+              geometryPool,      &
+              thermalPool,       &
+              advectedTracers,   &
+              surfaceTracers,    &
+              basalTracers,      &
+              nTracers)
+      else
+         advectedTracers(:,:,:) = 0.0_RKIND
+      endif
+
+      removedThickness(:) = 0.0_RKIND
+      do iCell = 1, nCellsSolve
+         basalAblat = min(max(removeThickness(iCell), 0.0_RKIND), thickness(iCell))
+         removedThickness(iCell) = basalAblat
+         ! melt layers from the bottom up
+         do iLayer = nVertLevels, 1, -1
+            if (basalAblat <= 0.0_RKIND) exit
+            if (basalAblat >= layerThickness(iLayer,iCell)) then
+               basalAblat = basalAblat - layerThickness(iLayer,iCell)
+               layerThickness(iLayer,iCell) = 0.0_RKIND
+            else
+               layerThickness(iLayer,iCell) = layerThickness(iLayer,iCell) - basalAblat
+               basalAblat = 0.0_RKIND
+            endif
+         enddo
+      enddo
+
+      thickness(:) = sum(layerThickness, 1)
+
+      call vertical_remap(thickness, meshPool, layerThickness, advectedTracers, err_tmp)
+      err = ior(err, err_tmp)
+
+      if (advectTracers) then
+         call tracer_finish(&
+              meshPool,              &
+              geometryPool,          &
+              thermalPool,           &
+              advectedTracers)
+      endif
+
+      call mpas_deallocate_scratch_field(advectedTracersField, .true.)
+      call mpas_deallocate_scratch_field(surfaceTracersField, .true.)
+      call mpas_deallocate_scratch_field(basalTracersField, .true.)
+
+      if (err > 0) then
+         call mpas_log_write("An error has occurred in li_advection_remove_basal_ice", MPAS_LOG_ERR)
+      endif
+
+   end subroutine li_advection_remove_basal_ice
 
 
 !***********************************************************************

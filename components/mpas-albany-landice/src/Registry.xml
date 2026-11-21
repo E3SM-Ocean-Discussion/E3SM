@@ -587,6 +587,14 @@
 			    description="minimum floating-ice fraction from the ocean, remapped to MALI cells, for the ice-ocean interface temperature from the ocean to be used.  At or below this value, iceOceanInterfaceTemperature is set to config_invalid_value_ocn_intr_temp and floating ice uses a depth-based freezing temperature at its base."
 			    possible_values="Any real value between 0 and 1"
 		/>
+		<nml_option name="config_ocean_melt_fraction_coupling" type="logical" default_value=".false." units="unitless"
+			    description="If .true., the ocean (MPAS-Ocean in E3SM) melts at most the floating ice MALI makes available.  After each coupling interval, MALI sends the mass of each floating cell's ice up to config_ocean_melt_reference_thickness.  The ocean sends back the fraction of that ice it melted, and MALI removes that fraction of the thickness it sent from the base of each cell in the first time step of its next coupling interval, after that step's masks are set.  Refreezing and frazil still arrive as floatingBasalMassBal.  Requires the fields oceanCoverageFraction and oceanMapRowSum, and the ocean's config_glc_ice_shelf_coupling_cap_melt must have the same value."
+			    possible_values=".true. or .false."
+		/>
+		<nml_option name="config_ocean_melt_reference_thickness" type="real" default_value="10.0" units="m"
+			    description="If config_ocean_melt_fraction_coupling is .true., the thickness up to which MALI makes each floating cell's ice available for the ocean to melt.  It must exceed the largest melt in one coupling interval, so that melt under thicker ice is not limited."
+			    possible_values="Any positive real value"
+		/>
 	</nml_record>
 
 	<nml_record name="physical_parameters" in_defaults="true">
@@ -931,6 +939,8 @@
 			<var name="waterFrac"/>
 			<var name="sfcMassBal"/>
                         <var name="floatingBasalMassBal"/>
+                        <var name="oceanCoverageFraction"/>
+                        <var name="oceanMapRowSum"/>
                         <var name="surfaceAirTemperature"/>
                         <var name="basalHeatFlux"/>
                         <var name="eigencalvingParameter"/>
@@ -1038,6 +1048,13 @@
 			<var name="sfcMassBal"/>
 			<var name="surfaceElevationRef" packages="smbSatLapseRate"/>
                         <var name="floatingBasalMassBal"/>
+                        <var name="oceanCoverageFraction"/>
+                        <var name="oceanMapRowSum"/>
+                        <var name="oceanMeltExportParity"/>
+                        <var name="oceanMeltThicknessSentPositive"/>
+                        <var name="oceanMeltThicknessSentNegative"/>
+                        <var name="oceanMeltFractionRemovedPositive"/>
+                        <var name="oceanMeltFractionRemovedNegative"/>
                         <var name="regionCellMasks"/>
                         <var name="regionEdgeMasks"/>
                         <!-- If restart file sizes become too large, eigencalvingParameter,
@@ -1471,6 +1488,48 @@ is the value of that variable from the *previous* time level!
                 />
                 <var name="floatingBasalMassBalApplied" type="real" dimensions="nCells Time" units="kg m^-2 s^-1"
                      description="Applied basal mass balance on floating regions"
+                />
+                <var name="oceanCoverageFraction" type="real" dimensions="nCells Time" units="unitless"
+                     description="The fraction of each cell's area that the ocean's mesh covers, from the overlaps of the coupler's map from MALI to the ocean.  Used if config_ocean_melt_fraction_coupling is .true."
+                />
+                <var name="oceanMapRowSum" type="real" dimensions="nCells Time" units="unitless"
+                     description="The sum of the weights of the coupler's map from the ocean to MALI in each cell.  Used if config_ocean_melt_fraction_coupling is .true."
+                />
+                <var name="oceanMeltExportParity" type="integer" dimensions="Time" units="unitless"
+                     description="The sign (+1 or -1) of MALI's latest export of the ice available for the ocean to melt, which alternates with each export, or 0 before the first.  Used if config_ocean_melt_fraction_coupling is .true."
+                />
+                <var name="oceanMeltThicknessSentPositive" type="real" dimensions="nCells Time" units="m"
+                     description="The floating ice thickness, up to config_ocean_melt_reference_thickness, MALI made available for the ocean to melt in its latest export with positive parity.  Used if config_ocean_melt_fraction_coupling is .true."
+                />
+                <var name="oceanMeltThicknessSentNegative" type="real" dimensions="nCells Time" units="m"
+                     description="The floating ice thickness, up to config_ocean_melt_reference_thickness, MALI made available for the ocean to melt in its latest export with negative parity.  Used if config_ocean_melt_fraction_coupling is .true."
+                />
+                <var name="oceanMeltFractionRemovedPositive" type="real" dimensions="nCells Time" units="unitless"
+                     description="The fraction of oceanMeltThicknessSentPositive removed so far because the ocean melted it.  Used if config_ocean_melt_fraction_coupling is .true."
+                />
+                <var name="oceanMeltFractionRemovedNegative" type="real" dimensions="nCells Time" units="unitless"
+                     description="The fraction of oceanMeltThicknessSentNegative removed so far because the ocean melted it.  Used if config_ocean_melt_fraction_coupling is .true."
+                />
+                <var name="oceanMeltFractionRatePositive" type="real" dimensions="nCells Time" units="s^-1"
+                     description="The fraction of oceanMeltThicknessSentPositive the ocean melted per second over the last coupling interval.  Used if config_ocean_melt_fraction_coupling is .true."
+                />
+                <var name="oceanMeltFractionRateNegative" type="real" dimensions="nCells Time" units="s^-1"
+                     description="The fraction of oceanMeltThicknessSentNegative the ocean melted per second over the last coupling interval.  Used if config_ocean_melt_fraction_coupling is .true."
+                />
+                <var name="oceanMeltRemovedThickness" type="real" dimensions="nCells Time" units="m"
+                     description="The ice thickness removed in the first time step of the current coupling interval because the ocean melted it.  Used if config_ocean_melt_fraction_coupling is .true."
+                />
+                <var name="oceanMeltShortfallThickness" type="real" dimensions="nCells Time" units="m"
+                     description="The ice thickness the ocean melted that could not be removed in the first time step of the current coupling interval because the cell held less ice.  Should be zero.  Used if config_ocean_melt_fraction_coupling is .true."
+                />
+                <var name="oceanMeltFullRemovalMask" type="integer" dimensions="nCells Time" units="unitless"
+                     description="1 where the ocean melted all of the config_ocean_melt_reference_thickness of ice MALI made available from ice thicker than that, in the first time step of the current coupling interval, which means the reference thickness is too small; otherwise 0.  Used if config_ocean_melt_fraction_coupling is .true."
+                />
+                <var name="oceanMeltRemovalRequest" type="real" dimensions="nCells Time" units="m"
+                     description="The ice thickness the ocean melted over the last coupling interval, to be removed from the base of each cell in the interval's first time step, after the masks for that step are computed.  Used if config_ocean_melt_fraction_coupling is .true."
+                />
+                <var name="oceanMeltRemovalPending" type="real" dimensions="nCells Time" units="kg m^-2"
+                     description="The ice mass removed in the first time step of the current coupling interval because the ocean melted it, not yet added to floatingBasalMassBalApplied, which happens at the end of the interval's first time step.  Used if config_ocean_melt_fraction_coupling is .true."
                 />
                 <var name="connectedOceanMask" type="integer" dimensions="nCells Time" units=""
                         description="grid cells below sea level and without grounded ice connected to open ocean (i.e., open ocean plus ice shelves ignoring floating ice over subglacial lakes).  0=no, 1=yes"

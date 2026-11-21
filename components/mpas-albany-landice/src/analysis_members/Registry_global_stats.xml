@@ -82,6 +82,12 @@
                 <var name="avgSubshelfMelt" type="real" dimensions="Time" units="m yr^-1"
                         description="average floatingBasalMassBal value, as a thickness rate. Positive values represent ice loss."
                 />
+                <var name="totalOceanMeltShortfall" type="real" dimensions="Time" units="kg"
+                        description="total ice mass the ocean melted that MALI could not remove in the first time step of the current coupling interval because cells held less ice (oceanMeltShortfallThickness).  Should be zero.  Zero unless config_ocean_melt_fraction_coupling is .true."
+                />
+                <var name="oceanMeltFullRemovalCount" type="real" dimensions="Time" units="unitless"
+                        description="the number of cells thicker than config_ocean_melt_reference_thickness in which the ocean melted all the ice MALI made available, in the first time step of the current coupling interval (oceanMeltFullRemovalMask).  Should be zero; if not, the reference thickness is too small.  Zero unless config_ocean_melt_fraction_coupling is .true."
+                />
                 <var name="totalCalvingFlux" type="real" dimensions="Time" units="kg yr^-1"
                         description="total, area integrated mass loss due to calving. Positive values represent ice loss."
                 />

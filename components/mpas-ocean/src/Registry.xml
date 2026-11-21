@@ -944,6 +944,10 @@
 					description="The minimum floating-ice fraction of a cell for ice-shelf fluxes in that cell to be sent to GLC (using GLC's floating fraction) or for GLC's conductive heat flux to be applied (using the larger of the ocean's and GLC's floating fractions).  Fluxes in cells below this fraction are not sent to GLC and are saved in landIceFreshwaterFluxNotSentToGlc, and neither melt nor frazil forms under floating ice there, since GLC could not receive them.  When the land-ice geometry is imported from GLC, cells with a land-ice fraction at or below this value are treated as open ocean."
 					possible_values="Any real number between 0 and 1"
 		/>
+		<nml_option name="config_glc_ice_shelf_coupling_cap_melt" type="logical" default_value=".false."
+					description="If .true. and config_glc_ice_shelf_coupling is .true., the ocean melts at most the floating ice GLC makes available.  GLC sends the mass of its floating ice up to a reference thickness after each GLC coupling interval, and the ocean limits its cumulative melt in each cell to that mass until GLC sends the next.  Heat the ocean does not use for melt stays in the ocean.  The ocean sends the fraction of the available ice it melted, which GLC removes at the start of its next interval, and sends only refreezing and frazil as a net ice-shelf melt flux.  GLC must set config_ocean_melt_fraction_coupling to the same value."
+					possible_values=".true. or .false."
+		/>
 	</nml_record>
 	<nml_record name="shortwaveRadiation" mode="init;forward">
 		<nml_option name="config_sw_absorption_type" type="character" default_value="none"
@@ -2328,6 +2332,8 @@
 			<var name="landIceFloatingMask"/>
 			<var name="landIceFloatingFraction"/>
 			<var name="landIcePressureRampStart"/>
+			<var name="landIceGlcMeltUsed"/>
+			<var name="landIceGlcMeltParity"/>
 			<var name="seaIcePressure"/>
 			<var name="atmosphericPressure"/>
 			<var name="normalVelocityTendOld" packages="splitAB2TimeIntegrator" />
@@ -4472,6 +4478,30 @@
 		/>
 		<var name="landIcePressureRampStart" type="real" dimensions="nCells Time" units="Pa"
 			description="The land-ice pressure when the latest GLC geometry arrived, from which the pressure ramps to GLC's over a GLC coupling interval if config_glc_ice_shelf_coupling_ramp_land_ice_pressure is .true."
+			packages="landIceGlcCouplingPKG"
+		/>
+		<var name="landIceGlcMeltAvailable" type="real" dimensions="nCells Time" units="kg m^-2"
+			description="The mass of floating ice per unit cell area that GLC makes available for the ocean to melt, from its latest export.  Used if config_glc_ice_shelf_coupling_cap_melt is .true."
+			packages="landIceGlcCouplingPKG"
+		/>
+		<var name="landIceGlcMeltParity" type="real" dimensions="nCells Time" units="1"
+			description="The sign (+1 or -1) of GLC's latest export of available ice that the ocean has received, or 0 before the first.  Used if config_glc_ice_shelf_coupling_cap_melt is .true."
+			packages="landIceGlcCouplingPKG"
+		/>
+		<var name="landIceGlcMeltUsed" type="real" dimensions="nCells Time" units="kg m^-2"
+			description="The melt per unit cell area since GLC's latest export of available ice arrived, which may not exceed landIceGlcMeltAvailable.  Used if config_glc_ice_shelf_coupling_cap_melt is .true."
+			packages="landIceGlcCouplingPKG"
+		/>
+		<var name="landIceGlcMeltFractionPositive" type="real" dimensions="nCells Time" units="1"
+			description="The fraction of landIceGlcMeltAvailable melted during the current coupling interval, for GLC's export with positive parity.  Used if config_glc_ice_shelf_coupling_cap_melt is .true."
+			packages="landIceGlcCouplingPKG"
+		/>
+		<var name="landIceGlcMeltFractionNegative" type="real" dimensions="nCells Time" units="1"
+			description="The fraction of landIceGlcMeltAvailable melted during the current coupling interval, for GLC's export with negative parity.  Used if config_glc_ice_shelf_coupling_cap_melt is .true."
+			packages="landIceGlcCouplingPKG"
+		/>
+		<var name="landIceGlcFreezeMass" type="real" dimensions="nCells Time" units="kg m^-2"
+			description="The ice refrozen onto floating ice per unit cell area during the current coupling interval (negative), not including frazil.  Used if config_glc_ice_shelf_coupling_cap_melt is .true."
 			packages="landIceGlcCouplingPKG"
 		/>
 		<var name="landIceFreshwaterFluxNotSentToGlc" type="real" dimensions="nCells Time" units="kg m^-2 s^-1"

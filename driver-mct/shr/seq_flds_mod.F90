@@ -3329,6 +3329,32 @@ contains
        units    = '1'
        attname  = 'So_liflfrac'
        call metadata_set(attname, longname, stdname, units)
+
+       ! the fraction of glc's available floating ice (Fogg_ismf_avail) that
+       ! the ocean melted, per second, for the glc export with each sign of
+       ! Sg_ismf_parity.  States, so the ocn->glc map averages them without
+       ! area corrections.
+       name = 'So_ismf_frac_pos'
+       call seq_flds_add(o2x_states,trim(name))
+       call seq_flds_add(x2g_states,trim(name))
+       call seq_flds_add(x2g_shelf_states_from_ocn,trim(name))
+       call seq_flds_add(x2g_shelf_fields_from_ocn,trim(name))
+       longname = 'Fraction of the available floating ice melted per second, for glc exports with positive parity'
+       stdname  = 'iceshelf_melted_fraction_rate_positive_parity'
+       units    = 's-1'
+       attname  = 'So_ismf_frac_pos'
+       call metadata_set(attname, longname, stdname, units)
+
+       name = 'So_ismf_frac_neg'
+       call seq_flds_add(o2x_states,trim(name))
+       call seq_flds_add(x2g_states,trim(name))
+       call seq_flds_add(x2g_shelf_states_from_ocn,trim(name))
+       call seq_flds_add(x2g_shelf_fields_from_ocn,trim(name))
+       longname = 'Fraction of the available floating ice melted per second, for glc exports with negative parity'
+       stdname  = 'iceshelf_melted_fraction_rate_negative_parity'
+       units    = 's-1'
+       attname  = 'So_ismf_frac_neg'
+       call metadata_set(attname, longname, stdname, units)
     end if
 
     ! glc->ocn ice-shelf coupling: masked by where the bed is below sea level so
@@ -3399,6 +3425,31 @@ contains
     stdname  = 'iceshelf_basal_conductive_heat_flux'
     units    = 'W m-2'
     attname  = 'Fogg_hcond'
+    call metadata_set(attname, longname, stdname, units)
+
+    ! the floating ice glc makes available for the ocean to melt.  A flux, so
+    ! the area corrections make its total on the ocean grid equal glc's.
+    name = 'Fogg_ismf_avail'
+    call seq_flds_add(g2x_fluxes,trim(name))
+    call seq_flds_add(x2o_fluxes,trim(name))
+    call seq_flds_add(g2o_shelf_fluxes,trim(name))
+    longname = 'Mass of floating ice available for the ocean to melt'
+    stdname  = 'iceshelf_ice_mass_available_for_melt'
+    units    = 'kg m-2'
+    attname  = 'Fogg_ismf_avail'
+    call metadata_set(attname, longname, stdname, units)
+
+    ! +1 or -1, changing sign with each glc export, so the ocean knows which
+    ! export Fogg_ismf_avail came from.  Mapped with the glc2ocn flux map, so
+    ! the ocean receives it times the fraction of the ocean cell glc covers.
+    name = 'Sg_ismf_parity'
+    call seq_flds_add(g2x_states,trim(name))
+    call seq_flds_add(x2o_states,trim(name))
+    call seq_flds_add(g2o_shelf_fluxes,trim(name))
+    longname = 'Sign that alternates with each glc export of Fogg_ismf_avail'
+    stdname  = 'iceshelf_ice_mass_available_export_parity'
+    units    = '1'
+    attname  = 'Sg_ismf_parity'
     call metadata_set(attname, longname, stdname, units)
 
     ! Done glc fields

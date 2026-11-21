@@ -59,6 +59,8 @@ module ocn_surface_land_ice_fluxes
              ocn_surface_land_ice_fluxes_thick, &
              ocn_surface_land_ice_fluxes_build_arrays, &
              ocn_surface_land_ice_fluxes_accumulate_fluxes, &
+             ocn_surface_land_ice_fluxes_init_glc_melt_interval, &
+             ocn_surface_land_ice_fluxes_cap_glc_melt, &
              ocn_surface_land_ice_fluxes_init, &
              ocn_land_ice_in_thin_film
 
@@ -850,6 +852,136 @@ contains
    !--------------------------------------------------------------------
 
    end subroutine ocn_surface_land_ice_fluxes_accumulate_fluxes!}}}
+
+!***********************************************************************
+!
+!  routine ocn_surface_land_ice_fluxes_init_glc_melt_interval
+!
+!> \brief   Start a coupling interval's sums of melt sent to glc
+!> \author  Xylar Asay-Davis
+!> \date    17 November 2026
+!> \details
+!>  If config_glc_ice_shelf_coupling_cap_melt is .true., zero the
+!>  fractions of glc's available ice melted and the refreezing over the
+!>  coupling interval, which are sent to glc at its end.
+!
+!-----------------------------------------------------------------------
+
+   subroutine ocn_surface_land_ice_fluxes_init_glc_melt_interval(forcingPool) !{{{
+
+      type (mpas_pool_type), intent(inout) :: &
+         forcingPool    !< Input/output: forcing information
+
+      real (kind=RKIND), dimension(:), pointer :: landIceGlcMeltFractionPositive, &
+                                                  landIceGlcMeltFractionNegative, &
+                                                  landIceGlcFreezeMass
+
+      if (.not. (config_glc_ice_shelf_coupling .and. config_glc_ice_shelf_coupling_cap_melt)) return
+
+      call mpas_pool_get_array(forcingPool, 'landIceGlcMeltFractionPositive', landIceGlcMeltFractionPositive)
+      call mpas_pool_get_array(forcingPool, 'landIceGlcMeltFractionNegative', landIceGlcMeltFractionNegative)
+      call mpas_pool_get_array(forcingPool, 'landIceGlcFreezeMass', landIceGlcFreezeMass)
+
+      landIceGlcMeltFractionPositive(:) = 0.0_RKIND
+      landIceGlcMeltFractionNegative(:) = 0.0_RKIND
+      landIceGlcFreezeMass(:) = 0.0_RKIND
+
+   end subroutine ocn_surface_land_ice_fluxes_init_glc_melt_interval!}}}
+
+!***********************************************************************
+!
+!  routine ocn_surface_land_ice_fluxes_cap_glc_melt
+!
+!> \brief   Limit the ocean's melt to the floating ice glc has
+!> \author  Xylar Asay-Davis
+!> \date    17 November 2026
+!> \details
+!>  If config_glc_ice_shelf_coupling_cap_melt is .true., limit each cell's
+!>  melt over this time step so its melt since glc's latest export of
+!>  available ice does not exceed that ice.  The melt and both heat fluxes
+!>  are scaled by the same factor, so the heat not used for melt stays in
+!>  the ocean.  Then add this step's melt, as a fraction of the available
+!>  ice, to the sum for the export's parity, and add refreezing to its own
+!>  sum; both are sent to glc at the end of the coupling interval.
+!
+!-----------------------------------------------------------------------
+
+   subroutine ocn_surface_land_ice_fluxes_cap_glc_melt(meshPool, forcingPool, dt, err) !{{{
+
+      type (mpas_pool_type), intent(in) :: &
+         meshPool       !< Input: mesh information
+
+      real (kind=RKIND), intent(in) :: &
+         dt             !< Input: the time step (s)
+
+      type (mpas_pool_type), intent(inout) :: &
+         forcingPool    !< Input/output: forcing information
+
+      integer, intent(out) :: err !< Output: error flag
+
+      integer :: iCell, nCells
+      integer, dimension(:), pointer :: nCellsArray
+
+      real (kind=RKIND), dimension(:), pointer :: landIceFreshwaterFlux, &
+                                                  landIceFreshwaterFluxTotal, &
+                                                  landIceHeatFlux, &
+                                                  heatFluxToLandIce, &
+                                                  landIceGlcMeltAvailable, &
+                                                  landIceGlcMeltParity, &
+                                                  landIceGlcMeltUsed, &
+                                                  landIceGlcMeltFractionPositive, &
+                                                  landIceGlcMeltFractionNegative, &
+                                                  landIceGlcFreezeMass
+
+      real (kind=RKIND) :: melt, allowedMelt, scaling
+
+      err = 0
+
+      if (.not. (config_glc_ice_shelf_coupling .and. config_glc_ice_shelf_coupling_cap_melt)) return
+      if (.not. landIceFluxesOn .or. landIceDataOn) return
+
+      call mpas_pool_get_dimension(meshPool, 'nCellsArray', nCellsArray)
+      nCells = nCellsArray( size(nCellsArray) )
+
+      call mpas_pool_get_array(forcingPool, 'landIceFreshwaterFlux', landIceFreshwaterFlux)
+      call mpas_pool_get_array(forcingPool, 'landIceFreshwaterFluxTotal', landIceFreshwaterFluxTotal)
+      call mpas_pool_get_array(forcingPool, 'landIceHeatFlux', landIceHeatFlux)
+      call mpas_pool_get_array(forcingPool, 'heatFluxToLandIce', heatFluxToLandIce)
+      call mpas_pool_get_array(forcingPool, 'landIceGlcMeltAvailable', landIceGlcMeltAvailable)
+      call mpas_pool_get_array(forcingPool, 'landIceGlcMeltParity', landIceGlcMeltParity)
+      call mpas_pool_get_array(forcingPool, 'landIceGlcMeltUsed', landIceGlcMeltUsed)
+      call mpas_pool_get_array(forcingPool, 'landIceGlcMeltFractionPositive', landIceGlcMeltFractionPositive)
+      call mpas_pool_get_array(forcingPool, 'landIceGlcMeltFractionNegative', landIceGlcMeltFractionNegative)
+      call mpas_pool_get_array(forcingPool, 'landIceGlcFreezeMass', landIceGlcFreezeMass)
+
+      do iCell = 1, nCells
+         melt = landIceFreshwaterFlux(iCell)
+         if (melt > 0.0_RKIND) then
+            allowedMelt = max(landIceGlcMeltAvailable(iCell) - landIceGlcMeltUsed(iCell), 0.0_RKIND) / dt
+            if (melt > allowedMelt) then
+               scaling = allowedMelt / melt
+               landIceFreshwaterFlux(iCell) = allowedMelt
+               landIceFreshwaterFluxTotal(iCell) = landIceFreshwaterFluxTotal(iCell) - (melt - allowedMelt)
+               landIceHeatFlux(iCell) = scaling * landIceHeatFlux(iCell)
+               heatFluxToLandIce(iCell) = scaling * heatFluxToLandIce(iCell)
+               melt = allowedMelt
+            end if
+            landIceGlcMeltUsed(iCell) = landIceGlcMeltUsed(iCell) + dt * melt
+            if (landIceGlcMeltAvailable(iCell) > 0.0_RKIND) then
+               if (landIceGlcMeltParity(iCell) > 0.0_RKIND) then
+                  landIceGlcMeltFractionPositive(iCell) = landIceGlcMeltFractionPositive(iCell) &
+                     + dt * melt / landIceGlcMeltAvailable(iCell)
+               elseif (landIceGlcMeltParity(iCell) < 0.0_RKIND) then
+                  landIceGlcMeltFractionNegative(iCell) = landIceGlcMeltFractionNegative(iCell) &
+                     + dt * melt / landIceGlcMeltAvailable(iCell)
+               end if
+            end if
+         elseif (melt < 0.0_RKIND) then
+            landIceGlcFreezeMass(iCell) = landIceGlcFreezeMass(iCell) + dt * melt
+         end if
+      end do
+
+   end subroutine ocn_surface_land_ice_fluxes_cap_glc_melt!}}}
 
 !***********************************************************************
 !
