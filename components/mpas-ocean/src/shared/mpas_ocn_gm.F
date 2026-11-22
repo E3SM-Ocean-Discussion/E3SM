@@ -863,16 +863,58 @@ contains
 !-----------------------------------------------------------------------
 
     subroutine ocn_GM_add_to_transport_vel(normalTransportVelocity, &
-                                           nEdges, nVertLevels)!{{{
+                                           nEdges, nVertLevels, &
+                                           wettingVelocityBaroclinic)!{{{
 
        real (kind=RKIND), dimension(:,:), intent(inout) :: &
             normalTransportVelocity
 
        integer, intent(in) :: nEdges, nVertLevels
 
+       ! split-explicit wetting and drying multiplies baroclinic velocities by
+       ! this factor, which is 0 where an edge is closed
+       real (kind=RKIND), dimension(:,:), intent(in), optional :: &
+            wettingVelocityBaroclinic
+
        integer :: iEdge, k
 
        if (.not. config_use_gm) return
+
+       if (present(wettingVelocityBaroclinic)) then
+          !$omp parallel
+          !$omp do schedule(runtime) &
+          !$omp private(k)
+          do iEdge = 1, nEdges
+             do k = 1, nVertLevels
+                normalTransportVelocity(k,iEdge) = &
+                   normalTransportVelocity(k,iEdge) + &
+                   wettingVelocityBaroclinic(k,iEdge)* &
+                   normalGMBolusVelocity(k,iEdge)
+             end do
+          end do
+          !$omp end do
+          !$omp end parallel
+          return
+       end if
+
+       if (config_use_wetting_drying) then
+          ! wetting and drying limits the transport out of cells that would
+          ! otherwise dry, so it limits the GM bolus transport as well
+          !$omp parallel
+          !$omp do schedule(runtime) &
+          !$omp private(k)
+          do iEdge = 1, nEdges
+             do k = 1, nVertLevels
+                normalTransportVelocity(k,iEdge) = &
+                   normalTransportVelocity(k,iEdge) + &
+                   (1.0_RKIND - wettingVelocityFactor(k,iEdge))* &
+                   normalGMBolusVelocity(k,iEdge)
+             end do
+          end do
+          !$omp end do
+          !$omp end parallel
+          return
+       end if
 
        !$omp parallel
        !$omp do schedule(runtime) &
