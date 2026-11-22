@@ -1117,14 +1117,16 @@ module ocn_time_integration_split
             !$omp end parallel
 
             !add GM and MLE (submesoscale) velocities if requested
-            call ocn_GM_add_to_transport_vel(normalTransportVelocity, nEdgesAll, &
-                                             nVertLevels)
-            ! with wetting and drying, the MLE velocity is limited by the
-            ! factor that limits the baroclinic velocity
+            ! with wetting and drying, the GM and MLE velocities are limited
+            ! by the factor that limits the baroclinic velocity
             if (config_use_wetting_drying) then
+               call ocn_GM_add_to_transport_vel(normalTransportVelocity, &
+                       nEdgesAll, nVertLevels, wettingVelocityBaroclinicCur)
                call ocn_MLE_add_to_transport_vel(normalTransportvelocity, &
                        nEdgesAll, wettingVelocityBaroclinicCur)
             else
+               call ocn_GM_add_to_transport_vel(normalTransportVelocity, &
+                                                nEdgesAll, nVertLevels)
                call ocn_MLE_add_to_transport_vel(normalTransportvelocity, &
                                                  nEdgesAll)
             end if
@@ -1954,12 +1956,14 @@ module ocn_time_integration_split
             !$omp end do
             !$omp end parallel
 
-            call ocn_GM_add_to_transport_vel(uTemp, nEdges, &
-                                             nVertLevels)
             if (config_use_wetting_drying) then
+               call ocn_GM_add_to_transport_vel(uTemp, nEdges, &
+                       nVertLevels, wettingVelocityBaroclinicCur)
                call ocn_MLE_add_to_transport_vel(uTemp, nEdges, &
                                                  wettingVelocityBaroclinicCur)
             else
+               call ocn_GM_add_to_transport_vel(uTemp, nEdges, &
+                                                nVertLevels)
                call ocn_MLE_add_to_transport_vel(uTemp, nEdges)
             end if
 
@@ -1975,12 +1979,14 @@ module ocn_time_integration_split
             end do
             !$omp end do
             !$omp end parallel
-            call ocn_GM_add_to_transport_vel(normalTransportVelocity, nEdges, &
-                                             nVertLevels)
             if (config_use_wetting_drying) then
+               call ocn_GM_add_to_transport_vel(normalTransportVelocity, &
+                       nEdges, nVertLevels, wettingVelocityBaroclinicCur)
                call ocn_MLE_add_to_transport_vel(normalTransportVelocity, &
                        nEdges, wettingVelocityBaroclinicCur)
             else
+               call ocn_GM_add_to_transport_vel(normalTransportVelocity, &
+                                                nEdges, nVertLevels)
                call ocn_MLE_add_to_transport_vel(normalTransportVelocity, &
                                                  nEdges)
             end if
