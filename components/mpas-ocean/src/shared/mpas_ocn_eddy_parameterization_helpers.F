@@ -226,7 +226,7 @@ module ocn_eddy_parameterization_helpers
          !$omp parallel
          !$omp do schedule(runtime) private(k)
          do iCell = 1,nCells
-           do k = 1,maxLevelCell(iCell)
+           do k = minLevelCell(iCell),maxLevelCell(iCell)
               pressureAdjustedForLandIce(k,iCell) = pressureAdjustedForLandIce(k,iCell)   &
                                                           - landIcePressure(iCell)
            end do
@@ -244,7 +244,7 @@ module ocn_eddy_parameterization_helpers
           refIndex = maxLevelCell(iCell)
           found_den_mld = .false.
 
-          do k=1, maxLevelCell(iCell)-1
+          do k=minLevelCell(iCell), maxLevelCell(iCell)-1
              if(pressureAdjustedForLandIce(k+1,iCell) > config_eddyMLD_reference_pressure) then
 
                 coeffs(2) = (potentialDensity(k+1,iCell) - potentialDensity(k,iCell)) /  &
@@ -321,13 +321,13 @@ module ocn_eddy_parameterization_helpers
 
           found_den_mld = .false.
 
-          depth(1) = 0.5_RKIND*layerThickness(1,iCell)
-          do k=2,maxLevelCell(iCell)
+          depth(minLevelCell(iCell)) = 0.5_RKIND*layerThickness(minLevelCell(iCell),iCell)
+          do k=minLevelCell(iCell)+1,maxLevelCell(iCell)
              depth(k) = depth(k-1) + 0.5_RKIND*(layerThickness(k-1,iCell) + &
                                                 layerThickness(k  ,iCell))
           end do
 
-          do k=1, maxLevelCell(iCell)-1
+          do k=minLevelCell(iCell), maxLevelCell(iCell)-1
              if(depth(k+1) >= refDepth) then
                 coeffs(2) = (potentialDensity(k+1,iCell) - potentialDensity(k,iCell)) &
                              / (depth(k+1) - depth(k))

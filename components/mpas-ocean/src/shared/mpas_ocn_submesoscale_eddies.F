@@ -117,8 +117,10 @@ module ocn_submesoscale_eddies
                        max(BruntVaisalaFreqTop(minLevelCell(cell2)+1,cell2),1.0E-20_RKIND)))
         hML = 0.5_RKIND*layerThickEdgeMean(minLevelEdgeBot(iEdge),iEdge)
         bvfML = bvfML + hML*bvfAv
+        ! with minLevelCell > 1, an edge's two columns may share no level
+        if (maxLevelEdgeTop(iEdge) < minLevelEdgeBot(iEdge)) cycle
         if (minLevelEdgeTop(iEdge) .ge. 1) then
-           gradBuoyML = hML*gradDensityEddy(minLevelEdgeTop(iEdge)+1,iEdge)
+           gradBuoyML = hML*gradDensityEddy(minLevelEdgeBot(iEdge)+1,iEdge)
            bvfML = hML*bvfAv
         else
            cycle
@@ -139,7 +141,8 @@ module ocn_submesoscale_eddies
 
         !compute depths and shape function
 
-        do k = minLevelEdgeTop(iEdge)+1,maxLevelEdgeTop(iEdge)+1
+        ! depths are measured from the top of the levels both cells share
+        do k = minLevelEdgeBot(iEdge)+1,maxLevelEdgeTop(iEdge)+1
            zEdge(k) = zEdge(k-1) - layerThickEdgeMean(k-1,iEdge)
          end do
 
@@ -155,14 +158,14 @@ module ocn_submesoscale_eddies
 
         ds = min(dcEdge(iEdge),dsMax)
 
-        do k = minLevelEdgeTop(iEdge)+1,maxLevelEdgeTop(iEdge)
+        do k = minLevelEdgeBot(iEdge)+1,maxLevelEdgeTop(iEdge)
            mu = max(0.0_RKIND,(1.0_RKIND - (2.0_RKIND*zEdge(k) / zMLD + 1.0_RKIND)**2.0)* &
                     (1.0_RKIND + 5.0_RKIND/21.0_RKIND*(2.0_RKIND*zEdge(k)/zMLD + 1.0_RKIND)**2.0))
            streamFunction(k) = Ce*ds/Lf*zMLD**2.0*gradBuoyML/time_scale(iEdge)*mu
         end do
 
         ! integrate in vertical to get the velocity
-        do k = minLevelEdgeTop(iEdge),maxLevelEdgeTop(iEdge)
+        do k = minLevelEdgeBot(iEdge),maxLevelEdgeTop(iEdge)
            normalMLEvelocity(k,iEdge) = -(streamFunction(k) - streamFunction(k+1)) / layerThickEdgeMean(k,iEdge)
         end do
 

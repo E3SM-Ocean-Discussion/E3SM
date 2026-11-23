@@ -230,7 +230,7 @@ contains
       !$omp         kappaRediEdgeVal, iTr, tracer_turb_flux, flux, flux_term2, flux_term3, &
       !$omp         dTracerDx, use_Redi_diag_terms, jCell, kUp, kDn)
       do iCell = 1, nCells
-         if (maxLevelCell(iCell) .ge. config_Redi_min_layers_diag_terms) then
+         if (maxLevelCell(iCell) - minLevelCell(iCell) + 1 .ge. config_Redi_min_layers_diag_terms) then
             use_Redi_diag_terms = .true.
          else
             use_Redi_diag_terms = .false.
@@ -291,6 +291,10 @@ contains
                end do
             end if
 
+            ! with minLevelCell > 1, two neighboring columns may share no
+            ! level, and then there is no flux between them
+            if (maxLevelEdgeTop(iEdge) < minLevelEdgeBot(iEdge)) cycle
+
             r_tmp = dvEdge(iEdge)/dcEdge(iEdge)
             coef = dvEdge(iEdge)
 
@@ -310,12 +314,29 @@ contains
                if (.not.use_Redi_diag_terms) cycle
 
                ! term 2: div( h S d/dz psi )
-               flux_term2 = coef*RediKappa(iEdge)*layerThickEdgeMean(k, iEdge)* &
-                            0.25_RKIND* &
-                            (slopeTriadDown(k, 1, iEdge)*(tracers(iTr, k, cell1) - tracers(iTr, k + 1, cell1)) &
-                             /(zMid(k, cell1) - zMid(k + 1, cell1)) &
-                             + slopeTriadDown(k, 2, iEdge)*(tracers(iTr, k, cell2) - tracers(iTr, k + 1, cell2)) &
-                             /(zMid(k, cell2) - zMid(k + 1, cell2)))
+               if (k < maxLevelCell(cell1) .and. k < maxLevelCell(cell2)) then
+                  flux_term2 = coef*RediKappa(iEdge)*layerThickEdgeMean(k, iEdge)* &
+                               0.25_RKIND* &
+                               (slopeTriadDown(k, 1, iEdge)*(tracers(iTr, k, cell1) - tracers(iTr, k + 1, cell1)) &
+                                /(zMid(k, cell1) - zMid(k + 1, cell1)) &
+                                + slopeTriadDown(k, 2, iEdge)*(tracers(iTr, k, cell2) - tracers(iTr, k + 1, cell2)) &
+                                /(zMid(k, cell2) - zMid(k + 1, cell2)))
+               else
+                  ! a cell whose bottom layer is k has no triad pointing down
+                  flux_term2 = 0.0_RKIND
+                  if (k < maxLevelCell(cell1)) then
+                     flux_term2 = flux_term2 + coef*RediKappa(iEdge)*layerThickEdgeMean(k, iEdge)* &
+                                  0.25_RKIND*slopeTriadDown(k, 1, iEdge)* &
+                                  (tracers(iTr, k, cell1) - tracers(iTr, k + 1, cell1)) &
+                                  /(zMid(k, cell1) - zMid(k + 1, cell1))
+                  endif
+                  if (k < maxLevelCell(cell2)) then
+                     flux_term2 = flux_term2 + coef*RediKappa(iEdge)*layerThickEdgeMean(k, iEdge)* &
+                                  0.25_RKIND*slopeTriadDown(k, 2, iEdge)* &
+                                  (tracers(iTr, k, cell2) - tracers(iTr, k + 1, cell2)) &
+                                  /(zMid(k, cell2) - zMid(k + 1, cell2))
+                  endif
+               endif
                if (minLevelCell(cell1) < minLevelEdgeBot(iEdge)) then
                   flux_term2 = flux_term2 + coef*RediKappa(iEdge)* &
                                layerThickEdgeMean(k, iEdge)*0.25_RKIND*slopeTriadUp(k, 1, iEdge)* &
@@ -369,6 +390,10 @@ contains
                      slopeTriadUp(k, iCellSelf, iEdge)*(tracers(iTr, k, cell2) - tracers(iTr, k, cell1)))
                end do
             end do
+
+            ! an edge with a single shared level has had its only layer
+            ! handled as the top layer above
+            if (maxLevelEdgeTop(iEdge) == minLevelEdgeBot(iEdge)) cycle
 
             k = maxLevelEdgeTop(iEdge)
             kappaRediEdgeVal = 0.25_RKIND*(limiterUp(k,1,iEdge) + limiterUp(k,2,iEdge) + &
@@ -507,7 +532,7 @@ contains
             end do
          end do
 
-         if (maxLevelCell(iCell) .ge. config_Redi_min_layers_diag_terms) then
+         if (maxLevelCell(iCell) - minLevelCell(iCell) + 1 .ge. config_Redi_min_layers_diag_terms) then
             ! term 3: d/dz div( S grad psi )
             do k = minLevelCell(iCell), maxLevelCell(iCell)
                kUp = max(minLevelCell(iCell), k - 1)

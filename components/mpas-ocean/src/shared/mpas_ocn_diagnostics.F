@@ -2216,7 +2216,7 @@ contains
          ! Vertical velocity at bottom is zero, initialized above.
          vertGMBolusVelocityTop(1:kmin-1,iCell) = 0.0_RKIND
          vertGMBolusVelocityTop(kmax+1  ,iCell) = 0.0_RKIND
-         do k = kmax, 1, -1
+         do k = kmax, kmin, -1
             vertGMBolusVelocityTop(k,iCell) = &
             vertGMBolusVelocityTop(k+1,iCell) - div_huGMBolus(k)
          end do
@@ -2329,7 +2329,7 @@ contains
          ! Vertical velocity at bottom is zero, initialized above.
          vertMLEBolusVelocityTop(1:kmin-1, iCell) = 0.0_RKIND
          vertMLEBolusVelocityTop(kmax+1,   iCell) = 0.0_RKIND
-         do k = kmax, 1, -1
+         do k = kmax, kmin, -1
             vertMLEBolusVelocityTop(k,iCell) = &
             vertMLEBolusVelocityTop(k+1,iCell) - div_huMLEBolus(k)
          end do
@@ -2515,7 +2515,7 @@ contains
          vertVelocityTop(kmax+1  ,iCell) = 0.0_RKIND
          vertTransportVelocityTop(1:kmin-1,iCell) = 0.0_RKIND
          vertTransportVelocityTop(kmax+1  ,iCell) = 0.0_RKIND
-         do k = kmax, 1, -1
+         do k = kmax, kmin, -1
             vertVelocityTop(k,iCell) = &
             vertVelocityTop(k+1,iCell) - div_hu(k)
             vertTransportVelocityTop(k,iCell) = &
@@ -3310,7 +3310,7 @@ contains
       !$omp do schedule(runtime) private(k)
 #endif
       do iCell = 1,nCells
-         vertAleTransportTop(1,iCell) = 0.0_RKIND
+         vertAleTransportTop(1:minLevelCell(iCell),iCell) = 0.0_RKIND
          vertAleTransportTop(maxLevelCell(iCell)+1,iCell) = 0.0_RKIND
          do k = maxLevelCell(iCell), minLevelCell(iCell)+1, -1
             vertAleTransportTop(k,iCell) = &

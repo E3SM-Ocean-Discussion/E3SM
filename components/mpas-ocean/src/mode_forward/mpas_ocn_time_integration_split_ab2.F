@@ -949,8 +949,13 @@ module ocn_time_integration_split_ab2
                   thicknessSum = thicknessSum + &
                                  layerThickEdgeFlux(k,iEdge)
                enddo
-               barotropicForcing(iEdge) = splitFact* &
-                              normalThicknessFluxSum/thicknessSum/dt
+               if (maxLevelEdgeTop(iEdge) < minLevelEdgeBot(iEdge)) then
+                  ! the edge's two columns share no level
+                  barotropicForcing(iEdge) = 0.0_RKIND
+               else
+                  barotropicForcing(iEdge) = splitFact* &
+                                 normalThicknessFluxSum/thicknessSum/dt
+               end if
 
                do k = minLevelEdgeBot(iEdge), maxLevelEdgeTop(iEdge)
                   ! These two steps are together here:
@@ -1160,7 +1165,7 @@ module ocn_time_integration_split_ab2
                !$omp         temp_mask)
                do iEdge = 1, nEdges
 
-                  temp_mask = edgeMask(1, iEdge)
+                  temp_mask = edgeMask(minLevelEdgeBot(iEdge), iEdge)
 
                   cell1 = cellsOnEdge(1,iEdge)
                   cell2 = cellsOnEdge(2,iEdge)
@@ -1410,7 +1415,7 @@ module ocn_time_integration_split_ab2
                !$omp         sshCell1, sshCell2, temp_mask)
                do iEdge = 1, nEdges
 
-                  temp_mask = edgeMask(1,iEdge)
+                  temp_mask = edgeMask(minLevelEdgeBot(iEdge), iEdge)
 
                   cell1 = cellsOnEdge(1,iEdge)
                   cell2 = cellsOnEdge(2,iEdge)
@@ -1771,9 +1776,14 @@ module ocn_time_integration_split_ab2
                               layerThickEdgeFlux(k,iEdge)
             enddo
 
-            normalVelocityCorrection = useVelocityCorrection* &
-                          ((barotropicThicknessFlux(iEdge) - &
-                            normalThicknessFluxSum)/thicknessSum)
+            if (maxLevelEdgeTop(iEdge) < minLevelEdgeBot(iEdge)) then
+               ! the edge's two columns share no level
+               normalVelocityCorrection = 0.0_RKIND
+            else
+               normalVelocityCorrection = useVelocityCorrection* &
+                             ((barotropicThicknessFlux(iEdge) - &
+                               normalThicknessFluxSum)/thicknessSum)
+            end if
 
             do k = 1, nVertLevels
 
@@ -2217,9 +2227,14 @@ module ocn_time_integration_split_ab2
                                     layerThickEdgeFlux(k,iEdge)
                   enddo
 
-                     normalVelocityCorrection = useVelocityCorrection* &
-                                   ((barotropicThicknessFlux(iEdge) - &
-                                     normalThicknessFluxSum)/thicknessSum)
+                     if (maxLevelEdgeTop(iEdge) < minLevelEdgeBot(iEdge)) then
+                        ! the edge's two columns share no level
+                        normalVelocityCorrection = 0.0_RKIND
+                     else
+                        normalVelocityCorrection = useVelocityCorrection* &
+                                      ((barotropicThicknessFlux(iEdge) - &
+                                        normalThicknessFluxSum)/thicknessSum)
+                     end if
 
                   do k = 1, nVertLevels
                      normalTransportVelocity(k,iEdge) = edgeMask(k,iEdge)*( &
