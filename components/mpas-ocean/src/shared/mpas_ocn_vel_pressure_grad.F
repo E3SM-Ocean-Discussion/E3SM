@@ -94,7 +94,7 @@ contains
 !
 !-----------------------------------------------------------------------
 
-   subroutine ocn_vel_pressure_grad_tend(ssh, pressure, surfacePressure, &
+   subroutine ocn_vel_pressure_grad_tend(ssh, gradSSH, pressure, surfacePressure, &
                                   montgomeryPotential, zMid, &
                                   density, potentialDensity, &
                                   indxT, indxS, tracers, &
@@ -113,6 +113,7 @@ contains
 
       real (kind=RKIND), dimension(:), intent(in) :: &
          ssh,                &!< [in] sea surface height
+         gradSSH,            &!< [in] sea surface height gradient on edges
          surfacePressure      !< [in] surface pressure
 
       real (kind=RKIND), dimension(:,:), intent(in) :: &
@@ -241,7 +242,7 @@ contains
                do k=kMin,kMax
                   tend(k,iEdge) = tend(k,iEdge) - &
                                   edgeMask(k,iEdge)*invdcEdge* &
-                                  (  gravity*(ssh(cell2) - ssh(cell1)) &
+                                  (  gravity*gradSSH(iEdge) &
                                    + density0Inv*(  surfacePressure(cell2) &
                                                   - surfacePressure(cell1)) )
                end do
